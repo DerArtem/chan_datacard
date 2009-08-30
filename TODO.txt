@@ -1,0 +1,11 @@
+TODO List:
+
+* Do a lot of testing with the channel driver
+* Fix receiving SMS with a new line character in it
+* Test sending SMS with a new line character in it
+* Fix receiving +CSSI result codes
+* Find a way how to proper detect remote side alerting
+* Add PIN code detection
+* Add voice functions support detection
+* cleanup code
+* Make a better Makefile

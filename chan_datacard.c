@@ -107,11 +107,13 @@ struct dc_pvt {
 	unsigned int alignment_detection_triggered:1;
 	short alignment_samples[4];
 	int alignment_count;
-	int ring_sched_id;
 	struct ast_dsp *dsp;
-	struct sched_context *sched;
 	int hangupcause;
 	int initialized:1;		/*!< whether a service level connection exists or not */
+	int rssi;
+	int linkmode;
+	int linksubmode;
+	int volume_adjustment;
 
 	/* flags */
 	unsigned int outgoing:1;	/*!< outgoing call */
@@ -122,6 +124,7 @@ struct dc_pvt {
 	unsigned int needring:1;	/*!< we need to send a RING */
 	unsigned int answered:1;	/*!< we sent/recieved an answer */
 	unsigned int connected:1;	/*!< do we have an rfcomm connection to a device */
+	unsigned int volume_synchronized:1;	/*!< we have synchronized the volume */
 	unsigned int group_last_used:1; /*!< mark the last used device */
 
 	AST_LIST_ENTRY(dc_pvt) entry;
@@ -152,6 +155,8 @@ static int handle_response_orig(struct dc_pvt *pvt, char *buf);
 static int handle_response_cssi(struct dc_pvt *pvt, char *buf);
 static int handle_response_cssu(struct dc_pvt *pvt, char *buf);
 static int handle_response_cpin(struct dc_pvt *pvt, char *buf);
+static int handle_response_rssi(struct dc_pvt *pvt, char *buf);
+static int handle_response_mode(struct dc_pvt *pvt, char *buf);
 static int handle_sms_prompt(struct dc_pvt *pvt, char *buf);
 
 /* CLI stuff */
@@ -215,9 +220,15 @@ static int dc_parse_cmti(struct dc_pvt *pvt, char *buf);
 static int dc_parse_cmgr(struct dc_pvt *pvt, char *buf, char **from_number, char **text);
 static char *dc_parse_cusd(struct dc_pvt *pvt, char *buf);
 static int dc_parse_cpin(struct dc_pvt *pvt, char *buf);
+static int dc_parse_rssi(struct dc_pvt *pvt, char *buf);
+static int dc_parse_linkmode(struct dc_pvt *pvt, char *buf);
+static int dc_parse_linksubmode(struct dc_pvt *pvt, char *buf);
 
+
+static int dc_send_cpin_test(struct dc_pvt *pvt);
 static int dc_send_clip(struct dc_pvt *pvt, int status);
 static int dc_send_ddsetex(struct dc_pvt *pvt);
+static int dc_send_cvoice_test(struct dc_pvt *pvt);
 static int dc_send_cssn(struct dc_pvt *pvt, int cssi, int cssu);
 
 #if 0
@@ -233,6 +244,7 @@ static int dc_send_chup(struct dc_pvt *pvt);
 static int dc_send_atd(struct dc_pvt *pvt, const char *number);
 static int dc_send_ata(struct dc_pvt *pvt);
 static int dc_send_cusd(struct dc_pvt *pvt, const char *code);
+static int dc_send_clvl(struct dc_pvt *pvt, int level);
 
 /*
  * Hayes AT command helpers
@@ -279,6 +291,11 @@ typedef enum {
 	AT_NO_DIALTONE,
 	AT_NO_CARRIER,
 	AT_CPIN,
+	AT_MODE,
+	AT_CLVL,
+	AT_CPMS,
+	AT_SIMST,
+	AT_SRVST,
 } at_message_t;
 
 static int at_match_prefix(char *buf, char *prefix);
@@ -325,8 +342,11 @@ static char *handle_cli_dc_show_devices(struct ast_cli_entry *e, int cmd, struct
 {
 	struct dc_pvt *pvt;
 	char group[6];
+	char rssi[6];
+	char linkmode[6];
+	char linksubmode[6];
 
-#define FORMAT1 "%-15.15s %-17.17s %-5.5s %-15.15s %-9.9s %-5.5s %-3.3s\n"
+#define FORMAT1 "%-15.15s %-6.6s %-9.9s %-5.5s %-5.5s %-5.5s %-5.5s %-5.5s %-7.7s\n"
 
 	switch (cmd) {
 	case CLI_INIT:
@@ -342,18 +362,24 @@ static char *handle_cli_dc_show_devices(struct ast_cli_entry *e, int cmd, struct
 	if (a->argc != 3)
 		return CLI_SHOWUSAGE;
 
-	ast_cli(a->fd, FORMAT1, "ID", "Group", "Connected", "State", "Voice", "SMS");
+	ast_cli(a->fd, FORMAT1, "ID", "Group", "Connected", "State", "Voice", "SMS", "RSSI", "Mode", "Submode");
 	AST_RWLIST_RDLOCK(&devices);
 	AST_RWLIST_TRAVERSE(&devices, pvt, entry) {
 		ast_mutex_lock(&pvt->lock);
 		snprintf(group, sizeof(group), "%d", pvt->group);
+		snprintf(rssi, sizeof(rssi), "%d", pvt->rssi);
+		snprintf(linkmode, sizeof(linkmode), "%d", pvt->linkmode);
+		snprintf(linksubmode, sizeof(linksubmode), "%d", pvt->linksubmode);
 		ast_cli(a->fd, FORMAT1,
 				pvt->id,
 				group,
 				pvt->connected ? "Yes" : "No",
-				(!pvt->connected) ? "None" : (pvt) ? "Busy" : (pvt->outgoing_sms || pvt->incoming_sms) ? "SMS" : "Free",
+				(!pvt->connected) ? "None" : (pvt->outgoing || pvt->incoming) ? "Busy" : (pvt->outgoing_sms || pvt->incoming_sms) ? "SMS" : "Free",
 				(pvt->has_voice) ? "Yes" : "No",
-				(pvt->has_sms) ? "Yes" : "No"
+				(pvt->has_sms) ? "Yes" : "No",
+				rssi,
+				linkmode,
+				linksubmode
 		       );
 		ast_mutex_unlock(&pvt->lock);
 	}
@@ -796,6 +822,7 @@ static int dc_call(struct ast_channel *ast, char *dest, int timeout)
 	}
 	pvt->hangupcause = 0;
 	pvt->needchup = 1;
+	pvt->outgoing = 1;
 	msg_queue_push(pvt, AT_OK, AT_D);
 	
 	ast_mutex_unlock(&pvt->lock);
@@ -920,9 +947,11 @@ static struct ast_frame *dc_audio_read(struct ast_channel *ast)
 
 	fr = ast_dsp_process(ast, pvt->dsp, &pvt->fr);
 
-	// Lets increase the volume of the incoming audio
-	if (ast_frame_adjust_volume(fr, 10) != 0) {
-		ast_debug(1, "[%s] volume could not be adjusted!\n", pvt->id);
+	if (pvt->volume_adjustment!=0) {
+		// Lets adjust the volume of the incoming audio
+		if (ast_frame_adjust_volume(fr, 10) != 0) {
+			ast_debug(1, "[%s] volume could not be adjusted!\n", pvt->id);
+		}
 	}
 
 	ast_mutex_unlock(&pvt->lock);
@@ -1428,7 +1457,7 @@ static int rfcomm_read_result(int data_socket, char **buf, size_t count, size_t 
 	return 1;
 
 e_return:
-	ast_log(LOG_ERROR, "error parsing AT result on rfcomm socket");
+	ast_log(LOG_ERROR, "error parsing AT result on rfcomm socket.\n");
 	return res;
 }
 
@@ -1572,6 +1601,8 @@ static at_message_t at_read_full(int data_socket, char *buf, size_t count)
 		return AT_OK;
 	} else if (!strcmp("ERROR", buf)) {
 		return AT_ERROR;
+	} else if (!strcmp("COMMAND NOT SUPPORT", buf)) {
+		return AT_ERROR;
 	} else if (!strcmp("RING", buf)) {
 		return AT_RING;
 	} else if (!strcmp("AT+CKPD=200", buf)) {
@@ -1626,6 +1657,14 @@ static at_message_t at_read_full(int data_socket, char *buf, size_t count)
 		return AT_DDSETEX;
 	} else if (at_match_prefix(buf, "^CVOICE:")) {
 		return AT_CVOICE;
+	} else if (at_match_prefix(buf, "^MODE:")) {
+		return AT_MODE;
+	} else if (at_match_prefix(buf, "+CPMS:")) {
+		return AT_CPMS;
+	} else if (at_match_prefix(buf, "^SIMST:")) {
+		return AT_SIMST;
+	} else if (at_match_prefix(buf, "^SRVST:")) {
+		return AT_SRVST;
 	} else {
 		return AT_UNKNOWN;
 	}
@@ -1718,7 +1757,13 @@ static inline const char *at_msg2str(at_message_t msg)
 	case AT_CUSD:
 		return "AT+CUSD";
 	case AT_CPIN:
-		return "+CPIN:";
+		return "AT+CPIN";
+	case AT_MODE:
+		return "AT^MODE";
+	case AT_CLVL:
+		return "AT+CLVL";
+	case AT_CPMS:
+		return "AT+CPMS";
 	}
 }
 
@@ -1924,14 +1969,93 @@ static char *dc_parse_cusd(struct dc_pvt *pvt, char *buf)
  * \brief Parse a CPIN notification.
  * \param pvt an dc_pvt struct
  * \param buf the buffer to parse (null terminated)
- * \return 1 if pin required
- * \return 0 if pin NOT required
- * \return -1 on error (parse error)
+ * \return 2 if PUK required
+ * \return 1 if PIN required
+ * \return 0 if no PIN required
+ * \return -1 on error (parse error) or card lock
  */
 static int dc_parse_cpin(struct dc_pvt *pvt, char *buf)
 {
-	return 0;
+	if (strstr(buf, "READY")) return 0;
+	if (strstr(buf, "SIM PIN"))
+	{
+		ast_log(LOG_ERROR, "Datacard %s needs PIN code!\n", pvt->id);
+		return 1;
+	}
+	if (strstr(buf, "SIM PUK")) {
+		ast_log(LOG_ERROR, "Datacard %s needs PUK code!\n", pvt->id);
+		return 2;
+	}
+
+	ast_log(LOG_ERROR, "Error parsing +CPIN message on Datacard: %s %s\n", pvt->id, buf);
+	return -1;
 }
+
+/*!
+ * \brief Parse a ^RSSI notification.
+ * \param pvt an dc_pvt struct
+ * \param buf the buffer to parse (null terminated)
+ * \return -1 on error (parse error) or the rssi value
+ */
+static int dc_parse_rssi(struct dc_pvt *pvt, char *buf)
+{
+	int rssi = -1;
+
+	/* parse RSSI info in the following format:
+	 * ^RSSI:<rssi>
+	 */
+	if (!sscanf(buf, "^RSSI:%d", &rssi)) {
+		ast_debug(2, "[%s] error parsing RSSI event '%s'\n", pvt->id, buf);
+		return -1;
+	}
+
+	return rssi;
+}
+
+/*!
+ * \brief Parse a ^MODE notification (link mode).
+ * \param pvt an dc_pvt struct
+ * \param buf the buffer to parse (null terminated)
+ * \return -1 on error (parse error) or the the link mode value
+ */
+static int dc_parse_linkmode(struct dc_pvt *pvt, char *buf)
+{
+	int mode = -1;
+	int submode = -1;
+
+	/* parse RSSI info in the following format:
+	 * ^MODE:<mode>,<submode>
+	 */
+	if (!sscanf(buf, "^MODE:%d,%d", &mode, &submode)) {
+		ast_debug(2, "[%s] error parsing MODE event '%s'\n", pvt->id, buf);
+		return -1;
+	}
+
+	return mode;
+}
+
+/*!
+ * \brief Parse a ^MODE notification (link sub mode).
+ * \param pvt an dc_pvt struct
+ * \param buf the buffer to parse (null terminated)
+ * \return -1 on error (parse error) or the link sub mode value
+ */
+static int dc_parse_linksubmode(struct dc_pvt *pvt, char *buf)
+{
+	int mode = -1;
+	int submode = -1;
+
+	/* parse RSSI info in the following format:
+	 * ^MODE:<mode>,<submode>
+	 */
+	if (!sscanf(buf, "^MODE:%d,%d", &mode, &submode)) {
+		ast_debug(2, "[%s] error parsing MODE event '%s'\n", pvt->id, buf);
+		return -1;
+	}
+
+	return submode;
+}
+
 
 
 /*!
@@ -1971,6 +2095,17 @@ static int dc_send_vgm(struct dc_pvt *pvt, int value)
 #endif
 
 /*!
+ * \brief Send AT+CPIN=? to ask the datacard if a pin code is required
+ * \param pvt an dc_pvt struct
+ */
+static int dc_send_cpin_test(struct dc_pvt *pvt)
+{
+       char cmd[32];
+       snprintf(cmd, sizeof(cmd), "AT+CPIN?\r");
+       return rfcomm_write(pvt->data_socket, cmd);
+}
+
+/*!
  * \brief Enable or disable calling line identification.
  * \param pvt an dc_pvt struct
  * \param status enable or disable calling line identification (should be 1 or
@@ -1983,11 +2118,36 @@ static int dc_send_clip(struct dc_pvt *pvt, int status)
 	return rfcomm_write(pvt->data_socket, cmd);
 }
 
+/*!
+ * \brief Enable transmitting of audio to the debug port (tty)
+ * \param pvt an dc_pvt struct
+ */
 static int dc_send_ddsetex(struct dc_pvt *pvt)
 {
 	char cmd[64];
 	snprintf(cmd, sizeof(cmd), "AT^DDSETEX=2\r");
-	//snprintf(cmd, sizeof(cmd), "AT\r");
+	return rfcomm_write(pvt->data_socket, cmd);
+}
+
+/*!
+ * \brief Check device for audio capabilities
+ * \param pvt an dc_pvt struct
+ */
+static int dc_send_cvoice_test(struct dc_pvt *pvt)
+{
+	char cmd[64];
+	snprintf(cmd, sizeof(cmd), "AT^CVOICE?\r");
+	return rfcomm_write(pvt->data_socket, cmd);
+}
+
+/*!
+ * \brief Set storage location for incoming SMS
+ * \param pvt an dc_pvt struct
+ */
+static int dc_send_cpms(struct dc_pvt *pvt)
+{
+	char cmd[64];
+	snprintf(cmd, sizeof(cmd), "AT+CPMS=\"SM\",\"SM\",\"SM\"\r");
 	return rfcomm_write(pvt->data_socket, cmd);
 }
 
@@ -2109,7 +2269,7 @@ static int dc_send_ata(struct dc_pvt *pvt)
 }
 
 /*!
- * \brief Send CUSD.
+ * \brief Send AT+CUSD.
  * \param pvt an dc_pvt struct
  * \param code the CUSD code to send
  */
@@ -2117,6 +2277,18 @@ static int dc_send_cusd(struct dc_pvt *pvt, const char *code)
 {
 	char cmd[128];
 	snprintf(cmd, sizeof(cmd), "AT+CUSD=1,\"%s\",15\r", code);
+	return rfcomm_write(pvt->data_socket, cmd);
+}
+
+/*!
+ * \brief Send AT+CLVL.
+ * \param pvt an dc_pvt struct
+ * \param volume level to send
+ */
+static int dc_send_clvl(struct dc_pvt *pvt, int level)
+{
+	char cmd[16];
+	snprintf(cmd, sizeof(cmd), "AT+CLVL=%d\r", level);
 	return rfcomm_write(pvt->data_socket, cmd);
 }
 
@@ -2230,15 +2402,50 @@ static struct msg_queue_entry *msg_queue_head(struct dc_pvt *pvt)
  */
 static int handle_response_ok(struct dc_pvt *pvt, char *buf)
 {
-	struct msg_queue_entry *entry;
-	if ((entry = msg_queue_head(pvt)) && entry->expected == AT_OK) {
-		switch (entry->response_to) {
-
+		struct msg_queue_entry *entry;
+		if ((entry = msg_queue_head(pvt)) && entry->expected == AT_OK) {
+			switch (entry->response_to) {
+		
 		/* initilization stuff */
+		case AT_E0:
+			if (dc_send_cpin_test(pvt) || msg_queue_push(pvt, AT_OK, AT_CPIN)) {
+				ast_debug(1, "[%s] Error asking datacard for PIN.\n", pvt->id);
+				goto e_return;
+			}
+			break;
+		case AT_CPIN:
+			if (dc_send_cvoice_test(pvt) || msg_queue_push(pvt, AT_OK, AT_CVOICE)) {
+				ast_debug(1, "[%s] Error checking voice capabilities.\n", pvt->id);
+				goto e_return;
+			}
+		break;
+		case AT_CVOICE:
+			pvt->has_voice = 1;
+			ast_debug(1, "[%s] Datacard has voice support.\n", pvt->id);
+			if (dc_send_clvl(pvt,1) || msg_queue_push(pvt, AT_OK, AT_CLVL)) {
+				ast_debug(1, "[%s] Error syncronizing audio level (part1/2)\n", pvt->id);
+				goto e_return;
+			}
+		break;
+		case AT_CLVL:
+			if (pvt->volume_synchronized == 0) {
+				pvt->volume_synchronized=1;
+				if (dc_send_clvl(pvt,5) || msg_queue_push(pvt, AT_OK, AT_CLVL)) {
+					ast_debug(1, "[%s] Error syncronizing audio level (part2/2).\n", pvt->id);
+					goto e_return;
+				}
+			}
+			else {
+				if (dc_send_clip(pvt, 1) || msg_queue_push(pvt, AT_OK, AT_CLIP)) {
+					ast_debug(1, "[%s] Error enabling calling line notification.\n", pvt->id);
+					goto e_return;
+				}
+			}
+			break;
 		case AT_CLIP:
 			ast_debug(1, "[%s] caling line indication enabled\n", pvt->id);
 			if (dc_send_cssn(pvt,1,1) || msg_queue_push(pvt, AT_OK, AT_CSSN)) {
-				ast_debug(1, "[%s] error activating Supplementary Service Notification\n", pvt->id);
+				ast_debug(1, "[%s] Error activating Supplementary Service Notification.\n", pvt->id);
 				goto e_return;
 			}
 
@@ -2258,6 +2465,13 @@ static int handle_response_ok(struct dc_pvt *pvt, char *buf)
 			break;
 		case AT_CMGF:
 			ast_debug(1, "[%s] sms text mode enabled\n", pvt->id);
+			/* set SMS storage location */
+			if (dc_send_cpms(pvt) || msg_queue_push(pvt, AT_OK, AT_CPMS)) {
+				ast_debug(1, "[%s] error setting CPMS\n", pvt->id);
+				goto e_return;
+			}
+			break;
+		case AT_CPMS:
 			/* turn on SMS new message indication */
 			if (dc_send_cnmi(pvt) || msg_queue_push(pvt, AT_OK, AT_CNMI)) {
 				ast_debug(1, "[%s] error setting CNMI\n", pvt->id);
@@ -2266,13 +2480,8 @@ static int handle_response_ok(struct dc_pvt *pvt, char *buf)
 			break;
 		case AT_CNMI:
 			ast_debug(1, "[%s] sms new message indication enabled\n", pvt->id);
+			ast_debug(1, "[%s] Datacard has sms support.\n", pvt->id);
 			pvt->has_sms = 1;
-			break;
-		case AT_E0:
-			if (dc_send_clip(pvt, 1) || msg_queue_push(pvt, AT_OK, AT_CLIP)) {
-				ast_debug(1, "[%s] error enabling calling line notification\n", pvt->id);
-				goto e_return;
-			}
 			break;
 
 		/* end initilization stuff */
@@ -2288,8 +2497,6 @@ static int handle_response_ok(struct dc_pvt *pvt, char *buf)
 			break;
 		case AT_D:
 			ast_debug(1, "[%s] dial sent successfully\n", pvt->id);
-			pvt->needchup = 1;
-			pvt->outgoing = 1;
 			dc_queue_control(pvt, AST_CONTROL_PROGRESS);
 
 			if (dc_send_ddsetex(pvt) || msg_queue_push(pvt, AT_OK, AT_DDSETEX)) {
@@ -2354,6 +2561,39 @@ static int handle_response_error(struct dc_pvt *pvt, char *buf)
 		switch (entry->response_to) {
 
 		/* initilization stuff */
+		case AT_E0:
+			ast_debug(1, "[%s] ATE0 failed\n", pvt->id);
+			goto e_return;
+			
+			/* this is not a fatal error, let's continue with initilization */
+			/*
+			if (dc_send_clip(pvt, 1) || msg_queue_push(pvt, AT_OK, AT_CLIP)) {
+				ast_debug(1, "[%s] error enabling calling line notification\n", pvt->id);
+				goto e_return;
+			}
+			break;
+			*/
+		case AT_CPIN:
+			ast_debug(1, "[%s] error checking PIN state\n", pvt->id);
+			goto e_return;
+		case AT_CVOICE:
+			ast_debug(1, "[%s] Datacard has NO voice support.\n", pvt->id);
+			/* this is not a fatal error, let's continue with initilization */
+			pvt->has_voice = 0;
+			if (dc_send_clvl(pvt,1) || msg_queue_push(pvt, AT_OK, AT_CLVL)) {
+				ast_debug(1, "[%s] error syncronizing audio level (part1/2)\n", pvt->id);
+				goto e_return;
+			}
+			break;
+		case AT_CLVL:
+			ast_debug(1, "[%s] error syncronizing audio level\n", pvt->id);
+			/* this is not a fatal error, let's continue with initilization */
+			pvt->volume_synchronized == 0;
+			if (dc_send_clip(pvt, 1) || msg_queue_push(pvt, AT_OK, AT_CLIP)) {
+				ast_debug(1, "[%s] Error enabling calling line notification.\n", pvt->id);
+				goto e_return;
+			}
+			break;
 		case AT_CLIP:
 			ast_debug(1, "[%s] error enabling calling line indication\n", pvt->id);
 			goto e_return;
@@ -2369,22 +2609,16 @@ static int handle_response_error(struct dc_pvt *pvt, char *buf)
 			}
 			break;
 		case AT_CMGF:
-			ast_debug(1, "[%s] error setting CMGF\n", pvt->id);
+			ast_debug(1, "[%s] error enableing text-mode SMS (CMGF)\n", pvt->id);
+			ast_debug(1, "[%s] no SMS support\n", pvt->id);
+			break;
+		case AT_CPMS:
+			ast_debug(1, "[%s] error setting sms storage location (CPMS)\n", pvt->id);
 			ast_debug(1, "[%s] no SMS support\n", pvt->id);
 			break;
 		case AT_CNMI:
-			ast_debug(1, "[%s] error setting CNMI\n", pvt->id);
+			ast_debug(1, "[%s] error setting sms notifications (CNMI)\n", pvt->id);
 			ast_debug(1, "[%s] no SMS support\n", pvt->id);
-			break;
-		case AT_E0:
-			ast_debug(1, "[%s] ATE0 failed\n", pvt->id);
-			
-			/* this is not a fatal error, let's continue with initilization */
-			
-			if (dc_send_clip(pvt, 1) || msg_queue_push(pvt, AT_OK, AT_CLIP)) {
-				ast_debug(1, "[%s] error enabling calling line notification\n", pvt->id);
-				goto e_return;
-			}
 			break;
 
 		/* end initilization stuff */
@@ -2583,6 +2817,7 @@ static int handle_response_clip(struct dc_pvt *pvt, char *buf)
  */
 static int handle_response_ring(struct dc_pvt *pvt, char *buf)
 {
+	pvt->incoming = 1;
 	return 0;
 }
 
@@ -2769,7 +3004,7 @@ static int handle_response_no_carrier(struct dc_pvt *pvt, char *buf)
 }
 
 /*!
- * \brief Handle NO CARRIER messages.
+ * \brief Handle +CPIN messages.
  * \param pvt a dc_pvt structure
  * \param buf a null terminated buffer containing an AT message
  * \retval 0 success
@@ -2777,9 +3012,41 @@ static int handle_response_no_carrier(struct dc_pvt *pvt, char *buf)
  */
 static int handle_response_cpin(struct dc_pvt *pvt, char *buf)
 {
+	return dc_parse_cpin(pvt,buf);
+}
+
+/*!
+ * \brief Handle ^RSSI messages. Here we get the signal strength.
+ * \param pvt a dc_pvt structure
+ * \param buf a null terminated buffer containing an AT message
+ * \retval 0 success
+ * \retval -1 error
+ */
+static int handle_response_rssi(struct dc_pvt *pvt, char *buf)
+{
+	pvt->rssi = dc_parse_rssi(pvt, buf);
+
+	if (pvt->rssi == -1) return -1;
+
 	return 0;
 }
 
+/*!
+ * \brief Handle ^MODE messages. Here we get the link mode (GSM, UMTS, EDGE...).
+ * \param pvt a dc_pvt structure
+ * \param buf a null terminated buffer containing an AT message
+ * \retval 0 success
+ * \retval -1 error
+ */
+static int handle_response_mode(struct dc_pvt *pvt, char *buf)
+{
+	pvt->linkmode = dc_parse_linkmode(pvt, buf);
+	pvt->linksubmode = dc_parse_linksubmode(pvt, buf);
+
+	if (pvt->linkmode == -1 || pvt->linksubmode == -1) return -1;
+
+	return 0;
+}
 
 static void *do_monitor_phone(void *data)
 {
@@ -2808,7 +3075,17 @@ static void *do_monitor_phone(void *data)
 		ast_mutex_lock(&pvt->lock);
 		t = pvt->timeout;
 		ast_mutex_unlock(&pvt->lock);
-		
+
+		if (pvt->data_socket == -1) {
+			ast_log(LOG_ERROR, "Lost data connection to Datacard %s.\n", pvt->id);
+			goto e_cleanup;
+		}
+
+		if (pvt->audio_socket == -1) {
+			ast_log(LOG_ERROR, "Lost audio connection to Datacard %s.\n", pvt->id);
+			goto e_cleanup;
+		}
+
 		if (!rfcomm_wait(pvt->data_socket, &t)) {
 			ast_debug(1, "[%s] timeout waiting for rfcomm data, disconnecting\n", pvt->id);
 			ast_mutex_lock(&pvt->lock);
@@ -2912,6 +3189,12 @@ static void *do_monitor_phone(void *data)
 			ast_mutex_unlock(&pvt->lock);
 			break;
 		case AT_RSSI:
+			ast_mutex_lock(&pvt->lock);
+			if (handle_response_rssi(pvt, buf)) {
+				ast_mutex_unlock(&pvt->lock);
+				goto e_cleanup;
+			}
+			ast_mutex_unlock(&pvt->lock);
 			break;
 		case AT_BOOT:
 			break;
@@ -2981,10 +3264,16 @@ static void *do_monitor_phone(void *data)
 			break;
 		case AT_CPIN:
 			ast_mutex_lock(&pvt->lock);
-			if (handle_response_cpin(pvt, buf)) {
+			if (handle_response_cpin(pvt, buf) != 0) {
 				ast_mutex_unlock(&pvt->lock);
 				goto e_cleanup;
 			}
+			ast_mutex_unlock(&pvt->lock);
+			break;
+		case AT_MODE:
+			// An error here is not fatal. Just keep going.
+			ast_mutex_lock(&pvt->lock);
+			handle_response_mode(pvt, buf);
 			ast_mutex_unlock(&pvt->lock);
 			break;
 		case AT_UNKNOWN:
@@ -3013,7 +3302,7 @@ static int disconnect_datacard(struct dc_pvt *pvt)
 {
 	ast_mutex_lock(&pvt->lock);
 	if (pvt->owner) {
-		ast_debug(1, "[%s] device disconnected, hanging up owner\n", pvt->id);
+		ast_debug(1, "[%s] Datacard disconnected, hanging up owner\n", pvt->id);
 		pvt->needchup = 0;
 		dc_queue_hangup(pvt);
 	}
@@ -3131,11 +3420,15 @@ static struct dc_pvt *dc_load_device(struct ast_config *cfg, const char *cat)
 	pvt->data_socket = -1;
 	pvt->audio_socket = -1;
 	pvt->monitor_thread = AST_PTHREADT_NULL;
-	pvt->ring_sched_id = -1;
 	pvt->needring = 0;
 	pvt->incoming = 0;
 	pvt->has_sms = 0;
 	pvt->has_voice = 0;
+	pvt->rssi = 0;
+	pvt->linkmode = 0;
+	pvt->linksubmode = 0;
+	pvt->volume_synchronized = 0;
+	pvt->volume_adjustment = 0;
 
 	/* setup the smoother */
 	if (!(pvt->smoother = ast_smoother_new(DEVICE_FRAME_SIZE))) {
@@ -3149,12 +3442,6 @@ static struct dc_pvt *dc_load_device(struct ast_config *cfg, const char *cat)
 		goto e_free_smoother;
 	}
 
-	/* setup the scheduler */
-	if (!(pvt->sched = sched_context_create())) {
-		ast_log(LOG_ERROR, "Unable to create scheduler context for headset device\n");
-		goto e_free_dsp;
-	}
-
 	ast_dsp_set_features(pvt->dsp, DSP_FEATURE_DIGIT_DETECT);
 	ast_dsp_set_digitmode(pvt->dsp, DSP_DIGITMODE_DTMF | DSP_DIGITMODE_RELAXDTMF);
 
@@ -3164,6 +3451,9 @@ static struct dc_pvt *dc_load_device(struct ast_config *cfg, const char *cat)
 		} else if (!strcasecmp(v->name, "group")) {
 			/* group is set to 0 if invalid */
 			pvt->group = atoi(v->value);
+		} else if (!strcasecmp(v->name, "rxgain")) {
+			/* volume_adjustment is set to 0 if invalid */
+			pvt->volume_adjustment = atoi(v->value);
 		}
 	}
 
@@ -3176,8 +3466,6 @@ static struct dc_pvt *dc_load_device(struct ast_config *cfg, const char *cat)
 
 	return pvt;
 
-e_free_dsp:
-	ast_dsp_free(pvt->dsp);
 e_free_smoother:
 	ast_smoother_free(pvt->smoother);
 e_free_pvt:
@@ -3279,7 +3567,6 @@ static int unload_module(void)
 
 		ast_smoother_free(pvt->smoother);
 		ast_dsp_free(pvt->dsp);
-		sched_context_destroy(pvt->sched);
 		ast_free(pvt);
 	}
 	AST_RWLIST_UNLOCK(&devices);

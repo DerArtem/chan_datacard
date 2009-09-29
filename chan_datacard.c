@@ -949,7 +949,7 @@ static struct ast_frame *dc_audio_read(struct ast_channel *ast)
 
 	if (pvt->volume_adjustment!=0) {
 		// Lets adjust the volume of the incoming audio
-		if (ast_frame_adjust_volume(fr, 10) != 0) {
+		if (ast_frame_adjust_volume(fr, volume_adjustment) != 0) {
 			ast_debug(1, "[%s] volume could not be adjusted!\n", pvt->id);
 		}
 	}

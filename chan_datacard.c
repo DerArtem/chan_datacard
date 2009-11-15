@@ -1365,6 +1365,21 @@ static int rfcomm_read_until_crlf(int data_socket, char **buf, size_t count, siz
 
 	while ((res = read(data_socket, &c, 1)) == 1) {
 		rfcomm_read_debug(c);
+
+		// Fix: The Huawei sticks do not terminate this command with a \r\n
+		// So we have to handle this command separately 
+		if (*in_count >= 7 && !strncmp(*buf - *in_count, "+CSSI: ", 7)) {
+			rfcomm_append_buf(buf, count, in_count, c);
+			return 1;
+		}
+
+		// Fix: The Huawei sticks do not terminate this command with a \r\n
+		// So we have to handle this command separately
+		if (*in_count >= 7 && !strncmp(*buf - *in_count, "+CSSU: ", 7)) {
+			rfcomm_append_buf(buf, count, in_count, c);
+			return 1;
+		}
+
 		if (c == '\r') {
 			if ((res = rfcomm_read_and_expect_char(data_socket, &c, '\n')) == 1) {
 				break;
@@ -1427,28 +1442,6 @@ static int rfcomm_read_result(int data_socket, char **buf, size_t count, size_t 
 
 	/* check for CMGR, which contains an embedded \r\n */
 	if (*in_count >= 5 && !strncmp(*buf - *in_count, "+CMGR", 5)) {
-		rfcomm_append_buf(buf, count, in_count, '\r');
-		rfcomm_append_buf(buf, count, in_count, '\n');
-		return rfcomm_read_until_crlf(data_socket, buf, count, in_count);
-	}
-
-	// FIXME:
-	// BUGFIX: This will eat the next command
-	/* check for CSSI, which contains an embedded \r\n */
-	if (*in_count >= 5 && !strncmp(*buf - *in_count, "+CSSI", 5)) {
-		rfcomm_append_buf(buf, count, in_count, '\r');
-		rfcomm_append_buf(buf, count, in_count, '\n');
-		//if ((res = rfcomm_read_and_expect_char(data_socket, &c, '\r')) == 1) {
-		//	return res;
-		//}
-		return rfcomm_read_until_crlf(data_socket, buf, count, in_count);
-		//return 0;
-	}
-
-	// FIXME:
-	// BUGFIX: This will eat the next command
-	/* check for CSSU, which contains an embedded \r\n */
-	if (*in_count >= 5 && !strncmp(*buf - *in_count, "+CSSU", 5)) {
 		rfcomm_append_buf(buf, count, in_count, '\r');
 		rfcomm_append_buf(buf, count, in_count, '\n');
 		return rfcomm_read_until_crlf(data_socket, buf, count, in_count);

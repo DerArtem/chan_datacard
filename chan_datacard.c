@@ -284,6 +284,7 @@ typedef enum {
 	AT_VGM,
 	AT_VGS,
 	AT_VTS,
+	AT_DTMF,
 	AT_CMGF,
 	AT_CNMI,
 	AT_CUSD,
@@ -895,7 +896,8 @@ static int dc_digit_end(struct ast_channel *ast, char digit, unsigned int durati
 		ast_debug(1, "[%s] error sending digit %c\n", pvt->id, digit);
 		return -1;
 	}
-	msg_queue_push(pvt, AT_OK, AT_VTS);
+	//msg_queue_push(pvt, AT_OK, AT_VTS);
+	msg_queue_push(pvt, AT_OK, AT_DTMF);
 	ast_mutex_unlock(&pvt->lock);
 
 	ast_debug(1, "[%s] dialed %c\n", pvt->id, digit);
@@ -1743,6 +1745,8 @@ static inline const char *at_msg2str(at_message_t msg)
 		return "AT+VGS";
 	case AT_VTS:
 		return "AT+VTS";
+	case AT_DTMF:
+		return "AT^DTMF";
 	case AT_CMGF:
 		return "AT+CMGF";
 	case AT_CNMI:
@@ -2152,7 +2156,7 @@ static int dc_send_cpms(struct dc_pvt *pvt)
  */
 static int dc_send_dtmf(struct dc_pvt *pvt, char digit)
 {
-	char cmd[10];
+	char cmd[13];
 
 	switch(digit) {
 	case '0':
@@ -2167,7 +2171,8 @@ static int dc_send_dtmf(struct dc_pvt *pvt, char digit)
 	case '9':
 	case '*':
 	case '#':
-		snprintf(cmd, sizeof(cmd), "AT+VTS=%c\r", digit);
+		//snprintf(cmd, sizeof(cmd), "AT+VTS=%c\r", digit);
+		snprintf(cmd, sizeof(cmd), "AT^DTMF=1,%c\r", digit);
 		return rfcomm_write(pvt->data_socket, cmd);
 	default:
 		return -1;
@@ -2514,6 +2519,9 @@ static int handle_response_ok(struct dc_pvt *pvt, char *buf)
 		case AT_VTS:
 			ast_debug(1, "[%s] digit sent successfully\n", pvt->id);
 			break;
+		case AT_DTMF:
+			ast_debug(1, "[%s] digit sent successfully\n", pvt->id);
+			break;
 		case AT_CUSD:
 			ast_debug(1, "[%s] CUSD code sent successfully\n", pvt->id);
 			break;
@@ -2642,6 +2650,9 @@ static int handle_response_error(struct dc_pvt *pvt, char *buf)
 		case AT_VTS:
 			ast_debug(1, "[%s] error sending digit\n", pvt->id);
 			break;
+		case AT_DTMF:
+			ast_debug(1, "[%s] error sending digit\n", pvt->id);
+			break;
 		case AT_UNKNOWN:
 		default:
 			ast_debug(1, "[%s] recieved ERROR for unhandled request: %s\n", pvt->id, at_msg2str(entry->response_to));
@@ -2682,6 +2693,19 @@ static int handle_response_conf(struct dc_pvt *pvt, char *buf)
  */
 static int handle_response_orig(struct dc_pvt *pvt, char *buf)
 {
+	int call_index = 1;
+	int call_type = 0;
+
+	/* parse ORIG info in the following format:
+	 * ^ORIG:<call_index>,<call_type>
+	 */
+	if (!sscanf(buf, "^ORIG:%d,%d", &call_index, &call_type)) {
+		ast_debug(1, "[%s] error parsing ORIG event '%s'\n", pvt->id, buf);
+		return -1;
+	}
+
+	ast_debug(1, "[%s] recieved call_index: %d\n", pvt->id, call_index);
+	ast_debug(1, "[%s] recieved call_type: %d\n", pvt->id, call_type);
 	return 0;
 }
 

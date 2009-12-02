@@ -1420,7 +1420,7 @@ e_return:
 /*!
  * \brief Read until a \r\nOK\r\n message.
  */
-static int rfcomm_read_until_ok(int rsock, char **buf, size_t count, size_t *in_count)
+static int rfcomm_read_until_ok(int data_socket, char **buf, size_t count, size_t *in_count)
 {
 	int res;
 	char c;
@@ -1430,14 +1430,14 @@ static int rfcomm_read_until_ok(int rsock, char **buf, size_t count, size_t *in_
 	 * match, we place that in the buffer and try again. */
 
 	for (;;) {
-		if ((res = rfcomm_read_until_crlf(rsock, buf, count, in_count)) != 1) {
+		if ((res = rfcomm_read_until_crlf(data_socket, buf, count, in_count)) != 1) {
 			break;
 		}
 
 		rfcomm_append_buf(buf, count, in_count, '\r');
 		rfcomm_append_buf(buf, count, in_count, '\n');
 
-		if ((res = rfcomm_read_and_expect_char(rsock, &c, '\r')) != 1) {
+		if ((res = rfcomm_read_and_expect_char(data_socket, &c, '\r')) != 1) {
 			if (res != -2) {
 				break;
 			}
@@ -1446,7 +1446,7 @@ static int rfcomm_read_until_ok(int rsock, char **buf, size_t count, size_t *in_
 			continue;
 		}
 
-		if ((res = rfcomm_read_and_expect_char(rsock, &c, '\n')) != 1) {
+		if ((res = rfcomm_read_and_expect_char(data_socket, &c, '\n')) != 1) {
 			if (res != -2) {
 				break;
 			}
@@ -1455,7 +1455,7 @@ static int rfcomm_read_until_ok(int rsock, char **buf, size_t count, size_t *in_
 			rfcomm_append_buf(buf, count, in_count, c);
 			continue;
 		}
-		if ((res = rfcomm_read_and_expect_char(rsock, &c, 'O')) != 1) {
+		if ((res = rfcomm_read_and_expect_char(data_socket, &c, 'O')) != 1) {
 			if (res != -2) {
 				break;
 			}
@@ -1466,7 +1466,7 @@ static int rfcomm_read_until_ok(int rsock, char **buf, size_t count, size_t *in_
 			continue;
 		}
 
-		if ((res = rfcomm_read_and_expect_char(rsock, &c, 'K')) != 1) {
+		if ((res = rfcomm_read_and_expect_char(data_socket, &c, 'K')) != 1) {
 			if (res != -2) {
 				break;
 			}
@@ -1478,7 +1478,7 @@ static int rfcomm_read_until_ok(int rsock, char **buf, size_t count, size_t *in_
 			continue;
 		}
 
-		if ((res = rfcomm_read_and_expect_char(rsock, &c, '\r')) != 1) {
+		if ((res = rfcomm_read_and_expect_char(data_socket, &c, '\r')) != 1) {
 			if (res != -2) {
 				break;
 			}
@@ -1491,7 +1491,7 @@ static int rfcomm_read_until_ok(int rsock, char **buf, size_t count, size_t *in_
 			continue;
 		}
 
-		if ((res = rfcomm_read_and_expect_char(rsock, &c, '\n')) != 1) {
+		if ((res = rfcomm_read_and_expect_char(data_socket, &c, '\n')) != 1) {
 			if (res != -2) {
 				break;
 			}
@@ -1517,7 +1517,7 @@ static int rfcomm_read_until_ok(int rsock, char **buf, size_t count, size_t *in_
  * \brief Read the remainder of a +CMGR message.
  * \note the entire parsed string is '+CMGR: ...\r\n...\r\n...\r\n...\r\nOK\r\n'
  */
-static int rfcomm_read_cmgr(int rsock, char **buf, size_t count, size_t *in_count)
+static int rfcomm_read_cmgr(int data_socket, char **buf, size_t count, size_t *in_count)
 {
 	int res;
 
@@ -1525,7 +1525,7 @@ static int rfcomm_read_cmgr(int rsock, char **buf, size_t count, size_t *in_coun
 	rfcomm_append_buf(buf, count, in_count, '\r');
 	rfcomm_append_buf(buf, count, in_count, '\n');
 
-	if ((res = rfcomm_read_until_ok(rsock, buf, count, in_count)) != 1) {
+	if ((res = rfcomm_read_until_ok(data_socket, buf, count, in_count)) != 1) {
 		ast_log(LOG_ERROR, "error reading +CMGR message on rfcomm socket\n");
 	}
 
@@ -2541,7 +2541,7 @@ static int handle_response_ok(struct dc_pvt *pvt, char *buf)
 		break;
 		case AT_CLVL:
 			if (pvt->volume_synchronized == 0) {
-				pvt->volume_synchronized=1;
+				pvt->volume_synchronized = 1;
 				if (dc_send_clvl(pvt,5) || msg_queue_push(pvt, AT_OK, AT_CLVL)) {
 					ast_debug(1, "[%s] Error syncronizing audio level (part2/2).\n", pvt->id);
 					goto e_return;
@@ -2699,7 +2699,7 @@ static int handle_response_error(struct dc_pvt *pvt, char *buf)
 		case AT_CLVL:
 			ast_debug(1, "[%s] error syncronizing audio level\n", pvt->id);
 			/* this is not a fatal error, let's continue with initilization */
-			pvt->volume_synchronized == 0;
+			pvt->volume_synchronized = 0;
 			if (dc_send_clip(pvt, 1) || msg_queue_push(pvt, AT_OK, AT_CLIP)) {
 				ast_debug(1, "[%s] Error enabling calling line notification.\n", pvt->id);
 				goto e_return;

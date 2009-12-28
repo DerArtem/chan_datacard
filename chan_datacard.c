@@ -3230,6 +3230,9 @@ static void *do_monitor_phone(void *data)
 			goto e_cleanup;
 		}
 
+		// TODO: We are detecting the disconnection of the datacard based on the result of a prio read command.
+		// If the read return < 1 (for example 0) we threat the device as disconnected.
+		// This is a bad idea as the result of 0 could have other reasons.
 		if ((at_msg = at_read_full(pvt->data_socket, buf, sizeof(buf))) < 1) {
 			/* XXX gnu specific strerror_r is assummed here, this
 			 * is not really safe.  See the strerror(3) man page

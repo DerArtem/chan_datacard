@@ -3230,11 +3230,13 @@ static void *do_monitor_phone(void *data)
 			goto e_cleanup;
 		}
 
-		if ((at_msg = at_read_full(pvt->data_socket, buf, sizeof(buf))) < 0) {
+		if ((at_msg = at_read_full(pvt->data_socket, buf, sizeof(buf))) < 1) {
 			/* XXX gnu specific strerror_r is assummed here, this
 			 * is not really safe.  See the strerror(3) man page
 			 * for more info. */
 			ast_debug(1, "[%s] error reading from device: %s (%d)\n", pvt->id, strerror_r(errno, buf, sizeof(buf)), errno);
+			ast_log(LOG_ERROR, "Lost data connection to Datacard %s.\n", pvt->id);
+			goto e_cleanup;
 			break;
 		}
 

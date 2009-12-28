@@ -206,6 +206,7 @@ static int dc_ast_hangup(struct dc_pvt *pvt);
 
 static int dc_data_connect(char *data_tty_str);
 static int dc_audio_connect(char *audio_tty_str);
+static int dc_get_device_status(int fd);
 static int disconnect_datacard(struct dc_pvt *pvt);
 static int opentty(char *iface);
 static int rfcomm_write(int data_socket, char *buf);
@@ -1212,6 +1213,20 @@ static int dc_data_connect(char *data_tty_str)
 static int dc_audio_connect(char *audio_tty_str)
 {
 	return opentty(audio_tty_str);
+}
+
+/*!
+ * Get status of the datacard. It might happen that the device disappears (e.g.
+ * due to a USB unplug).
+ *
+ * \return 1 if device seems ok, 0 if it seems not available
+ */
+static int dc_get_device_status(int fd)
+{
+	struct termios t;
+	if (fd < 0)
+		return 0;
+	return !tcgetattr(fd, &t);
 }
 
 /*!
@@ -3204,12 +3219,12 @@ static void *do_monitor_phone(void *data)
 		t = pvt->timeout;
 		ast_mutex_unlock(&pvt->lock);
 
-		if (pvt->data_socket == -1) {
+		if (dc_get_device_status(pvt->data_socket) != 1) {
 			ast_log(LOG_ERROR, "Lost data connection to Datacard %s.\n", pvt->id);
 			goto e_cleanup;
 		}
 
-		if (pvt->audio_socket == -1) {
+		if (dc_get_device_status(pvt->audio_socket) != 1) {
 			ast_log(LOG_ERROR, "Lost audio connection to Datacard %s.\n", pvt->id);
 			goto e_cleanup;
 		}
@@ -3230,18 +3245,11 @@ static void *do_monitor_phone(void *data)
 			goto e_cleanup;
 		}
 
-		// TODO: We are detecting the disconnection of the datacard based on the result of a prio read command.
-		// If the read return < 1 (for example 0) we threat the device as disconnected.
-		// This is a bad idea as the result of 0 could have other reasons.
-		//
-		// Disconnect detection disabled for now, as it does not work like it should.
 		if ((at_msg = at_read_full(pvt->data_socket, buf, sizeof(buf))) < 0) {
 			/* XXX gnu specific strerror_r is assummed here, this
 			 * is not really safe.  See the strerror(3) man page
 			 * for more info. */
 			ast_debug(1, "[%s] error reading from device: %s (%d)\n", pvt->id, strerror_r(errno, buf, sizeof(buf)), errno);
-			//ast_log(LOG_ERROR, "Lost data connection to Datacard %s.\n", pvt->id);
-			//goto e_cleanup;
 			break;
 		}
 

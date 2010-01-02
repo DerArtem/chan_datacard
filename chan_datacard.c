@@ -463,6 +463,10 @@ static int dc_manager_show_devices(struct mansession *s, const struct message *m
 		astman_append(s,"Mode: %d\r\n", pvt->linkmode);
 		astman_append(s,"Submode: %d\r\n", pvt->linksubmode);
 		astman_append(s,"ProviderName: %s\r\n", pvt->provider_name);
+		astman_append(s,"Manufacturer: %s\r\n", pvt->manufacturer);
+		astman_append(s,"Model: %s\r\n", pvt->model);
+		astman_append(s,"Firmware: %s\r\n", pvt->firmware);
+		astman_append(s,"IMEI: %s\r\n", pvt->imei);
 		astman_append(s,"\r\n");
 		count++;
 		ast_mutex_unlock(&pvt->lock);

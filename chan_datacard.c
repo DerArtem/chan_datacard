@@ -417,8 +417,7 @@ static int dc_manager_show_devices(struct mansession *s, const struct message *m
 	AST_RWLIST_RDLOCK(&devices);
 	AST_RWLIST_TRAVERSE(&devices, pvt, entry) {
 		ast_mutex_lock(&pvt->lock);
-		astman_append(s,"Event: DatacardDeviceEntry\r\n");
-		astman_append(s,idtext);
+		astman_append(s,"Event: DatacardDeviceEntry\r\n%s", idtext);
 		astman_append(s,"DeviceID: %s\r\n", pvt->id);
 		astman_append(s,"Group: %d\r\n", pvt->group);
 		astman_append(s,"Connected: %s\r\n", pvt->connected ? "Yes" : "No");

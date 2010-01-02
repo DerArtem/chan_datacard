@@ -257,7 +257,6 @@ static int dc_send_cssn(struct dc_pvt *pvt, int cssi, int cssu);
 
 static int dc_send_ate0(struct dc_pvt *pvt);
 static int dc_send_atz(struct dc_pvt *pvt);
-static int dc_send_vgm(struct dc_pvt *pvt, int value);
 static int dc_send_dtmf(struct dc_pvt *pvt, char digit);
 static int dc_send_cmgf(struct dc_pvt *pvt, int mode);
 static int dc_send_cnmi(struct dc_pvt *pvt);
@@ -2370,20 +2369,6 @@ static int dc_send_cssn(struct dc_pvt *pvt, int cssi, int cssu)
 	snprintf(cmd, sizeof(cmd), "AT+CSSN=%d,%d\r", cssi, cssu);
 	return rfcomm_write(pvt->data_socket, cmd);
 }
-
-#if 0
-/*!
- * \brief Send the current microphone gain level.
- * \param pvt an dc_pvt struct
- * \param value the value to send (must be between 0 and 15)
- */
-static int dc_send_vgm(struct dc_pvt *pvt, int value)
-{
-	char cmd[32];
-	snprintf(cmd, sizeof(cmd), "AT+VGM=%d\r", value);
-	return rfcomm_write(pvt->data_socket, cmd);
-}
-#endif
 
 /*!
  * \brief Send AT+CPIN=? to ask the datacard if a pin code is required

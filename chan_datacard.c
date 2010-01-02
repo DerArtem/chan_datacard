@@ -259,6 +259,7 @@ static int dc_send_atd(struct dc_pvt *pvt, const char *number);
 static int dc_send_ata(struct dc_pvt *pvt);
 static int dc_send_cusd(struct dc_pvt *pvt, const char *code);
 static int dc_send_clvl(struct dc_pvt *pvt, int level);
+static int dc_send_cops_init(struct dc_pvt *pvt,int mode, int format);
 static int dc_send_cops(struct dc_pvt *pvt);
 static int dc_send_creg_init(struct dc_pvt *pvt, int level);
 static int dc_send_creg(struct dc_pvt *pvt);
@@ -309,6 +310,7 @@ typedef enum {
 	AT_NO_DIALTONE,
 	AT_NO_CARRIER,
 	AT_CPIN,
+	AT_COPS_INIT,
 	AT_COPS,
 	AT_CREG_INIT,
 	AT_CREG,
@@ -1950,6 +1952,8 @@ static inline const char *at_msg2str(at_message_t msg)
 		return "AT+CUSD";
 	case AT_CPIN:
 		return "AT+CPIN";
+	case AT_COPS_INIT:
+		return "AT+COPS";
 	case AT_COPS:
 		return "AT+COPS";
 	case AT_CREG_INIT:
@@ -2538,6 +2542,17 @@ static int dc_send_clvl(struct dc_pvt *pvt, int level)
 }
 
 /*!
+ * \brief Send the AT+COPS= command.
+ * \param pvt an dc_pvt struct
+ */
+static int dc_send_cops_init(struct dc_pvt *pvt,int mode, int format)
+{
+	char cmd[16];
+	snprintf(cmd, sizeof(cmd), "AT+COPS=%d,%d\r", mode, format);
+	return rfcomm_write(pvt->data_socket, cmd);
+}
+
+/*!
  * \brief Send the AT+COPS? command.
  * \param pvt an dc_pvt struct
  */
@@ -2689,6 +2704,13 @@ static int handle_response_ok(struct dc_pvt *pvt, char *buf)
 			}
 			break;
 		case AT_CPIN:
+			if (dc_send_cops_init(pvt,0,0) || msg_queue_push(pvt, AT_OK, AT_COPS_INIT)) {
+				ast_debug(1, "[%s] Error setting operator select parameters.\n", pvt->id);
+				goto e_return;
+			}
+		break;
+		case AT_COPS_INIT:
+			ast_debug(1, "[%s] Operator select parameters set.\n", pvt->id);
 			if (dc_send_creg_init(pvt,2) || msg_queue_push(pvt, AT_OK, AT_CREG_INIT)) {
 				ast_debug(1, "[%s] Error enabeling registration info.\n", pvt->id);
 				goto e_return;
@@ -2867,6 +2889,13 @@ static int handle_response_error(struct dc_pvt *pvt, char *buf)
 		case AT_CPIN:
 			ast_debug(1, "[%s] error checking PIN state\n", pvt->id);
 			goto e_return;
+		case AT_COPS_INIT:
+			ast_debug(1, "[%s] Error setting operator select parameters.\n", pvt->id);
+			/* this is not a fatal error, let's continue with initilization */
+			if (dc_send_creg_init(pvt,2) || msg_queue_push(pvt, AT_OK, AT_CREG_INIT)) {
+				ast_debug(1, "[%s] Error enabeling registration info.\n", pvt->id);
+				goto e_return;
+			}
 		case AT_CREG_INIT:
 			ast_debug(1, "[%s] error enableling registration info\n", pvt->id);
 			/* this is not a fatal error, let's continue with initilization */

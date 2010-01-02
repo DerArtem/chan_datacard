@@ -114,6 +114,7 @@ struct dc_pvt {
 	int linkmode;
 	int linksubmode;
 	int volume_adjustment;
+	char provider_name[256];
 
 	/* flags */
 	unsigned int outgoing:1;	/*!< outgoing call */
@@ -156,6 +157,7 @@ static int handle_response_cssi(struct dc_pvt *pvt, char *buf);
 static int handle_response_cssu(struct dc_pvt *pvt, char *buf);
 static int handle_response_cpin(struct dc_pvt *pvt, char *buf);
 static int handle_response_rssi(struct dc_pvt *pvt, char *buf);
+static int handle_response_cops(struct dc_pvt *pvt, char *buf);
 static int handle_response_mode(struct dc_pvt *pvt, char *buf);
 static int handle_sms_prompt(struct dc_pvt *pvt, char *buf);
 
@@ -227,6 +229,7 @@ static ssize_t rfcomm_read(int data_socket, char *buf, size_t count);
 static int audio_write(int s, char *buf, int len);
 
 static char *dc_parse_clip(struct dc_pvt *pvt, char *buf);
+static char *dc_parse_cops(struct dc_pvt *pvt, char *buf);
 static int dc_parse_cmti(struct dc_pvt *pvt, char *buf);
 static int dc_parse_cmgr(struct dc_pvt *pvt, char *buf, char **from_number, char **text);
 static char *dc_parse_cusd(struct dc_pvt *pvt, char *buf);
@@ -256,6 +259,9 @@ static int dc_send_atd(struct dc_pvt *pvt, const char *number);
 static int dc_send_ata(struct dc_pvt *pvt);
 static int dc_send_cusd(struct dc_pvt *pvt, const char *code);
 static int dc_send_clvl(struct dc_pvt *pvt, int level);
+static int dc_send_cops(struct dc_pvt *pvt);
+static int dc_send_creg_init(struct dc_pvt *pvt, int level);
+static int dc_send_creg(struct dc_pvt *pvt);
 
 /*
  * Hayes AT command helpers
@@ -303,6 +309,9 @@ typedef enum {
 	AT_NO_DIALTONE,
 	AT_NO_CARRIER,
 	AT_CPIN,
+	AT_COPS,
+	AT_CREG_INIT,
+	AT_CREG,
 	AT_MODE,
 	AT_CLVL,
 	AT_CPMS,
@@ -358,7 +367,7 @@ static char *handle_cli_dc_show_devices(struct ast_cli_entry *e, int cmd, struct
 	char linkmode[6];
 	char linksubmode[6];
 
-#define FORMAT1 "%-15.15s %-6.6s %-9.9s %-5.5s %-5.5s %-5.5s %-5.5s %-5.5s %-7.7s\n"
+#define FORMAT1 "%-15.15s %-6.6s %-9.9s %-5.5s %-5.5s %-5.5s %-5.5s %-5.5s %-7.7s %-15.15s \n"
 
 	switch (cmd) {
 	case CLI_INIT:
@@ -374,7 +383,7 @@ static char *handle_cli_dc_show_devices(struct ast_cli_entry *e, int cmd, struct
 	if (a->argc != 3)
 		return CLI_SHOWUSAGE;
 
-	ast_cli(a->fd, FORMAT1, "ID", "Group", "Connected", "State", "Voice", "SMS", "RSSI", "Mode", "Submode");
+	ast_cli(a->fd, FORMAT1, "ID", "Group", "Connected", "State", "Voice", "SMS", "RSSI", "Mode", "Submode", "Provider Name");
 	AST_RWLIST_RDLOCK(&devices);
 	AST_RWLIST_TRAVERSE(&devices, pvt, entry) {
 		ast_mutex_lock(&pvt->lock);
@@ -391,7 +400,8 @@ static char *handle_cli_dc_show_devices(struct ast_cli_entry *e, int cmd, struct
 				(pvt->has_sms) ? "Yes" : "No",
 				rssi,
 				linkmode,
-				linksubmode
+				linksubmode,
+				pvt->provider_name
 		       );
 		ast_mutex_unlock(&pvt->lock);
 	}
@@ -427,6 +437,7 @@ static int dc_manager_show_devices(struct mansession *s, const struct message *m
 		astman_append(s,"RSSI: %d\r\n", pvt->rssi);
 		astman_append(s,"Mode: %d\r\n", pvt->linkmode);
 		astman_append(s,"Submode: %d\r\n", pvt->linksubmode);
+		astman_append(s,"ProviderName: %s\r\n", pvt->provider_name);
 		astman_append(s,"\r\n");
 		count++;
 		ast_mutex_unlock(&pvt->lock);
@@ -1832,6 +1843,10 @@ static at_message_t at_read_full(int data_socket, char *buf, size_t count)
 		return AT_DDSETEX;
 	} else if (at_match_prefix(buf, "^CVOICE:")) {
 		return AT_CVOICE;
+	} else if (at_match_prefix(buf, "+COPS:")) {
+		return AT_COPS;
+	} else if (at_match_prefix(buf, "+CREG:")) {
+		return AT_CREG;
 	} else if (at_match_prefix(buf, "^MODE:")) {
 		return AT_MODE;
 	} else if (at_match_prefix(buf, "+CPMS:")) {
@@ -1935,6 +1950,12 @@ static inline const char *at_msg2str(at_message_t msg)
 		return "AT+CUSD";
 	case AT_CPIN:
 		return "AT+CPIN";
+	case AT_COPS:
+		return "AT+COPS";
+	case AT_CREG_INIT:
+		return "AT+CREG";
+	case AT_CREG:
+		return "AT+CREG";
 	case AT_MODE:
 		return "AT^MODE";
 	case AT_CLVL:
@@ -1994,6 +2015,52 @@ static char *dc_parse_clip(struct dc_pvt *pvt, char *buf)
 	}
 
 	return clip;
+}
+
+/*!
+ * \brief Parse a COPS response.
+ * \param pvt an dc_pvt struct
+ * \param buf the buffer to parse (null terminated)
+ * @note buf will be modified when the COPS message is parsed
+ * \return NULL on error (parse error) or a pointer to the provider name
+ */
+static char *dc_parse_cops(struct dc_pvt *pvt, char *buf)
+{
+	int i, state;
+	char *provider;
+	size_t s;
+
+	/* parse COPS response in the following format:
+	 * +COPS: <mode>[,<format>,<oper>]
+	 */
+	provider = NULL;
+	state = 0;
+	s = strlen(buf);
+	for (i = 0; i < s && state != 3; i++) {
+		switch (state) {
+		case 0: /* search for start of the number (") */
+			if (buf[i] == '"') {
+				state++;
+			}
+			break;
+		case 1: /* mark the provider name */
+			provider = &buf[i];
+			state++;
+			/* fall through */
+		case 2: /* search for the end of the number (") */
+			if (buf[i] == '"') {
+				buf[i] = '\0';
+				state++;
+			}
+			break;
+		}
+	}
+
+	if (state != 3) {
+		return NULL;
+	}
+
+	return provider;
 }
 
 /*!
@@ -2470,6 +2537,36 @@ static int dc_send_clvl(struct dc_pvt *pvt, int level)
 	return rfcomm_write(pvt->data_socket, cmd);
 }
 
+/*!
+ * \brief Send the AT+COPS? command.
+ * \param pvt an dc_pvt struct
+ */
+static int dc_send_cops(struct dc_pvt *pvt)
+{
+	return rfcomm_write(pvt->data_socket, "AT+COPS?\r");
+}
+
+/*!
+ * \brief Send the AT+CREG=n command.
+ * \param pvt an dc_pvt struct
+ * \param level verbose level of CREG
+ */
+static int dc_send_creg_init(struct dc_pvt *pvt, int level)
+{
+	char cmd[16];
+	snprintf(cmd, sizeof(cmd), "AT+CREG=%d\r", level);
+	return rfcomm_write(pvt->data_socket, cmd);
+}
+
+/*!
+ * \brief Send the AT+CREG? command.
+ * \param pvt an dc_pvt struct
+ */
+static int dc_send_creg(struct dc_pvt *pvt)
+{
+	return rfcomm_write(pvt->data_socket, "AT+CREG?\r");
+}
+
 
 /*
  * message queue functions
@@ -2592,11 +2689,25 @@ static int handle_response_ok(struct dc_pvt *pvt, char *buf)
 			}
 			break;
 		case AT_CPIN:
+			if (dc_send_creg_init(pvt,2) || msg_queue_push(pvt, AT_OK, AT_CREG_INIT)) {
+				ast_debug(1, "[%s] Error enabeling registration info.\n", pvt->id);
+				goto e_return;
+			}
+		break;
+		case AT_CREG_INIT:
+			ast_debug(1, "[%s] registration info enabled\n", pvt->id);
+			if (dc_send_creg(pvt) || msg_queue_push(pvt, AT_OK, AT_CREG)) {
+				ast_debug(1, "[%s] Error sending registration query.\n", pvt->id);
+				goto e_return;
+			}
+			break;
+		case AT_CREG:
+			ast_debug(1, "[%s] registration query sent\n", pvt->id);
 			if (dc_send_cvoice_test(pvt) || msg_queue_push(pvt, AT_OK, AT_CVOICE)) {
 				ast_debug(1, "[%s] Error checking voice capabilities.\n", pvt->id);
 				goto e_return;
 			}
-		break;
+			break;
 		case AT_CVOICE:
 			pvt->has_voice = 1;
 			ast_debug(1, "[%s] Datacard has voice support.\n", pvt->id);
@@ -2604,7 +2715,7 @@ static int handle_response_ok(struct dc_pvt *pvt, char *buf)
 				ast_debug(1, "[%s] Error syncronizing audio level (part1/2)\n", pvt->id);
 				goto e_return;
 			}
-		break;
+			break;
 		case AT_CLVL:
 			if (pvt->volume_synchronized == 0) {
 				pvt->volume_synchronized = 1;
@@ -2701,6 +2812,9 @@ static int handle_response_ok(struct dc_pvt *pvt, char *buf)
 		case AT_CUSD:
 			ast_debug(1, "[%s] CUSD code sent successfully\n", pvt->id);
 			break;
+		case AT_COPS:
+			ast_debug(1, "[%s] provider query successfully\n", pvt->id);
+			break;
 		case AT_UNKNOWN:
 		default:
 			ast_debug(1, "[%s] recieved OK for unhandled request: %s\n", pvt->id, at_msg2str(entry->response_to));
@@ -2753,6 +2867,22 @@ static int handle_response_error(struct dc_pvt *pvt, char *buf)
 		case AT_CPIN:
 			ast_debug(1, "[%s] error checking PIN state\n", pvt->id);
 			goto e_return;
+		case AT_CREG_INIT:
+			ast_debug(1, "[%s] error enableling registration info\n", pvt->id);
+			/* this is not a fatal error, let's continue with initilization */
+			if (dc_send_creg(pvt) || msg_queue_push(pvt, AT_OK, AT_CREG)) {
+				ast_debug(1, "[%s] Error sending registration info query.\n", pvt->id);
+				goto e_return;
+			}
+			break;
+		case AT_CREG:
+			ast_debug(1, "[%s] error getting registration info\n", pvt->id);
+			/* this is not a fatal error, let's continue with initilization */
+			if (dc_send_cvoice_test(pvt) || msg_queue_push(pvt, AT_OK, AT_CVOICE)) {
+				ast_debug(1, "[%s] Error checking voice capabilities.\n", pvt->id);
+				goto e_return;
+			}
+			break;
 		case AT_CVOICE:
 			ast_debug(1, "[%s] Datacard has NO voice support.\n", pvt->id);
 			/* this is not a fatal error, let's continue with initilization */
@@ -2828,6 +2958,9 @@ static int handle_response_error(struct dc_pvt *pvt, char *buf)
 			break;
 		case AT_DTMF:
 			ast_debug(1, "[%s] error sending digit\n", pvt->id);
+			break;
+		case AT_COPS:
+			ast_debug(1, "[%s] could not get provider name.\n", pvt->id);
 			break;
 		case AT_UNKNOWN:
 		default:
@@ -3242,6 +3375,43 @@ static int handle_response_mode(struct dc_pvt *pvt, char *buf)
 	return 0;
 }
 
+/*!
+ * \brief Handle +COPS messages. Here we get the GSM provider name.
+ * \param pvt a dc_pvt structure
+ * \param buf a null terminated buffer containing an AT message
+ * \retval 0 success
+ * \retval -1 error
+ */
+static int handle_response_cops(struct dc_pvt *pvt, char *buf)
+{
+	char * provider_name;
+	provider_name = dc_parse_cops(pvt, buf);
+	
+	if (provider_name!=NULL) {
+		snprintf(pvt->provider_name, sizeof(pvt->provider_name), "%s", provider_name);
+	} else {
+		snprintf(pvt->provider_name, sizeof(pvt->provider_name), "%s", "NONE");
+	}
+
+	return 0;
+}
+
+/*!
+ * \brief Handle +CREG messages. Here we get the GSM registration status.
+ * \param pvt a dc_pvt structure
+ * \param buf a null terminated buffer containing an AT message
+ * \retval 0 success
+ * \retval -1 error
+ */
+static int handle_response_creg(struct dc_pvt *pvt, char *buf)
+{
+	if (dc_send_cops(pvt) || msg_queue_push(pvt, AT_OK, AT_COPS)) {
+		ast_debug(1, "[%s] error sending query for provider name\n", pvt->id);
+	}
+
+	return 0;
+}
+
 static void *do_monitor_phone(void *data)
 {
 	struct dc_pvt *pvt = (struct dc_pvt *)data;
@@ -3462,6 +3632,18 @@ static void *do_monitor_phone(void *data)
 				ast_mutex_unlock(&pvt->lock);
 				goto e_cleanup;
 			}
+			ast_mutex_unlock(&pvt->lock);
+			break;
+		case AT_COPS:
+			// An error here is not fatal. Just keep going.
+			ast_mutex_lock(&pvt->lock);
+			handle_response_cops(pvt, buf);
+			ast_mutex_unlock(&pvt->lock);
+			break;
+		case AT_CREG:
+			// An error here is not fatal. Just keep going.
+			ast_mutex_lock(&pvt->lock);
+			handle_response_creg(pvt, buf);
 			ast_mutex_unlock(&pvt->lock);
 			break;
 		case AT_MODE:

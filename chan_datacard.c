@@ -159,6 +159,16 @@ static int handle_response_rssi(struct dc_pvt *pvt, char *buf);
 static int handle_response_mode(struct dc_pvt *pvt, char *buf);
 static int handle_sms_prompt(struct dc_pvt *pvt, char *buf);
 
+/* Manager stuff */
+static int dc_manager_show_devices(struct mansession *s, const struct message *m);
+
+static char *manager_show_devices_desc =
+"Description: Lists Datacard devices in text format with details on current status.\n"
+"\n"
+"DatacardShowDevicesComplete.\n"
+"Variables: \n"
+"  ActionID: <id>	Action ID for this transaction. Will be returned.\n";
+
 /* CLI stuff */
 static char *handle_cli_dc_show_devices(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a);
 static char *handle_cli_dc_rfcomm(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a);
@@ -390,6 +400,48 @@ static char *handle_cli_dc_show_devices(struct ast_cli_entry *e, int cmd, struct
 #undef FORMAT1
 
 	return CLI_SUCCESS;
+}
+
+static int dc_manager_show_devices(struct mansession *s, const struct message *m)
+{
+	struct dc_pvt *pvt;
+	int count = 0;
+	const char *id = astman_get_header(m, "ActionID");
+	char idtext[256] = "";
+
+	if (!ast_strlen_zero(id))
+		snprintf(idtext, sizeof(idtext), "ActionID: %s\r\n", id);
+
+	astman_send_listack(s, m, "Device status list will follow", "start");
+
+	AST_RWLIST_RDLOCK(&devices);
+	AST_RWLIST_TRAVERSE(&devices, pvt, entry) {
+		ast_mutex_lock(&pvt->lock);
+		astman_append(s,"Event: DatacardDeviceEntry\r\n");
+		astman_append(s,idtext);
+		astman_append(s,"DeviceID: %s\r\n", pvt->id);
+		astman_append(s,"Group: %d\r\n", pvt->group);
+		astman_append(s,"Connected: %s\r\n", pvt->connected ? "Yes" : "No");
+		astman_append(s,"State: %s\r\n", (!pvt->connected) ? "None" : (pvt->outgoing || pvt->incoming) ? "Busy" : (pvt->outgoing_sms || pvt->incoming_sms) ? "SMS" : "Free");
+		astman_append(s,"Voice: %s\r\n", (pvt->has_voice) ? "Yes" : "No");
+		astman_append(s,"SMS: %s\r\n", (pvt->has_sms) ? "Yes" : "No");
+		astman_append(s,"RSSI: %d\r\n", pvt->rssi);
+		astman_append(s,"Mode: %d\r\n", pvt->linkmode);
+		astman_append(s,"Submode: %d\r\n", pvt->linksubmode);
+		astman_append(s,"\r\n");
+		count++;
+		ast_mutex_unlock(&pvt->lock);
+	}
+	AST_RWLIST_UNLOCK(&devices);
+
+	astman_append(s,
+		"Event: DatacardShowDevicesComplete\r\n%s"
+		"EventList: Complete\r\n"
+		"ListItems: %d\r\n"
+		"\r\n",
+		idtext,
+		count);
+	return 0;
 }
 
 static char *handle_cli_dc_rfcomm(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
@@ -3428,6 +3480,8 @@ static void *do_monitor_phone(void *data)
 		case AT_READ_ERROR:
 			ast_debug(1, "[%s] error reading from device: %s (%d)\n", pvt->id, strerror_r(errno, buf, sizeof(buf)), errno);
 			goto e_cleanup;
+		default:
+			break;
 		}
 	}
 
@@ -3739,6 +3793,13 @@ static int load_module(void)
 	ast_cli_register_multiple(dc_cli, sizeof(dc_cli) / sizeof(dc_cli[0]));
 	ast_register_application(app_dcstatus, dc_status_exec, dcstatus_synopsis, dcstatus_desc);
 	ast_register_application(app_dcsendsms, dc_sendsms_exec, dcsendsms_synopsis, dcsendsms_desc);
+
+	ast_manager_register2(
+		"DatacardShowDevices",
+		EVENT_FLAG_SYSTEM | EVENT_FLAG_CONFIG | EVENT_FLAG_REPORTING,
+		dc_manager_show_devices,
+		"List Datacard devices",
+		manager_show_devices_desc);
 
 	return AST_MODULE_LOAD_SUCCESS;
 

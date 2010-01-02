@@ -114,7 +114,11 @@ struct dc_pvt {
 	int linkmode;
 	int linksubmode;
 	int volume_adjustment;
-	char provider_name[256];
+	char provider_name[32];
+	char manufacturer[32];
+	char model[32];
+	char firmware[32];
+	char imei[17];
 
 	/* flags */
 	unsigned int outgoing:1;	/*!< outgoing call */
@@ -137,6 +141,7 @@ static void inline rfcomm_append_buf(char **buf, size_t count, size_t *in_count,
 static int rfcomm_read_and_expect_char(int data_socket, char *result, char expected);
 static int rfcomm_read_and_append_char(int data_socket, char **buf, size_t count, size_t *in_count, char *result, char expected);
 static int rfcomm_read_until_crlf(int data_socket, char **buf, size_t count, size_t *in_count);
+static int rfcomm_read_until_ok(int data_socket, char **buf, size_t count, size_t *in_count);
 static int rfcomm_read_sms_prompt(int data_socket, char **buf, size_t count, size_t *in_count);
 static int rfcomm_read_result(int data_socket, char **buf, size_t count, size_t *in_count);
 static int rfcomm_read_command(int data_socket, char **buf, size_t count, size_t *in_count);
@@ -159,6 +164,11 @@ static int handle_response_cpin(struct dc_pvt *pvt, char *buf);
 static int handle_response_rssi(struct dc_pvt *pvt, char *buf);
 static int handle_response_cops(struct dc_pvt *pvt, char *buf);
 static int handle_response_mode(struct dc_pvt *pvt, char *buf);
+static int handle_response_cgmi(struct dc_pvt *pvt, char *buf);
+static int handle_response_cgmm(struct dc_pvt *pvt, char *buf);
+static int handle_response_cgmr(struct dc_pvt *pvt, char *buf);
+static int handle_response_cgsn(struct dc_pvt *pvt, char *buf);
+
 static int handle_sms_prompt(struct dc_pvt *pvt, char *buf);
 
 /* Manager stuff */
@@ -245,9 +255,9 @@ static int dc_send_ddsetex(struct dc_pvt *pvt);
 static int dc_send_cvoice_test(struct dc_pvt *pvt);
 static int dc_send_cssn(struct dc_pvt *pvt, int cssi, int cssu);
 
-#if 0
+static int dc_send_ate0(struct dc_pvt *pvt);
+static int dc_send_atz(struct dc_pvt *pvt);
 static int dc_send_vgm(struct dc_pvt *pvt, int value);
-#endif
 static int dc_send_dtmf(struct dc_pvt *pvt, char digit);
 static int dc_send_cmgf(struct dc_pvt *pvt, int mode);
 static int dc_send_cnmi(struct dc_pvt *pvt);
@@ -263,6 +273,10 @@ static int dc_send_cops_init(struct dc_pvt *pvt,int mode, int format);
 static int dc_send_cops(struct dc_pvt *pvt);
 static int dc_send_creg_init(struct dc_pvt *pvt, int level);
 static int dc_send_creg(struct dc_pvt *pvt);
+static int dc_send_cgmi(struct dc_pvt *pvt);
+static int dc_send_cgmm(struct dc_pvt *pvt);
+static int dc_send_cgmr(struct dc_pvt *pvt);
+static int dc_send_cgsn(struct dc_pvt *pvt);
 
 /*
  * Hayes AT command helpers
@@ -283,8 +297,9 @@ typedef enum {
 	AT_CMS_ERROR,
 	/* at commands */
 	AT_A,
+	AT_Z,
 	AT_D,
-	AT_E0,
+	AT_E,
 	AT_DDSETEX,
 	AT_CVOICE,
 	AT_CONN,
@@ -315,6 +330,11 @@ typedef enum {
 	AT_CREG_INIT,
 	AT_CREG,
 	AT_MODE,
+	AT_I,
+	AT_CGMI,
+	AT_CGMM,
+	AT_CGMR,
+	AT_CGSN,
 	AT_CLVL,
 	AT_CPMS,
 	AT_SIMST,
@@ -369,7 +389,7 @@ static char *handle_cli_dc_show_devices(struct ast_cli_entry *e, int cmd, struct
 	char linkmode[6];
 	char linksubmode[6];
 
-#define FORMAT1 "%-15.15s %-6.6s %-9.9s %-5.5s %-5.5s %-5.5s %-5.5s %-5.5s %-7.7s %-15.15s \n"
+#define FORMAT1 "%-15.15s %-6.6s %-9.9s %-5.5s %-5.5s %-5.5s %-5.5s %-5.5s %-7.7s %-15.15s %-12.12s %-10.10s %-17.17s %-17.17s\n"
 
 	switch (cmd) {
 	case CLI_INIT:
@@ -385,7 +405,7 @@ static char *handle_cli_dc_show_devices(struct ast_cli_entry *e, int cmd, struct
 	if (a->argc != 3)
 		return CLI_SHOWUSAGE;
 
-	ast_cli(a->fd, FORMAT1, "ID", "Group", "Connected", "State", "Voice", "SMS", "RSSI", "Mode", "Submode", "Provider Name");
+	ast_cli(a->fd, FORMAT1, "ID", "Group", "Connected", "State", "Voice", "SMS", "RSSI", "Mode", "Submode", "Provider Name", "Manufacturer", "Model", "Firmware", "IMEI");
 	AST_RWLIST_RDLOCK(&devices);
 	AST_RWLIST_TRAVERSE(&devices, pvt, entry) {
 		ast_mutex_lock(&pvt->lock);
@@ -403,7 +423,11 @@ static char *handle_cli_dc_show_devices(struct ast_cli_entry *e, int cmd, struct
 				rssi,
 				linkmode,
 				linksubmode,
-				pvt->provider_name
+				pvt->provider_name,
+				pvt->manufacturer,
+				pvt->model,
+				pvt->firmware,
+				pvt->imei
 		       );
 		ast_mutex_unlock(&pvt->lock);
 	}
@@ -1904,10 +1928,12 @@ static inline const char *at_msg2str(at_message_t msg)
 	/* at commands */
 	case AT_A:
 		return "ATA";
+	case AT_Z:
+		return "ATZ";
 	case AT_D:
 		return "ATD";
-	case AT_E0:
-		return "ATE0";
+	case AT_E:
+		return "ATE";
 	case AT_DDSETEX:
 		return "AT^DDSETEX";
 	case AT_CVOICE:
@@ -1962,6 +1988,16 @@ static inline const char *at_msg2str(at_message_t msg)
 		return "AT+CREG";
 	case AT_MODE:
 		return "AT^MODE";
+	case AT_I:
+		return "ATI";
+	case AT_CGMI:
+		return "AT+CGMI";
+	case AT_CGMM:
+		return "AT+CGMM";
+	case AT_CGMR:
+		return "AT+CGMR";
+	case AT_CGSN:
+		return "AT+CGSN";
 	case AT_CLVL:
 		return "AT+CLVL";
 	case AT_CPMS:
@@ -2304,7 +2340,14 @@ static int dc_parse_linksubmode(struct dc_pvt *pvt, char *buf)
 	return submode;
 }
 
-
+/*!
+ * \brief Send the ATZ command.
+ * \param pvt an dc_pvt struct
+ */
+static int dc_send_atz(struct dc_pvt *pvt)
+{
+	return rfcomm_write(pvt->data_socket, "ATZ\r");
+}
 
 /*!
  * \brief Send the ATE0 command.
@@ -2582,6 +2625,42 @@ static int dc_send_creg(struct dc_pvt *pvt)
 	return rfcomm_write(pvt->data_socket, "AT+CREG?\r");
 }
 
+/*!
+ * \brief Send the AT+CGMI command.
+ * \param pvt an dc_pvt struct
+ */
+static int dc_send_cgmi(struct dc_pvt *pvt)
+{
+	return rfcomm_write(pvt->data_socket, "AT+CGMI\r");
+}
+
+/*!
+ * \brief Send the AT+CGMM command.
+ * \param pvt an dc_pvt struct
+ */
+static int dc_send_cgmm(struct dc_pvt *pvt)
+{
+	return rfcomm_write(pvt->data_socket, "AT+CGMM\r");
+}
+
+/*!
+ * \brief Send the AT+CGMR command.
+ * \param pvt an dc_pvt struct
+ */
+static int dc_send_cgmr(struct dc_pvt *pvt)
+{
+	return rfcomm_write(pvt->data_socket, "AT+CGMR\r");
+}
+
+/*!
+ * \brief Send the AT+CGSN command.
+ * \param pvt an dc_pvt struct
+ */
+static int dc_send_cgsn(struct dc_pvt *pvt)
+{
+	return rfcomm_write(pvt->data_socket, "AT+CGSN\r");
+}
+
 
 /*
  * message queue functions
@@ -2697,9 +2776,39 @@ static int handle_response_ok(struct dc_pvt *pvt, char *buf)
 			switch (entry->response_to) {
 		
 		/* initilization stuff */
-		case AT_E0:
+		case AT_Z:
+			if (dc_send_ate0(pvt) || msg_queue_push(pvt, AT_OK, AT_E)) {
+				ast_debug(1, "[%s] Error disableing echo.\n", pvt->id);
+				goto e_return;
+			}
+			break;
+		case AT_E:
+			if (dc_send_cgmi(pvt) || msg_queue_push(pvt, AT_OK, AT_CGMI)) {
+				ast_debug(1, "[%s] Error asking datacard for vendor info.\n", pvt->id);
+				goto e_return;
+			}
+			break;
+		case AT_CGMI:
+			if (dc_send_cgmm(pvt) || msg_queue_push(pvt, AT_OK, AT_CGMM)) {
+				ast_debug(1, "[%s] Error asking datacard for manufacturer.\n", pvt->id);
+				goto e_return;
+			}
+			break;
+		case AT_CGMM:
+			if (dc_send_cgmr(pvt) || msg_queue_push(pvt, AT_OK, AT_CGMR)) {
+				ast_debug(1, "[%s] Error asking datacard for model.\n", pvt->id);
+				goto e_return;
+			}
+			break;
+		case AT_CGMR:
+			if (dc_send_cgsn(pvt) || msg_queue_push(pvt, AT_OK, AT_CGSN)) {
+				ast_debug(1, "[%s] Error asking datacard for firmware.\n", pvt->id);
+				goto e_return;
+			}
+			break;
+		case AT_CGSN:
 			if (dc_send_cpin_test(pvt) || msg_queue_push(pvt, AT_OK, AT_CPIN)) {
-				ast_debug(1, "[%s] Error asking datacard for PIN.\n", pvt->id);
+				ast_debug(1, "[%s] Error asking datacard for IMEI number.\n", pvt->id);
 				goto e_return;
 			}
 			break;
@@ -2708,14 +2817,14 @@ static int handle_response_ok(struct dc_pvt *pvt, char *buf)
 				ast_debug(1, "[%s] Error setting operator select parameters.\n", pvt->id);
 				goto e_return;
 			}
-		break;
+			break;
 		case AT_COPS_INIT:
 			ast_debug(1, "[%s] Operator select parameters set.\n", pvt->id);
 			if (dc_send_creg_init(pvt,2) || msg_queue_push(pvt, AT_OK, AT_CREG_INIT)) {
 				ast_debug(1, "[%s] Error enabeling registration info.\n", pvt->id);
 				goto e_return;
 			}
-		break;
+			break;
 		case AT_CREG_INIT:
 			ast_debug(1, "[%s] registration info enabled\n", pvt->id);
 			if (dc_send_creg(pvt) || msg_queue_push(pvt, AT_OK, AT_CREG)) {
@@ -2874,21 +2983,28 @@ static int handle_response_error(struct dc_pvt *pvt, char *buf)
 		switch (entry->response_to) {
 
 		/* initilization stuff */
-		case AT_E0:
+		case AT_Z:
+			ast_debug(1, "[%s] ATZ failed\n", pvt->id);
+			goto e_return;
+		case AT_E:
 			ast_debug(1, "[%s] ATE0 failed\n", pvt->id);
 			goto e_return;
-			
-			/* this is not a fatal error, let's continue with initilization */
-			/*
-			if (dc_send_clip(pvt, 1) || msg_queue_push(pvt, AT_OK, AT_CLIP)) {
-				ast_debug(1, "[%s] error enabling calling line notification\n", pvt->id);
-				goto e_return;
-			}
-			break;
-			*/
+		case AT_CGMI:
+			ast_debug(1, "[%s] getting manufacturer info failed.\n", pvt->id);
+			goto e_return;
+		case AT_CGMM:
+			ast_debug(1, "[%s] getting model info failed.\n", pvt->id);
+			goto e_return;
+		case AT_CGMR:
+			ast_debug(1, "[%s] getting firmware info failed.\n", pvt->id);
+			goto e_return;
+		case AT_CGSN:
+			ast_debug(1, "[%s] getting IMEI number failed.\n", pvt->id);
+			goto e_return;
 		case AT_CPIN:
 			ast_debug(1, "[%s] error checking PIN state\n", pvt->id);
 			goto e_return;
+			break;
 		case AT_COPS_INIT:
 			ast_debug(1, "[%s] Error setting operator select parameters.\n", pvt->id);
 			/* this is not a fatal error, let's continue with initilization */
@@ -2896,6 +3012,7 @@ static int handle_response_error(struct dc_pvt *pvt, char *buf)
 				ast_debug(1, "[%s] Error enabeling registration info.\n", pvt->id);
 				goto e_return;
 			}
+			break;
 		case AT_CREG_INIT:
 			ast_debug(1, "[%s] error enableling registration info\n", pvt->id);
 			/* this is not a fatal error, let's continue with initilization */
@@ -3418,14 +3535,14 @@ static int handle_response_cops(struct dc_pvt *pvt, char *buf)
 {
 	char * provider_name;
 	provider_name = dc_parse_cops(pvt, buf);
-	
+
 	if (provider_name!=NULL) {
-		snprintf(pvt->provider_name, sizeof(pvt->provider_name), "%s", provider_name);
-	} else {
-		snprintf(pvt->provider_name, sizeof(pvt->provider_name), "%s", "NONE");
+		ast_copy_string(pvt->provider_name, provider_name, sizeof(pvt->provider_name));
+		return 0;
 	}
 
-	return 0;
+	ast_copy_string(pvt->provider_name, "NONE", sizeof(pvt->provider_name));
+	return -1;
 }
 
 /*!
@@ -3441,6 +3558,58 @@ static int handle_response_creg(struct dc_pvt *pvt, char *buf)
 		ast_debug(1, "[%s] error sending query for provider name\n", pvt->id);
 	}
 
+	return 0;
+}
+
+/*!
+ * \brief Handle AT+CGMI messages.
+ * \param pvt a dc_pvt structure
+ * \param buf a null terminated buffer containing an AT message
+ * \retval 0 success
+ * \retval -1 error
+ */
+static int handle_response_cgmi(struct dc_pvt *pvt, char *buf)
+{
+	ast_copy_string(pvt->manufacturer, buf, sizeof(pvt->manufacturer));
+	return 0;
+}
+
+/*!
+ * \brief Handle AT+CGMM messages.
+ * \param pvt a dc_pvt structure
+ * \param buf a null terminated buffer containing an AT message
+ * \retval 0 success
+ * \retval -1 error
+ */
+static int handle_response_cgmm(struct dc_pvt *pvt, char *buf)
+{
+	ast_copy_string(pvt->model, buf, sizeof(pvt->model));
+	return 0;
+}
+
+/*!
+ * \brief Handle AT+CGMR messages.
+ * \param pvt a dc_pvt structure
+ * \param buf a null terminated buffer containing an AT message
+ * \retval 0 success
+ * \retval -1 error
+ */
+static int handle_response_cgmr(struct dc_pvt *pvt, char *buf)
+{
+	ast_copy_string(pvt->firmware, buf, sizeof(pvt->firmware));
+	return 0;
+}
+
+/*!
+ * \brief Handle AT+CGSN messages.
+ * \param pvt a dc_pvt structure
+ * \param buf a null terminated buffer containing an AT message
+ * \retval 0 success
+ * \retval -1 error
+ */
+static int handle_response_cgsn(struct dc_pvt *pvt, char *buf)
+{
+	ast_copy_string(pvt->imei, buf, sizeof(pvt->imei));
 	return 0;
 }
 
@@ -3461,8 +3630,8 @@ static void *do_monitor_phone(void *data)
 	/* start initilization with the ATE0 request (disable echo) */
 	ast_mutex_lock(&pvt->lock);
 	pvt->timeout = 10000;
-	if (dc_send_ate0(pvt) || msg_queue_push(pvt, AT_OK, AT_E0)) {
-		ast_debug(1, "[%s] error sending ATE0\n", pvt->id);
+	if (dc_send_atz(pvt) || msg_queue_push(pvt, AT_OK, AT_Z)) {
+		ast_debug(1, "[%s] error sending ATZ\n", pvt->id);
 		goto e_cleanup;
 	}
 	ast_mutex_unlock(&pvt->lock);
@@ -3685,7 +3854,40 @@ static void *do_monitor_phone(void *data)
 			ast_mutex_unlock(&pvt->lock);
 			break;
 		case AT_UNKNOWN:
-			ast_debug(1, "[%s] ignoring unknown message: %s\n", pvt->id, buf);
+			if ((entry = msg_queue_head(pvt))) {
+				switch (entry->response_to) {
+				case AT_CGMI:
+					ast_debug(1, "[%s] Got AT_CGMI data (manufacturer info).\n", pvt->id);
+					ast_mutex_lock(&pvt->lock);
+					handle_response_cgmi(pvt, buf);
+					ast_mutex_unlock(&pvt->lock);
+					break;
+				case AT_CGMM:
+					ast_debug(1, "[%s] Got AT_CGMM data (model info).\n", pvt->id);
+					ast_mutex_lock(&pvt->lock);
+					handle_response_cgmm(pvt, buf);
+					ast_mutex_unlock(&pvt->lock);
+					break;
+				case AT_CGMR:
+					ast_debug(1, "[%s] Got AT+CGMR data (firmware info).\n", pvt->id);
+					ast_mutex_lock(&pvt->lock);
+					handle_response_cgmr(pvt, buf);
+					ast_mutex_unlock(&pvt->lock);
+					break;
+				case AT_CGSN:
+					ast_debug(1, "[%s] Got AT+CGSN data (IMEI number).\n", pvt->id);
+					ast_mutex_lock(&pvt->lock);
+					handle_response_cgsn(pvt, buf);
+					ast_mutex_unlock(&pvt->lock);
+					break;
+				default:
+					ast_debug(1, "[%s] ignoring unknown message: %s\n", pvt->id, buf);
+					break;
+				}
+			}
+			else {
+				ast_debug(1, "[%s] ignoring unknown message: %s\n", pvt->id, buf);
+			}
 			break;
 		case AT_PARSE_ERROR:
 			ast_debug(1, "[%s] error parsing message\n", pvt->id);

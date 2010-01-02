@@ -3187,6 +3187,9 @@ static int handle_response_cmgr(struct dc_pvt *pvt, char *buf)
 	struct ast_channel *chan;
 	struct msg_queue_entry *msg;
 
+	from_number = NULL;
+	text = NULL;
+
 	if ((msg = msg_queue_head(pvt)) && msg->expected == AT_CMGR) {
 		msg_queue_free_and_pop(pvt);
 

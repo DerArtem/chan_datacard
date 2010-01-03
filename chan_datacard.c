@@ -1747,6 +1747,10 @@ static int rfcomm_read_cusd(int data_socket, char **buf, size_t count, size_t *i
 	rfcomm_append_buf(buf, count, in_count, '\r');
 	rfcomm_append_buf(buf, count, in_count, '\n');
 
+	if (*in_count >= 6 && !strncmp(*buf - 6, "\",15\r\n", 6)) {
+		return 1;
+	}
+
 	if ((res = rfcomm_read_until_cusd_end(data_socket, buf, count, in_count)) != 1) {
 		ast_log(LOG_ERROR, "error reading +CUSD message on rfcomm socket\n");
 	}

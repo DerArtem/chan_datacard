@@ -2207,7 +2207,7 @@ static char *dc_parse_cops(struct dc_pvt *pvt, char *buf)
 	s = strlen(buf);
 	for (i = 0; i < s && state != 3; i++) {
 		switch (state) {
-		case 0: /* search for start of the number (") */
+		case 0: /* search for start of the provider name (") */
 			if (buf[i] == '"') {
 				state++;
 			}
@@ -2216,7 +2216,7 @@ static char *dc_parse_cops(struct dc_pvt *pvt, char *buf)
 			provider = &buf[i];
 			state++;
 			/* fall through */
-		case 2: /* search for the end of the number (") */
+		case 2: /* search for the end of the provider name (") */
 			if (buf[i] == '"') {
 				buf[i] = '\0';
 				state++;

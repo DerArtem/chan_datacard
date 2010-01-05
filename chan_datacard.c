@@ -652,7 +652,7 @@ e_return:
 
 */
 
-static int dc_status_exec(struct ast_channel *ast, const char *data)
+static int dc_status_exec(struct ast_channel *ast, void *data)
 {
 
 	struct dc_pvt *pvt;
@@ -700,7 +700,7 @@ static int dc_status_exec(struct ast_channel *ast, const char *data)
 
 }
 
-static int dc_sendsms_exec(struct ast_channel *ast, const char *data)
+static int dc_sendsms_exec(struct ast_channel *ast, void *data)
 {
 
 	struct dc_pvt *pvt;

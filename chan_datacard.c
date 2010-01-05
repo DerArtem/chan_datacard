@@ -176,13 +176,22 @@ static int handle_sms_prompt(struct dc_pvt *pvt, char *buf);
 
 /* Manager stuff */
 static int dc_manager_show_devices(struct mansession *s, const struct message *m);
+static int dc_manager_send_cusd(struct mansession *s, const struct message *m);
 
 static char *manager_show_devices_desc =
 "Description: Lists Datacard devices in text format with details on current status.\n"
 "\n"
 "DatacardShowDevicesComplete.\n"
-"Variables: \n"
-"  ActionID: <id>	Action ID for this transaction. Will be returned.\n";
+"Variables:\n"
+"	ActionID: <id>	Action ID for this transaction. Will be returned.\n";
+
+static char *manager_send_cusd_desc =
+"Description: Send a cusd message to a datacard.\n"
+"\n"
+"Variables: (Names marked with * are required)\n"
+"	ActionID: <id>	Action ID for this transaction. Will be returned.\n"
+"	*Device: <id>	The datacard to which the cusd code will be send.\n"
+"	*CUSD: <code>	The cusd code that will be send to the device.\n";
 
 /* CLI stuff */
 static char *handle_cli_dc_show_devices(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a);
@@ -580,6 +589,61 @@ e_unlock_pvt:
 	ast_mutex_unlock(&pvt->lock);
 e_return:
 	return CLI_SUCCESS;
+}
+
+static int dc_manager_send_cusd(struct mansession *s, const struct message *m)
+{
+	char buf2[128];
+	char idtext[256] = "";
+	struct dc_pvt *pvt = NULL;
+	const char *id = astman_get_header(m, "ActionID");
+	const char *device = astman_get_header(m, "Device");
+	const char *cusd = astman_get_header(m, "CUSD");
+
+	if (ast_strlen_zero(device)) {
+		astman_send_error(s, m, "Device not specified");
+		return 0;
+	}
+
+		if (ast_strlen_zero(cusd)) {
+		astman_send_error(s, m, "CUSD not specified");
+		return 0;
+	}
+
+	if (!ast_strlen_zero(id))
+		snprintf(idtext, sizeof(idtext), "ActionID: %s\r\n", id);
+
+	AST_RWLIST_RDLOCK(&devices);
+	AST_RWLIST_TRAVERSE(&devices, pvt, entry) {
+		if (!strcmp(pvt->id, device))
+			break;
+	}
+	AST_RWLIST_UNLOCK(&devices);
+
+	if (!pvt) {
+		char buf[256];
+		snprintf(buf, sizeof(buf), "Device %s not found.", device);
+		astman_send_error(s, m, buf);
+		goto e_return;
+	}
+
+	ast_mutex_lock(&pvt->lock);
+	if (!pvt->connected) {
+		char buf[256];
+		snprintf(buf, sizeof(buf), "Device %s not connected.", device);
+		astman_send_error(s, m, buf);
+		goto e_unlock_pvt;
+	}
+
+	snprintf(buf2, sizeof(buf2), "%s", cusd);
+	dc_send_cusd(pvt, buf2);
+	msg_queue_push(pvt, AT_OK, AT_CUSD);
+	astman_send_ack(s, m, "CUSD code send successful");
+
+e_unlock_pvt:
+	ast_mutex_unlock(&pvt->lock);
+e_return:
+	return 0;
 }
 
 /*
@@ -4330,6 +4394,13 @@ static int load_module(void)
 		dc_manager_show_devices,
 		"List Datacard devices",
 		manager_show_devices_desc);
+
+	ast_manager_register2(
+		"DatacardSendCUSD",
+		EVENT_FLAG_SYSTEM | EVENT_FLAG_CONFIG | EVENT_FLAG_REPORTING,
+		dc_manager_send_cusd,
+		"Send a cusd command to the datacard.",
+		manager_send_cusd_desc);
 
 	return AST_MODULE_LOAD_SUCCESS;
 

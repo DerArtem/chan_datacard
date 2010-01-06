@@ -177,7 +177,7 @@ static int handle_sms_prompt(struct dc_pvt *pvt, char *buf);
 /* Manager stuff */
 static int dc_manager_show_devices(struct mansession *s, const struct message *m);
 static int dc_manager_send_cusd(struct mansession *s, const struct message *m);
-static void dc_send_manager_event_new_cusd(struct dc_pvt *pvt, char *message);
+static char *dc_send_manager_event_new_cusd(struct dc_pvt *pvt, char *message);
 
 static char *manager_show_devices_desc =
 "Description: Lists Datacard devices in text format with details on current status.\n"
@@ -4305,11 +4305,12 @@ static int dc_load_config(void)
  * \param pvt a dc_pvt structure
  * \param message a null terminated buffer containing the message
  */
-static void dc_send_manager_event_new_cusd(struct dc_pvt *pvt, char *message)
+static char *dc_send_manager_event_new_cusd(struct dc_pvt *pvt, char *message)
 {
 	int linecount = 0;
 	struct ast_str *buf;
 	char *pch;
+	char *ret;
 
 	buf = ast_str_create(256);
 
@@ -4329,6 +4330,11 @@ static void dc_send_manager_event_new_cusd(struct dc_pvt *pvt, char *message)
 		linecount,
 		ast_str_buffer(buf)
 	);
+
+	ret = ast_strdup(ast_str_buffer(buf));
+	ast_free(buf);
+
+	return ret;
 }
 
 /*!

@@ -177,6 +177,7 @@ static int handle_sms_prompt(struct dc_pvt *pvt, char *buf);
 /* Manager stuff */
 static int dc_manager_show_devices(struct mansession *s, const struct message *m);
 static int dc_manager_send_cusd(struct mansession *s, const struct message *m);
+static void dc_send_manager_event_new_cusd(struct dc_pvt *pvt, char *message);
 
 static char *manager_show_devices_desc =
 "Description: Lists Datacard devices in text format with details on current status.\n"
@@ -465,7 +466,7 @@ static int dc_manager_show_devices(struct mansession *s, const struct message *m
 	AST_RWLIST_TRAVERSE(&devices, pvt, entry) {
 		ast_mutex_lock(&pvt->lock);
 		astman_append(s,"Event: DatacardDeviceEntry\r\n%s", idtext);
-		astman_append(s,"DeviceID: %s\r\n", pvt->id);
+		astman_append(s,"Device: %s\r\n", pvt->id);
 		astman_append(s,"Group: %d\r\n", pvt->group);
 		astman_append(s,"Connected: %s\r\n", pvt->connected ? "Yes" : "No");
 		astman_append(s,"State: %s\r\n", (!pvt->connected) ? "None" : (pvt->outgoing || pvt->incoming) ? "Busy" : (pvt->outgoing_sms || pvt->incoming_sms) ? "SMS" : "Free");
@@ -3589,14 +3590,14 @@ static int handle_response_cusd(struct dc_pvt *pvt, char *buf)
 {
 	char *cusd;
 	struct ast_channel *chan;
- 
+
 	if (!(cusd = dc_parse_cusd(pvt, buf))) {
 		ast_verb(1, "[%s] error parsing CUSD: %s\n", pvt->id, buf);
 		return 0;
 	}
 
 	ast_verb(1, "Got CUSD response from device %s: %s\n", pvt->id,cusd);
-	
+
 	/* XXX this channel probably does not need to be associated with this pvt */
 	if (!(chan = dc_new(AST_STATE_DOWN, pvt, NULL))) {
 		ast_debug(1, "[%s] error creating cusd message channel, disconnecting\n", pvt->id);
@@ -3605,6 +3606,8 @@ static int handle_response_cusd(struct dc_pvt *pvt, char *buf)
 
 	strcpy(chan->exten, "cusd");
 	pbx_builtin_setvar_helper(chan, "CUSDTXT", cusd);
+
+	dc_send_manager_event_new_cusd(pvt, cusd);
 
 	if (ast_pbx_start(chan)) {
 		ast_log(LOG_ERROR, "[%s] unable to start pbx on incoming cusd\n", pvt->id);
@@ -4295,6 +4298,37 @@ static int dc_load_config(void)
 	ast_config_destroy(cfg);
 
 	return 0;
+}
+
+/*!
+ * \brief Send a DatacardNewCUSD event to the manager
+ * \param pvt a dc_pvt structure
+ * \param message a null terminated buffer containing the message
+ */
+static void dc_send_manager_event_new_cusd(struct dc_pvt *pvt, char *message)
+{
+	int linecount = 0;
+	struct ast_str *buf;
+	char *pch;
+
+	buf = ast_str_create(256);
+
+	pch = strtok (message,"\r\n");
+	while (pch != NULL)
+	{
+		ast_str_append(&buf,0,"MessageLine%d: %s\r\n", linecount, pch);
+		pch = strtok (NULL, "\r\n");
+		linecount++;
+	}
+
+	manager_event(EVENT_FLAG_CALL, "DatacardNewCUSD",
+		"Device: %s\r\n"
+		"LineCount: %d\r\n"
+		"%s\r\n",
+		pvt->id,
+		linecount,
+		ast_str_buffer(buf)
+	);
 }
 
 /*!

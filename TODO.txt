@@ -1,10 +1,10 @@
 TODO List:
 
 * Do a lot of testing with the channel driver
-* Fix receiving SMS with a new line character in it
 * Test sending SMS with a new line character in it
 * Find a way how to proper detect remote side alerting
 * Add PIN code detection
-* Add voice functions support detection
-* cleanup code
+* Cleanup code
 * Make a better Makefile
+* Write a better documentation
+* Add more API commands

@@ -113,7 +113,8 @@ struct dc_pvt {
 	int rssi;
 	int linkmode;
 	int linksubmode;
-	int volume_adjustment;
+	int rxgain;
+	int txgain;
 	char provider_name[32];
 	char manufacturer[32];
 	char model[32];
@@ -1109,9 +1110,9 @@ static struct ast_frame *dc_audio_read(struct ast_channel *ast)
 
 	fr = ast_dsp_process(ast, pvt->dsp, &pvt->fr);
 
-	if (pvt->volume_adjustment!=0) {
+	if (pvt->rxgain!=0) {
 		// Lets adjust the volume of the incoming audio
-		if (ast_frame_adjust_volume(fr, pvt->volume_adjustment) != 0) {
+		if (ast_frame_adjust_volume(fr, pvt->rxgain) != 0) {
 			ast_debug(1, "[%s] volume could not be adjusted!\n", pvt->id);
 		}
 	}
@@ -1144,6 +1145,12 @@ static int dc_audio_write(struct ast_channel *ast, struct ast_frame *frame)
 	ast_smoother_feed(pvt->smoother, frame);
 
 	while ((f = ast_smoother_read(pvt->smoother))) {
+		if (pvt->txgain!=0) {
+			// Lets adjust the volume of the incoming audio
+			if (ast_frame_adjust_volume(f, pvt->txgain) != 0) {
+				ast_debug(1, "[%s] volume could not be adjusted!\n", pvt->id);
+			}
+		}
 		audio_write(pvt->audio_socket, f->data.ptr, f->datalen);
 		ast_frfree(f);
 	}
@@ -4222,7 +4229,8 @@ static struct dc_pvt *dc_load_device(struct ast_config *cfg, const char *cat)
 	pvt->linkmode = 0;
 	pvt->linksubmode = 0;
 	pvt->volume_synchronized = 0;
-	pvt->volume_adjustment = 0;
+	pvt->rxgain = 0;
+	pvt->txgain = 0;
 
 	/* setup the smoother */
 	if (!(pvt->smoother = ast_smoother_new(DEVICE_FRAME_SIZE))) {
@@ -4246,8 +4254,11 @@ static struct dc_pvt *dc_load_device(struct ast_config *cfg, const char *cat)
 			/* group is set to 0 if invalid */
 			pvt->group = atoi(v->value);
 		} else if (!strcasecmp(v->name, "rxgain")) {
-			/* volume_adjustment is set to 0 if invalid */
-			pvt->volume_adjustment = atoi(v->value);
+			/* rxgain is set to 0 if invalid */
+			pvt->rxgain = atoi(v->value);
+		} else if (!strcasecmp(v->name, "txgain")) {
+			/* txgain is set to 0 if invalid */
+			pvt->txgain = atoi(v->value);
 		}
 	}
 

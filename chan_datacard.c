@@ -4313,6 +4313,8 @@ static int dc_load_config(void)
 
 /*!
  * \brief Send a DatacardNewCUSD event to the manager
+ * This function splits the message in multiple lines, so multi-line
+ * CUSD messages can be send over the manager API.
  * \param pvt a dc_pvt structure
  * \param message a null terminated buffer containing the message
  */
@@ -4322,14 +4324,15 @@ static char *dc_send_manager_event_new_cusd(struct dc_pvt *pvt, char *message)
 	struct ast_str *buf;
 	char *pch;
 	char *ret;
+	char *saveptr;
 
 	buf = ast_str_create(256);
 
-	pch = strtok (message,"\r\n");
+	pch = strtok_r (message, "\r\n", &saveptr);
 	while (pch != NULL)
 	{
 		ast_str_append(&buf,0,"MessageLine%d: %s\r\n", linecount, pch);
-		pch = strtok (NULL, "\r\n");
+		pch = strtok_r (NULL, "\r\n", &saveptr);
 		linecount++;
 	}
 

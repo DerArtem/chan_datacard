@@ -319,6 +319,7 @@ typedef enum {
 	AT_CEND,
 	AT_CONF,
 	AT_ORIG,
+	AT_SMMEMFULL,
 	AT_RSSI,
 	AT_BOOT,
 	AT_CSSN,
@@ -2054,6 +2055,8 @@ static at_message_t at_read_full(int data_socket, char *buf, size_t count)
 		return AT_CONF;
 	} else if (at_match_prefix(buf, "^ORIG:")) {
 		return AT_ORIG;
+	} else if (at_match_prefix(buf, "^SMMEMFULL:")) {
+		return AT_SMMEMFULL;
 	} else if (at_match_prefix(buf, "^RSSI:")) {
 		return AT_RSSI;
 	} else if (at_match_prefix(buf, "^BOOT:")) {
@@ -2147,6 +2150,8 @@ static inline const char *at_msg2str(at_message_t msg)
 		return "^CONF:";
 	case AT_ORIG:
 		return "^ORIG:";
+	case AT_SMMEMFULL:
+		return "^SMMEMFULL:";
 	case AT_RSSI:
 		return "^RSSI:";
 	case AT_BOOT:
@@ -3681,6 +3686,19 @@ static int handle_response_cpin(struct dc_pvt *pvt, char *buf)
 }
 
 /*!
+ * \brief Handle ^SMMEMFULL messages. This event notifies us, that the sms storage is full.
+ * \param pvt a dc_pvt structure
+ * \param buf a null terminated buffer containing an AT message
+ * \retval 0 success
+ * \retval -1 error
+ */
+static int handle_response_smmemfull(struct dc_pvt *pvt, char *buf)
+{
+	ast_log(LOG_ERROR, "SMS storage is full on device: %s\n", pvt->id);
+	return 0;
+}
+
+/*!
  * \brief Handle ^RSSI messages. Here we get the signal strength.
  * \param pvt a dc_pvt structure
  * \param buf a null terminated buffer containing an AT message
@@ -3937,6 +3955,14 @@ static void *do_monitor_phone(void *data)
 		case AT_ORIG:
 			ast_mutex_lock(&pvt->lock);
 			if (handle_response_orig(pvt, buf)) {
+				ast_mutex_unlock(&pvt->lock);
+				goto e_cleanup;
+			}
+			ast_mutex_unlock(&pvt->lock);
+			break;
+		case AT_SMMEMFULL:
+			ast_mutex_lock(&pvt->lock);
+			if (handle_response_smmemfull(pvt, buf)) {
 				ast_mutex_unlock(&pvt->lock);
 				goto e_cleanup;
 			}

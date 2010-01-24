@@ -92,7 +92,6 @@ struct dc_pvt {
 	int group;					/* group number for group dialling */
 	char context[AST_MAX_CONTEXT];			/* the context for incoming calls */
 	struct dc_pvt *pvt;				/*!< pvt pvt */
-	char rfcomm_buf[1024];
 	char io_buf[CHANNEL_FRAME_SIZE + AST_FRIENDLY_OFFSET];
 	struct ast_smoother *smoother;			/* our smoother, for making 48 byte frames */
 	char audio_tty_str[256];
@@ -165,6 +164,7 @@ static int handle_response_orig(struct dc_pvt *pvt, char *buf);
 static int handle_response_cssi(struct dc_pvt *pvt, char *buf);
 static int handle_response_cssu(struct dc_pvt *pvt, char *buf);
 static int handle_response_cpin(struct dc_pvt *pvt, char *buf);
+static int handle_response_smmemfull(struct dc_pvt *pvt, char *buf);
 static int handle_response_rssi(struct dc_pvt *pvt, char *buf);
 static int handle_response_cops(struct dc_pvt *pvt, char *buf);
 static int handle_response_mode(struct dc_pvt *pvt, char *buf);

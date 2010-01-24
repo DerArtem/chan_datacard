@@ -93,10 +93,10 @@ struct dc_pvt {
 	char context[AST_MAX_CONTEXT];			/* the context for incoming calls */
 	struct dc_pvt *pvt;				/*!< pvt pvt */
 	char io_buf[CHANNEL_FRAME_SIZE + AST_FRIENDLY_OFFSET];
-	struct ast_smoother *smoother;			/* our smoother, for making 48 byte frames */
+	struct ast_smoother *smoother;			/* our smoother, for making 320 byte frames */
 	char audio_tty_str[256];
 	char data_tty_str[256];
-	int audio_socket;				/* sco socket descriptor */
+	int audio_socket;				/* audio socket descriptor */
 	int data_socket;				/* rfcomm socket descriptor */
 	pthread_t monitor_thread;			/* monitor thread handle */
 	int timeout;					/*!< used to set the timeout for rfcomm data (may be used in the future) */
@@ -3823,7 +3823,7 @@ static int handle_response_cgsn(struct dc_pvt *pvt, char *buf)
 static void *do_monitor_phone(void *data)
 {
 	struct dc_pvt *pvt = (struct dc_pvt *)data;
-	char buf[256];
+	char buf[2048];
 	int t;
 	at_message_t at_msg;
 	struct msg_queue_entry *entry;

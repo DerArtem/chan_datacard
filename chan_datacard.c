@@ -119,6 +119,8 @@ struct dc_pvt {
 	char model[32];
 	char firmware[32];
 	char imei[17];
+	int sms_storage_position;
+	unsigned int auto_delete_sms:1;
 
 	/* flags */
 	unsigned int outgoing:1;	/*!< outgoing call */
@@ -275,6 +277,7 @@ static int dc_send_dtmf(struct dc_pvt *pvt, char digit);
 static int dc_send_cmgf(struct dc_pvt *pvt, int mode);
 static int dc_send_cnmi(struct dc_pvt *pvt);
 static int dc_send_cmgr(struct dc_pvt *pvt, int index);
+static int dc_send_cmgd(struct dc_pvt *pvt, int index);
 static int dc_send_cmgs(struct dc_pvt *pvt, const char *number);
 static int dc_send_sms_text(struct dc_pvt *pvt, const char *message);
 static int dc_send_chup(struct dc_pvt *pvt);
@@ -306,6 +309,7 @@ typedef enum {
 	AT_CLIP,
 	AT_CMTI,
 	AT_CMGR,
+	AT_CMGD,
 	AT_SMS_PROMPT,
 	AT_CMS_ERROR,
 	/* at commands */
@@ -2119,6 +2123,8 @@ static inline const char *at_msg2str(at_message_t msg)
 		return "AT+CMTI";
 	case AT_CMGR:
 		return "AT+CMGR";
+	case AT_CMGD:
+		return "AT+CMGD";
 	case AT_SMS_PROMPT:
 		return "SMS PROMPT";
 	case AT_CMS_ERROR:
@@ -2699,6 +2705,18 @@ static int dc_send_cmgr(struct dc_pvt *pvt, int index)
 }
 
 /*!
+ * \brief Delete an SMS message.
+ * \param pvt an dc_pvt struct
+ * \param index the location of the requested message
+ */
+static int dc_send_cmgd(struct dc_pvt *pvt, int index)
+{
+	char cmd[32];
+	snprintf(cmd, sizeof(cmd), "AT+CMGD=%d\r", index);
+	return rfcomm_write(pvt->data_socket, cmd);
+}
+
+/*!
  * \brief Start sending an SMS message.
  * \param pvt an dc_pvt struct
  * \param number the destination of the message
@@ -3138,6 +3156,9 @@ static int handle_response_ok(struct dc_pvt *pvt, char *buf)
 		case AT_COPS:
 			ast_debug(1, "[%s] provider query successfully\n", pvt->id);
 			break;
+		case AT_CMGD:
+			ast_debug(1, "[%s] sms message deleted successfully\n", pvt->id);
+			break;
 		case AT_UNKNOWN:
 		default:
 			ast_debug(1, "[%s] recieved OK for unhandled request: %s\n", pvt->id, at_msg2str(entry->response_to));
@@ -3285,6 +3306,10 @@ static int handle_response_error(struct dc_pvt *pvt, char *buf)
 			goto e_return;
 		case AT_CMGR:
 			ast_debug(1, "[%s] error reading sms message\n", pvt->id);
+			pvt->incoming_sms = 0;
+			break;
+		case AT_CMGD:
+			ast_debug(1, "[%s] error deleting sms message\n", pvt->id);
 			pvt->incoming_sms = 0;
 			break;
 		case AT_CMGS:
@@ -3498,6 +3523,7 @@ static int handle_response_cmti(struct dc_pvt *pvt, char *buf)
 	if (index > -1) {
 		ast_debug(1, "[%s] incoming sms message\n", pvt->id);
 
+		pvt->sms_storage_position = index;
 		if (dc_send_cmgr(pvt, index)
 				|| msg_queue_push(pvt, AT_CMGR, AT_CMGR)) {
 			ast_debug(1, "[%s] error sending CMGR to retrieve SMS message\n", pvt->id);
@@ -3553,8 +3579,17 @@ static int handle_response_cmgr(struct dc_pvt *pvt, char *buf)
 			ast_log(LOG_ERROR, "[%s] unable to start pbx on incoming sms\n", pvt->id);
 			dc_ast_hangup(pvt);
 		}
+
 	} else {
 		ast_debug(1, "[%s] got unexpected +CMGR message, ignoring\n", pvt->id);
+	}
+
+	if (pvt->auto_delete_sms)
+	{
+		if (dc_send_cmgd(pvt, pvt->sms_storage_position) || msg_queue_push(pvt, AT_OK, AT_CMGD)) {
+			ast_debug(1, "[%s] error sending CMGD to delete SMS message\n", pvt->id);
+			return -1;
+		}
 	}
 
 	return 0;
@@ -4257,6 +4292,7 @@ static struct dc_pvt *dc_load_device(struct ast_config *cfg, const char *cat)
 	pvt->volume_synchronized = 0;
 	pvt->rxgain = 0;
 	pvt->txgain = 0;
+	pvt->sms_storage_position = 0;
 
 	/* setup the smoother */
 	if (!(pvt->smoother = ast_smoother_new(DEVICE_FRAME_SIZE))) {
@@ -4285,6 +4321,9 @@ static struct dc_pvt *dc_load_device(struct ast_config *cfg, const char *cat)
 		} else if (!strcasecmp(v->name, "txgain")) {
 			/* txgain is set to 0 if invalid */
 			pvt->txgain = atoi(v->value);
+		} else if (!strcasecmp(v->name, "autodeletesms")) {
+			/* auto_delete_sms is set to 0 if invalid */
+			pvt->auto_delete_sms = ast_true(v->value);
 		}
 	}
 

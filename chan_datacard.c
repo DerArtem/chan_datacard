@@ -3490,7 +3490,7 @@ static int handle_response_ring(struct dc_pvt *pvt, char *buf)
 static int handle_response_cmti(struct dc_pvt *pvt, char *buf)
 {
 	int index = dc_parse_cmti(pvt, buf);
-	if (index > 0) {
+	if (index > -1) {
 		ast_debug(1, "[%s] incoming sms message\n", pvt->id);
 
 		if (dc_send_cmgr(pvt, index)

@@ -65,6 +65,8 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 947 $")
 #include <asterisk/manager.h>
 #include <asterisk/io.h>
 
+#include "char_conv.h"
+
 #define DC_CONFIG "datacard.conf"
 
 #define DEVICE_FRAME_SIZE 320
@@ -121,6 +123,7 @@ struct dc_pvt {
 	char imei[17];
 	int sms_storage_position;
 	unsigned int auto_delete_sms:1;
+	unsigned int use_ucs2_encoding:1;
 
 	/* flags */
 	unsigned int outgoing:1;	/*!< outgoing call */
@@ -279,11 +282,11 @@ static int dc_send_cnmi(struct dc_pvt *pvt);
 static int dc_send_cmgr(struct dc_pvt *pvt, int index);
 static int dc_send_cmgd(struct dc_pvt *pvt, int index);
 static int dc_send_cmgs(struct dc_pvt *pvt, const char *number);
-static int dc_send_sms_text(struct dc_pvt *pvt, const char *message);
+static int dc_send_sms_text(struct dc_pvt *pvt, char *message);
 static int dc_send_chup(struct dc_pvt *pvt);
 static int dc_send_atd(struct dc_pvt *pvt, const char *number);
 static int dc_send_ata(struct dc_pvt *pvt);
-static int dc_send_cusd(struct dc_pvt *pvt, const char *code);
+static int dc_send_cusd(struct dc_pvt *pvt, char *code);
 static int dc_send_clvl(struct dc_pvt *pvt, int level);
 static int dc_send_cops_init(struct dc_pvt *pvt,int mode, int format);
 static int dc_send_cops(struct dc_pvt *pvt);
@@ -293,6 +296,7 @@ static int dc_send_cgmi(struct dc_pvt *pvt);
 static int dc_send_cgmm(struct dc_pvt *pvt);
 static int dc_send_cgmr(struct dc_pvt *pvt);
 static int dc_send_cgsn(struct dc_pvt *pvt);
+static int dc_send_cscs(struct dc_pvt *pvt, const char *encoding);
 
 /*
  * Hayes AT command helpers
@@ -357,6 +361,7 @@ typedef enum {
 	AT_CPMS,
 	AT_SIMST,
 	AT_SRVST,
+	AT_CSCS,
 } at_message_t;
 
 static int at_match_prefix(char *buf, char *prefix);
@@ -2214,6 +2219,8 @@ static inline const char *at_msg2str(at_message_t msg)
 		return "AT+CLVL";
 	case AT_CPMS:
 		return "AT+CPMS";
+	case AT_CSCS:
+		return "AT+CSCS";
 	}
 }
 
@@ -2733,10 +2740,25 @@ static int dc_send_cmgs(struct dc_pvt *pvt, const char *number)
  * \param pvt an dc_pvt struct
  * \param message the text of the message
  */
-static int dc_send_sms_text(struct dc_pvt *pvt, const char *message)
+static int dc_send_sms_text(struct dc_pvt *pvt, char *message)
 {
-	char cmd[162];
+	int res;
+	char *old_message = message;
+	char ucs2_message[4096];
+	char cmd[sizeof(ucs2_message) + 162];
+
+	if (pvt->use_ucs2_encoding) {
+		res = utf8_to_hexstr_ucs2(message,strlen(message),ucs2_message,sizeof(ucs2_message));
+		if (res>0) {
+			message = ucs2_message;
+		} else {
+			ast_log(LOG_ERROR, "[%s] error converting SMS to UCS-2): %s\n", pvt->id, message);
+		}
+	}
+
 	snprintf(cmd, sizeof(cmd), "%.160s\x1a", message);
+	message = old_message;
+
 	return rfcomm_write(pvt->data_socket, cmd);
 }
 
@@ -2775,10 +2797,25 @@ static int dc_send_ata(struct dc_pvt *pvt)
  * \param pvt an dc_pvt struct
  * \param code the CUSD code to send
  */
-static int dc_send_cusd(struct dc_pvt *pvt, const char *code)
+static int dc_send_cusd(struct dc_pvt *pvt, char *code)
 {
-	char cmd[128];
+	int res;
+	char *old_code = code;
+	char ucs2_code[4096];
+	char cmd[sizeof(ucs2_code)+32];
+
+	if (pvt->use_ucs2_encoding) {
+		res = utf8_to_hexstr_ucs2(code,strlen(code),ucs2_code,sizeof(ucs2_code));
+		if (res>0) {
+			code = ucs2_code;
+		} else {
+			ast_log(LOG_ERROR, "[%s] error converting CUSD code to UCS-2): %s\n", pvt->id, code);
+		}
+	}
+
 	snprintf(cmd, sizeof(cmd), "AT+CUSD=1,\"%s\",15\r", code);
+	code = old_code;
+
 	return rfcomm_write(pvt->data_socket, cmd);
 }
 
@@ -2791,6 +2828,18 @@ static int dc_send_clvl(struct dc_pvt *pvt, int level)
 {
 	char cmd[16];
 	snprintf(cmd, sizeof(cmd), "AT+CLVL=%d\r", level);
+	return rfcomm_write(pvt->data_socket, cmd);
+}
+
+/*!
+ * \brief Send AT+CSCS.
+ * \param pvt an dc_pvt struct
+ * \param volume level to send
+ */
+static int dc_send_cscs(struct dc_pvt *pvt, const char *encoding)
+{
+	char cmd[64];
+	snprintf(cmd, sizeof(cmd), "AT+CSCS=\"%s\"\r", encoding);
 	return rfcomm_write(pvt->data_socket, cmd);
 }
 
@@ -3095,6 +3144,15 @@ static int handle_response_ok(struct dc_pvt *pvt, char *buf)
 			break;
 		case AT_CMGF:
 			ast_debug(1, "[%s] sms text mode enabled\n", pvt->id);
+			/* set text encoding to UCS-2 */
+			if (dc_send_cscs(pvt,"UCS2") || msg_queue_push(pvt, AT_OK, AT_CSCS)) {
+				ast_debug(1, "[%s] error setting CSCS (text encoding)\n", pvt->id);
+				goto e_return;
+			}
+			break;
+		case AT_CSCS:
+			ast_debug(1, "[%s] UCS-2 text encoding enabled\n", pvt->id);
+			pvt->use_ucs2_encoding = 1;
 			/* set SMS storage location */
 			if (dc_send_cpms(pvt) || msg_queue_push(pvt, AT_OK, AT_CPMS)) {
 				ast_debug(1, "[%s] error setting CPMS\n", pvt->id);
@@ -3277,6 +3335,16 @@ static int handle_response_error(struct dc_pvt *pvt, char *buf)
 		case AT_CMGF:
 			ast_debug(1, "[%s] error enableing text-mode SMS (CMGF)\n", pvt->id);
 			ast_debug(1, "[%s] no SMS support\n", pvt->id);
+			break;
+		case AT_CSCS:
+			/* this is not a fatal error, let's continue with initilization */
+			ast_debug(1, "[%s] No UCS-2 encoding support.\n", pvt->id);
+			pvt->use_ucs2_encoding = 0;
+			/* set SMS storage location */
+			if (dc_send_cpms(pvt) || msg_queue_push(pvt, AT_OK, AT_CPMS)) {
+				ast_debug(1, "[%s] error setting CPMS\n", pvt->id);
+				goto e_return;
+			}
 			break;
 		case AT_CPMS:
 			ast_debug(1, "[%s] error setting sms storage location (CPMS)\n", pvt->id);
@@ -3547,6 +3615,8 @@ static int handle_response_cmti(struct dc_pvt *pvt, char *buf)
  */
 static int handle_response_cmgr(struct dc_pvt *pvt, char *buf)
 {
+	int res;
+	char sms_utf8_buf[4096];
 	char *from_number, *text;
 	struct ast_channel *chan;
 	struct msg_queue_entry *msg;
@@ -3569,6 +3639,15 @@ static int handle_response_cmgr(struct dc_pvt *pvt, char *buf)
 		if (!(chan = dc_new(AST_STATE_DOWN, pvt, NULL))) {
 			ast_debug(1, "[%s] error creating sms message channel, disconnecting\n", pvt->id);
 			return -1;
+		}
+
+		if (pvt->use_ucs2_encoding) {
+			res = hexstr_ucs2_to_utf8(text,strlen(text),sms_utf8_buf,sizeof(sms_utf8_buf));
+			if (res>0) {
+				text = sms_utf8_buf;
+			} else {
+				ast_log(LOG_ERROR, "[%s] error parsing SMS (convert UCS-2 to UTF-8): %s\n", pvt->id, text);
+			}
 		}
 
 		strcpy(chan->exten, "sms");
@@ -3635,8 +3714,10 @@ static int handle_sms_prompt(struct dc_pvt *pvt, char *buf)
  */
 static int handle_response_cusd(struct dc_pvt *pvt, char *buf)
 {
+	int res;
 	char *cusd;
 	struct ast_channel *chan;
+	char cusd_utf8_buf[4096];
 
 	if (!(cusd = dc_parse_cusd(pvt, buf))) {
 		ast_verb(1, "[%s] error parsing CUSD: %s\n", pvt->id, buf);
@@ -3649,6 +3730,15 @@ static int handle_response_cusd(struct dc_pvt *pvt, char *buf)
 	if (!(chan = dc_new(AST_STATE_DOWN, pvt, NULL))) {
 		ast_debug(1, "[%s] error creating cusd message channel, disconnecting\n", pvt->id);
 		return -1;
+	}
+
+	if (pvt->use_ucs2_encoding) {
+		res = hexstr_ucs2_to_utf8(cusd,strlen(cusd),cusd_utf8_buf,sizeof(cusd_utf8_buf));
+		if (res>0) {
+			cusd = cusd_utf8_buf;
+		} else {
+			ast_log(LOG_ERROR, "[%s] error parsing CUSD (convert UCS-2 to UTF-8): %s\n", pvt->id, cusd);
+		}
 	}
 
 	strcpy(chan->exten, "cusd");
@@ -4293,6 +4383,7 @@ static struct dc_pvt *dc_load_device(struct ast_config *cfg, const char *cat)
 	pvt->rxgain = 0;
 	pvt->txgain = 0;
 	pvt->sms_storage_position = 0;
+	pvt->use_ucs2_encoding = 1;
 
 	/* setup the smoother */
 	if (!(pvt->smoother = ast_smoother_new(DEVICE_FRAME_SIZE))) {

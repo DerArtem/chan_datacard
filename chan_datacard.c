@@ -3642,7 +3642,7 @@ static int handle_response_cmgr(struct dc_pvt *pvt, char *buf)
 		}
 
 		if (pvt->use_ucs2_encoding) {
-			res = hexstr_ucs2_to_utf8(text,strlen(text),sms_utf8_buf,sizeof(sms_utf8_buf));
+			res = hexstr_ucs2_to_utf8(text,strlen(text)-2,sms_utf8_buf,sizeof(sms_utf8_buf));
 			if (res>0) {
 				text = sms_utf8_buf;
 			} else {

@@ -65,6 +65,15 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 947 $")
 #include <asterisk/manager.h>
 #include <asterisk/io.h>
 
+/*! Global jitterbuffer configuration - by default, jb is disabled */
+static struct ast_jb_conf default_jbconf = {
+	.flags = 0,
+	.max_size = -1,
+	.resync_threshold = -1,
+	.impl = ""
+};
+static struct ast_jb_conf global_jbconf;
+
 #include "char_conv.h"
 
 #define DC_CONFIG "datacard.conf"
@@ -798,7 +807,6 @@ e_return:
 
 static struct ast_channel *dc_new(int state, struct dc_pvt *pvt, char *cid_num)
 {
-
 	struct ast_channel *chn;
 
 	pvt->answered = 0;
@@ -820,6 +828,8 @@ static struct ast_channel *dc_new(int state, struct dc_pvt *pvt, char *cid_num)
 	chn->writeformat = prefformat;
 	chn->readformat = prefformat;
 	chn->tech_pvt = pvt;
+
+	ast_jb_configure(chn, &global_jbconf);
 
 	if (state == AST_STATE_RING)
 		chn->rings = 1;
@@ -4448,6 +4458,10 @@ static int dc_load_config(void)
 
 	/* parse [general] section */
 	for (v = ast_variable_browse(cfg, "general"); v; v = v->next) {
+		/* handle jb conf */
+		if (!ast_jb_read_conf(&global_jbconf, v->name, v->value))
+			continue;
+
 		if (!strcasecmp(v->name, "interval")) {
 			if (!sscanf(v->value, "%d", &discovery_interval)) {
 				ast_log(LOG_NOTICE, "error parsing 'interval' in general section, using default value\n");
@@ -4577,6 +4591,9 @@ static int unload_module(void)
 
 static int load_module(void)
 {
+	/* Copy the default jb config over global_jbconf */
+	memcpy(&global_jbconf, &default_jbconf, sizeof(struct ast_jb_conf));
+
 	if (dc_load_config()) {
 		ast_log(LOG_ERROR, "Errors reading config file %s. Not loading module.\n", DC_CONFIG);
 		return AST_MODULE_LOAD_DECLINE;

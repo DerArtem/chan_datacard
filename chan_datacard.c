@@ -192,6 +192,7 @@ static int handle_sms_prompt(struct dc_pvt *pvt, char *buf);
 /* Manager stuff */
 static int dc_manager_show_devices(struct mansession *s, const struct message *m);
 static int dc_manager_send_cusd(struct mansession *s, const struct message *m);
+static int dc_manager_send_sms(struct mansession *s, const struct message *m);
 static char *dc_send_manager_event_new_cusd(struct dc_pvt *pvt, char *message);
 static char *dc_send_manager_event_new_sms(struct dc_pvt *pvt, char *from_number, char *message);
 
@@ -209,6 +210,15 @@ static char *manager_send_cusd_desc =
 "	ActionID: <id>	Action ID for this transaction. Will be returned.\n"
 "	*Device: <id>	The datacard to which the cusd code will be send.\n"
 "	*CUSD: <code>	The cusd code that will be send to the device.\n";
+
+static char *manager_send_sms_desc =
+"Description: Send a sms message from a datacard.\n"
+"\n"
+"Variables: (Names marked with * are required)\n"
+"	ActionID: <id>	Action ID for this transaction. Will be returned.\n"
+"	*Device: <id>	The datacard to which the cusd code will be send.\n"
+"	*Number: <number>	The phone number to which the sms will be send.\n"
+"	*Message: <message>	The sms message that will be send.\n";
 
 /* CLI stuff */
 static char *handle_cli_dc_show_devices(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a);
@@ -567,7 +577,7 @@ e_return:
 
 static char *handle_cli_dc_cusd(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
 {
-	char buf[128];
+	char *cusd_buf = NULL;
 	struct dc_pvt *pvt = NULL;
 
 	switch (cmd) {
@@ -603,11 +613,15 @@ static char *handle_cli_dc_cusd(struct ast_cli_entry *e, int cmd, struct ast_cli
 		goto e_unlock_pvt;
 	}
 
-	snprintf(buf, sizeof(buf), "%s", a->argv[3]);
-	dc_send_cusd(pvt, buf);
-	msg_queue_push(pvt, AT_OK, AT_CUSD);
+	cusd_buf = ast_strdup(a->argv[3]);
+
+	if (dc_send_cusd(pvt, cusd_buf) || msg_queue_push(pvt, AT_OK, AT_CUSD)) {
+		ast_log(LOG_ERROR, "[%s] problem sending CUSD command.\n", pvt->id);
+		goto e_unlock_pvt;
+	}
 
 e_unlock_pvt:
+	ast_free(cusd_buf);
 	ast_mutex_unlock(&pvt->lock);
 e_return:
 	return CLI_SUCCESS;
@@ -615,7 +629,7 @@ e_return:
 
 static int dc_manager_send_cusd(struct mansession *s, const struct message *m)
 {
-	char buf2[128];
+	char *cusd_buf = NULL;
 	char idtext[256] = "";
 	struct dc_pvt *pvt = NULL;
 	const char *id = astman_get_header(m, "ActionID");
@@ -657,11 +671,94 @@ static int dc_manager_send_cusd(struct mansession *s, const struct message *m)
 		goto e_unlock_pvt;
 	}
 
-	snprintf(buf2, sizeof(buf2), "%s", cusd);
-	dc_send_cusd(pvt, buf2);
-	msg_queue_push(pvt, AT_OK, AT_CUSD);
+	cusd_buf = ast_strdup(cusd);
+
+	if (dc_send_cusd(pvt, cusd_buf) || msg_queue_push(pvt, AT_OK, AT_CUSD)) {
+		ast_log(LOG_ERROR, "[%s] problem sending CUSD command.\n", pvt->id);
+		goto e_unlock_pvt;
+	}
+
 	astman_send_ack(s, m, "CUSD code send successful");
 
+e_unlock_pvt:
+	ast_free(cusd_buf);
+	ast_mutex_unlock(&pvt->lock);
+e_return:
+	return 0;
+}
+
+static int dc_manager_send_sms(struct mansession *s, const struct message *m)
+{
+	char *number_buf;
+	char *message_buf;
+	char idtext[256] = "";
+	struct dc_pvt *pvt = NULL;
+	const char *id = astman_get_header(m, "ActionID");
+	const char *device = astman_get_header(m, "Device");
+	const char *number = astman_get_header(m, "Number");
+	const char *message = astman_get_header(m, "Message");
+
+	if (ast_strlen_zero(device)) {
+		astman_send_error(s, m, "Device not specified");
+		return 0;
+	}
+
+	if (ast_strlen_zero(number)) {
+		astman_send_error(s, m, "Number not specified");
+		return 0;
+	}
+
+	if (ast_strlen_zero(message)) {
+		astman_send_error(s, m, "Message not specified");
+		return 0;
+	}
+
+	if (!ast_strlen_zero(id))
+		snprintf(idtext, sizeof(idtext), "ActionID: %s\r\n", id);
+
+	AST_RWLIST_RDLOCK(&devices);
+	AST_RWLIST_TRAVERSE(&devices, pvt, entry) {
+		if (!strcmp(pvt->id, device))
+			break;
+	}
+	AST_RWLIST_UNLOCK(&devices);
+
+	if (!pvt) {
+		char buf[256];
+		snprintf(buf, sizeof(buf), "Device %s not found -- SMS will not be sent.", device);
+		astman_send_error(s, m, buf);
+		goto e_return;
+	}
+
+	ast_mutex_lock(&pvt->lock);
+	if (!pvt->connected) {
+		char buf[256];
+		snprintf(buf, sizeof(buf), "Device %s not connected -- SMS will not be sent.", device);
+		astman_send_error(s, m, buf);
+		goto e_unlock_pvt;
+	}
+
+	if (!pvt->has_sms) {
+		ast_log(LOG_ERROR,"Device %s doesn't handle SMS -- SMS will not be sent.\n", device);
+		goto e_unlock_pvt;
+	}
+
+	number_buf = ast_strdup(number);
+	message_buf = ast_strdup(message);
+
+	if (dc_send_cmgs(pvt, number_buf) || msg_queue_push_data(pvt, AT_SMS_PROMPT, AT_CMGS, message_buf)) {
+		ast_log(LOG_ERROR, "[%s] problem sending SMS message\n", pvt->id);
+		goto e_free_vars;
+	}
+
+	astman_send_ack(s, m, "SMS send successful");
+
+	ast_mutex_unlock(&pvt->lock);
+	return 0;
+
+e_free_vars:
+	ast_free(number_buf);
+	ast_free(message_buf);
 e_unlock_pvt:
 	ast_mutex_unlock(&pvt->lock);
 e_return:
@@ -676,7 +773,6 @@ e_return:
 
 static int dc_status_exec(struct ast_channel *ast, void *data)
 {
-
 	struct dc_pvt *pvt;
 	char *parse;
 	int stat;
@@ -724,7 +820,6 @@ static int dc_status_exec(struct ast_channel *ast, void *data)
 
 static int dc_sendsms_exec(struct ast_channel *ast, void *data)
 {
-
 	struct dc_pvt *pvt;
 	char *parse, *message;
 
@@ -2744,7 +2839,7 @@ static int dc_send_cmgd(struct dc_pvt *pvt, int index)
 static int dc_send_cmgs(struct dc_pvt *pvt, char *number)
 {
 	int res;
-	char cmd[64];
+	char cmd[4200];
 	char *old_number = number;
 	char ucs2_number[4096];
 
@@ -4698,6 +4793,13 @@ static int load_module(void)
 		dc_manager_send_cusd,
 		"Send a cusd command to the datacard.",
 		manager_send_cusd_desc);
+
+	ast_manager_register2(
+		"DatacardSendSMS",
+		EVENT_FLAG_SYSTEM | EVENT_FLAG_CONFIG | EVENT_FLAG_REPORTING,
+		dc_manager_send_sms,
+		"Send a sms message.",
+		manager_send_sms_desc);
 
 	return AST_MODULE_LOAD_SUCCESS;
 

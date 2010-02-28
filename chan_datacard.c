@@ -291,7 +291,7 @@ static int dc_send_cmgf(struct dc_pvt *pvt, int mode);
 static int dc_send_cnmi(struct dc_pvt *pvt);
 static int dc_send_cmgr(struct dc_pvt *pvt, int index);
 static int dc_send_cmgd(struct dc_pvt *pvt, int index);
-static int dc_send_cmgs(struct dc_pvt *pvt, const char *number);
+static int dc_send_cmgs(struct dc_pvt *pvt, char *number);
 static int dc_send_sms_text(struct dc_pvt *pvt, char *message);
 static int dc_send_chup(struct dc_pvt *pvt);
 static int dc_send_atd(struct dc_pvt *pvt, const char *number);
@@ -2741,9 +2741,23 @@ static int dc_send_cmgd(struct dc_pvt *pvt, int index)
  * \param pvt an dc_pvt struct
  * \param number the destination of the message
  */
-static int dc_send_cmgs(struct dc_pvt *pvt, const char *number)
+static int dc_send_cmgs(struct dc_pvt *pvt, char *number)
 {
+	int res;
 	char cmd[64];
+	char *old_number = number;
+	char ucs2_number[4096];
+
+	if (pvt->use_ucs2_encoding) {
+		res = utf8_to_hexstr_ucs2(number,strlen(number),ucs2_number,sizeof(ucs2_number));
+		if (res>0) {
+			number = ucs2_number;
+		} else {
+			ast_log(LOG_ERROR, "[%s] error converting SMS number to UCS-2): %s\n", pvt->id, number);
+			number = old_number;
+		}
+	}
+
 	snprintf(cmd, sizeof(cmd), "AT+CMGS=\"%s\"\r", number);
 	return rfcomm_write(pvt->data_socket, cmd);
 }
@@ -2766,11 +2780,11 @@ static int dc_send_sms_text(struct dc_pvt *pvt, char *message)
 			message = ucs2_message;
 		} else {
 			ast_log(LOG_ERROR, "[%s] error converting SMS to UCS-2): %s\n", pvt->id, message);
+			message = old_message;
 		}
 	}
 
 	snprintf(cmd, sizeof(cmd), "%.160s\x1a", message);
-	message = old_message;
 
 	return rfcomm_write(pvt->data_socket, cmd);
 }
@@ -4295,7 +4309,7 @@ static int disconnect_datacard(struct dc_pvt *pvt)
 	ast_mutex_unlock(&pvt->lock);
 
 	ast_verb(3, "Datacard %s has disconnected.\n", pvt->id);
-	manager_event(EVENT_FLAG_SYSTEM, "DatacardStatus", "Status: Disconnect\r\nDevice: %s\r\n", pvt->id);	
+	manager_event(EVENT_FLAG_SYSTEM, "DatacardStatus", "Status: Disconnect\r\nDevice: %s\r\n", pvt->id);
 
 	return 1;
 }

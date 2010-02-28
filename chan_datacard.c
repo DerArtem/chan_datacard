@@ -193,6 +193,7 @@ static int handle_sms_prompt(struct dc_pvt *pvt, char *buf);
 static int dc_manager_show_devices(struct mansession *s, const struct message *m);
 static int dc_manager_send_cusd(struct mansession *s, const struct message *m);
 static char *dc_send_manager_event_new_cusd(struct dc_pvt *pvt, char *message);
+static char *dc_send_manager_event_new_sms(struct dc_pvt *pvt, char *from_number, char *message);
 
 static char *manager_show_devices_desc =
 "Description: Lists Datacard devices in text format with details on current status.\n"
@@ -3674,6 +3675,8 @@ static int handle_response_cmgr(struct dc_pvt *pvt, char *buf)
 		pbx_builtin_setvar_helper(chan, "SMSSRC", from_number);
 		pbx_builtin_setvar_helper(chan, "SMSTXT", text);
 
+		dc_send_manager_event_new_sms(pvt, from_number, text);
+
 		if (ast_pbx_start(chan)) {
 			ast_log(LOG_ERROR, "[%s] unable to start pbx on incoming sms\n", pvt->id);
 			dc_ast_hangup(pvt);
@@ -4521,6 +4524,49 @@ static char *dc_send_manager_event_new_cusd(struct dc_pvt *pvt, char *message)
 		"LineCount: %d\r\n"
 		"%s\r\n",
 		pvt->id,
+		linecount,
+		ast_str_buffer(buf)
+	);
+
+	ret = ast_strdup(ast_str_buffer(buf));
+	ast_free(buf);
+
+	return ret;
+}
+
+/*!
+ * \brief Send a DatacardNewSMS event to the manager
+ * This function splits the message in multiple lines, so multi-line
+ * SMS messages can be send over the manager API.
+ * \param pvt a dc_pvt structure
+ * \param from_number a null terminated buffer containing the from number
+ * \param message a null terminated buffer containing the message
+ */
+static char *dc_send_manager_event_new_sms(struct dc_pvt *pvt, char *from_number, char *message)
+{
+	int linecount = 0;
+	struct ast_str *buf;
+	char *pch;
+	char *ret;
+	char *saveptr;
+
+	buf = ast_str_create(256);
+
+	pch = strtok_r (message, "\r\n", &saveptr);
+	while (pch != NULL)
+	{
+		ast_str_append(&buf,0,"MessageLine%d: %s\r\n", linecount, pch);
+		pch = strtok_r (NULL, "\r\n", &saveptr);
+		linecount++;
+	}
+
+	manager_event(EVENT_FLAG_CALL, "DatacardNewSMS",
+		"Device: %s\r\n"
+		"From: %s\r\n"
+		"LineCount: %d\r\n"
+		"%s\r\n",
+		pvt->id,
+		from_number,
 		linecount,
 		ast_str_buffer(buf)
 	);

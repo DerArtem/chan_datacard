@@ -1101,6 +1101,7 @@ static int dc_call(struct ast_channel *ast, char *dest, int timeout)
 	pvt->hangupcause = 0;
 	pvt->needchup = 1;
 	pvt->outgoing = 1;
+	pvt->volume_synchronized = 0;
 	msg_queue_push(pvt, AT_OK, AT_D);
 	
 	ast_mutex_unlock(&pvt->lock);
@@ -1133,6 +1134,7 @@ static int dc_hangup(struct ast_channel *ast)
 	pvt->outgoing = 0;
 	pvt->incoming = 0;
 	pvt->needring = 0;
+	pvt->volume_synchronized = 0;
 	pvt->owner = NULL;
 	ast->tech_pvt = NULL;
 
@@ -3223,24 +3225,9 @@ static int handle_response_ok(struct dc_pvt *pvt, char *buf)
 		case AT_CVOICE:
 			pvt->has_voice = 1;
 			ast_debug(1, "[%s] Datacard has voice support.\n", pvt->id);
-			if (dc_send_clvl(pvt,1) || msg_queue_push(pvt, AT_OK, AT_CLVL)) {
-				ast_debug(1, "[%s] Error syncronizing audio level (part1/2)\n", pvt->id);
+			if (dc_send_clip(pvt, 1) || msg_queue_push(pvt, AT_OK, AT_CLIP)) {
+				ast_debug(1, "[%s] Error enabling calling line notification.\n", pvt->id);
 				goto e_return;
-			}
-			break;
-		case AT_CLVL:
-			if (pvt->volume_synchronized == 0) {
-				pvt->volume_synchronized = 1;
-				if (dc_send_clvl(pvt,5) || msg_queue_push(pvt, AT_OK, AT_CLVL)) {
-					ast_debug(1, "[%s] Error syncronizing audio level (part2/2).\n", pvt->id);
-					goto e_return;
-				}
-			}
-			else {
-				if (dc_send_clip(pvt, 1) || msg_queue_push(pvt, AT_OK, AT_CLIP)) {
-					ast_debug(1, "[%s] Error enabling calling line notification.\n", pvt->id);
-					goto e_return;
-				}
 			}
 			break;
 		case AT_CLIP:
@@ -3338,6 +3325,15 @@ static int handle_response_ok(struct dc_pvt *pvt, char *buf)
 		case AT_CMGD:
 			ast_debug(1, "[%s] sms message deleted successfully\n", pvt->id);
 			break;
+		case AT_CLVL:
+			if (pvt->volume_synchronized == 0) {
+				pvt->volume_synchronized = 1;
+				if (dc_send_clvl(pvt,5) || msg_queue_push(pvt, AT_OK, AT_CLVL)) {
+					ast_debug(1, "[%s] Error syncronizing audio level (part2/2).\n", pvt->id);
+					goto e_return;
+				}
+			}
+			break;
 		case AT_UNKNOWN:
 		default:
 			ast_debug(1, "[%s] recieved OK for unhandled request: %s\n", pvt->id, at_msg2str(entry->response_to));
@@ -3425,15 +3421,6 @@ static int handle_response_error(struct dc_pvt *pvt, char *buf)
 			ast_debug(1, "[%s] Datacard has NO voice support.\n", pvt->id);
 			/* this is not a fatal error, let's continue with initilization */
 			pvt->has_voice = 0;
-			if (dc_send_clvl(pvt,1) || msg_queue_push(pvt, AT_OK, AT_CLVL)) {
-				ast_debug(1, "[%s] error syncronizing audio level (part1/2)\n", pvt->id);
-				goto e_return;
-			}
-			break;
-		case AT_CLVL:
-			ast_debug(1, "[%s] error syncronizing audio level\n", pvt->id);
-			/* this is not a fatal error, let's continue with initilization */
-			pvt->volume_synchronized = 0;
 			if (dc_send_clip(pvt, 1) || msg_queue_push(pvt, AT_OK, AT_CLIP)) {
 				ast_debug(1, "[%s] Error enabling calling line notification.\n", pvt->id);
 				goto e_return;
@@ -3514,6 +3501,11 @@ static int handle_response_error(struct dc_pvt *pvt, char *buf)
 		case AT_COPS:
 			ast_debug(1, "[%s] could not get provider name.\n", pvt->id);
 			break;
+		case AT_CLVL:
+			ast_debug(1, "[%s] error syncronizing audio level\n", pvt->id);
+			/* this is not a fatal error, let's continue with initilization */
+			pvt->volume_synchronized = 0;
+			break;
 		case AT_UNKNOWN:
 		default:
 			ast_debug(1, "[%s] recieved ERROR for unhandled request: %s\n", pvt->id, at_msg2str(entry->response_to));
@@ -3585,6 +3577,11 @@ static int handle_response_cssi(struct dc_pvt *pvt, char *buf)
 		ast_debug(1, "[%s] remote alerting\n", pvt->id);
 		dc_queue_control(pvt, AST_CONTROL_RINGING);
 	}
+
+	if (dc_send_clvl(pvt,1) || msg_queue_push(pvt, AT_OK, AT_CLVL)) {
+		ast_debug(1, "[%s] Error syncronizing audio level (part1/2)\n", pvt->id);
+	}
+
 	return 0;
 }
 
@@ -3618,13 +3615,7 @@ static int handle_response_cend(struct dc_pvt *pvt, char *buf)
 	 * ^CEND:<call_index>,<duration>,<end_status>[,<cc_cause>]
 	 */
 	if (!sscanf(buf, "^CEND:%d,%d,%d,%d", &call_index, &duration, &end_status, &cc_cause)) {
-		ast_debug(1, "[%s] All CEND parameters parsed.\n", pvt->id);
-	}
-	else {
-		if (!sscanf(buf, "^CEND:%d,%d,%d", &call_index, &duration, &end_status)) {
-			ast_debug(1, "[%s] error parsing CEND event '%s'\n", pvt->id, buf);
-		}
-		ast_debug(1, "[%s] cc_cause was not reported.\n", pvt->id);
+		ast_debug(1, "[%s] Could not parse all CEND parameters.\n", pvt->id);
 	}
 
 	ast_debug(1, "[%s] CEND: call_index: %d\n", pvt->id, call_index);
@@ -3646,6 +3637,7 @@ static int handle_response_cend(struct dc_pvt *pvt, char *buf)
 	pvt->needring = 0;
 	pvt->incoming = 0;
 	pvt->outgoing = 0;
+	pvt->volume_synchronized = 0;
 
 	return 0;
 }
@@ -3723,6 +3715,13 @@ static int handle_response_clip(struct dc_pvt *pvt, char *buf)
  */
 static int handle_response_ring(struct dc_pvt *pvt, char *buf)
 {
+	/* We only want to syncronize volume on the first ring */
+	if (pvt->incoming != 1) {
+		if (dc_send_clvl(pvt,1) || msg_queue_push(pvt, AT_OK, AT_CLVL)) {
+			ast_debug(1, "[%s] Error syncronizing audio level (part1/2)\n", pvt->id);
+		}
+	}
+
 	pvt->incoming = 1;
 	return 0;
 }

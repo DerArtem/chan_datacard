@@ -3307,7 +3307,6 @@ static int handle_response_ok(struct dc_pvt *pvt, char *buf)
 			break;
 		case AT_D:
 			ast_debug(1, "[%s] dial sent successfully\n", pvt->id);
-			dc_queue_control(pvt, AST_CONTROL_PROGRESS);
 
 			if (dc_send_ddsetex(pvt) || msg_queue_push(pvt, AT_OK, AT_DDSETEX)) {
 				ast_debug(1, "[%s] error sending AT^DDSETEX\n", pvt->id);
@@ -3558,6 +3557,8 @@ static int handle_response_orig(struct dc_pvt *pvt, char *buf)
 	int call_index = 1;
 	int call_type = 0;
 
+	dc_queue_control(pvt, AST_CONTROL_PROGRESS);
+
 	/* parse ORIG info in the following format:
 	 * ^ORIG:<call_index>,<call_type>
 	 */
@@ -3617,6 +3618,7 @@ static int handle_response_cend(struct dc_pvt *pvt, char *buf)
 		}
 	}
 	pvt->needchup = 0;
+	pvt->needring = 0;
 	pvt->incoming = 0;
 	pvt->outgoing = 0;
 

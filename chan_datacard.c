@@ -3609,6 +3609,31 @@ static int handle_response_cssu(struct dc_pvt *pvt, char *buf)
  */
 static int handle_response_cend(struct dc_pvt *pvt, char *buf)
 {
+	int call_index = 0;
+	int duration = 0;
+	int end_status = 0;
+	int cc_cause = 0;
+
+	/* parse CEND info in the following format:
+	 * ^CEND:<call_index>,<duration>,<end_status>[,<cc_cause>]
+	 */
+	if (!sscanf(buf, "^CEND:%d,%d,%d,%d", &call_index, &duration, &end_status, &cc_cause)) {
+		ast_debug(1, "[%s] All CEND parameters parsed.\n", pvt->id);
+	}
+	else {
+		if (!sscanf(buf, "^CEND:%d,%d,%d", &call_index, &duration, &end_status)) {
+			ast_debug(1, "[%s] error parsing CEND event '%s'\n", pvt->id, buf);
+		}
+		ast_debug(1, "[%s] cc_cause was not reported.\n", pvt->id);
+	}
+
+	ast_debug(1, "[%s] CEND: call_index: %d\n", pvt->id, call_index);
+	ast_debug(1, "[%s] CEND: duration: %d\n", pvt->id, duration);
+	ast_debug(1, "[%s] CEND: end_status: %d\n", pvt->id, end_status);
+	ast_debug(1, "[%s] CEND: cc_cause: %d\n", pvt->id, cc_cause);
+
+	pvt->hangupcause = cc_cause;
+
 	ast_debug(1, "[%s] line disconnected\n", pvt->id);
 	if (pvt->owner) {
 		ast_debug(1, "[%s] hanging up owner\n", pvt->id);

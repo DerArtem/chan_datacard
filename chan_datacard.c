@@ -2376,7 +2376,7 @@ static int dc_parse_cmgr(struct dc_pvt *pvt, char *buf, char **from_number, char
 	 */
 	state = 0;
 	s = strlen(buf);
-	for (i = 0; i < s && s != 6; i++) {
+	for (i = 0; i < s && state != 6; i++) {
 		switch (state) {
 		case 0: /* search for start of the number section (,) */
 			if (buf[i] == ',') {
@@ -2387,11 +2387,13 @@ static int dc_parse_cmgr(struct dc_pvt *pvt, char *buf, char **from_number, char
 			if (buf[i] == '"') {
 				state++;
 			}
+			break;
 		case 2: /* mark the start of the number */
 			if (from_number) {
 				*from_number = &buf[i];
 				state++;
 			}
+			break;
 			/* fall through */
 		case 3: /* search for the end of the number (") */
 			if (buf[i] == '"') {
@@ -3627,6 +3629,7 @@ static int handle_response_cmgr(struct dc_pvt *pvt, char *buf)
 {
 	int res;
 	char sms_utf8_buf[4096];
+	char from_number_utf8_buf[1024];
 	char *from_number, *text;
 	struct ast_channel *chan;
 	struct msg_queue_entry *msg;
@@ -3657,6 +3660,13 @@ static int handle_response_cmgr(struct dc_pvt *pvt, char *buf)
 				text = sms_utf8_buf;
 			} else {
 				ast_log(LOG_ERROR, "[%s] error parsing SMS (convert UCS-2 to UTF-8): %s\n", pvt->id, text);
+			}
+
+			res = hexstr_ucs2_to_utf8(from_number,strlen(from_number)-2,from_number_utf8_buf,sizeof(from_number_utf8_buf));
+			if (res>0) {
+				from_number = from_number_utf8_buf;
+			} else {
+				ast_log(LOG_ERROR, "[%s] error parsing SMS from_number (convert UCS-2 to UTF-8): %s\n", pvt->id, from_number);
 			}
 		}
 

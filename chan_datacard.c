@@ -995,7 +995,7 @@ static struct ast_channel *dc_request(const char *type, int format, void *data, 
 		group = atoi(&dest_dev[1]);
 		AST_RWLIST_RDLOCK(&devices);
 		
-		// Generate a list of all availible devices
+		/* Generate a list of all availible devices */
 		AST_RWLIST_TRAVERSE(&devices, pvt, entry) {
 			if (group > -1 && pvt->group == group) {
 				device_list[loop_count] = pvt;
@@ -1003,7 +1003,7 @@ static struct ast_channel *dc_request(const char *type, int format, void *data, 
 			}
 		}
 
-		// Find last used device
+		/* Find last used device */
 		for (i=0;i<loop_count;i++) {
 			if (device_list[i]->group_last_used == 1) {
 				last_used_device = i;
@@ -1012,7 +1012,7 @@ static struct ast_channel *dc_request(const char *type, int format, void *data, 
 			}
 		}
 
-		// Search for a availible device starting at the last used device 
+		/* Search for a availible device starting at the last used device */
 		loop_count2 = last_used_device;
 
 		for (i=0;i<loop_count;i++) {
@@ -1175,7 +1175,6 @@ static int dc_digit_end(struct ast_channel *ast, char digit, unsigned int durati
 		ast_debug(1, "[%s] error sending digit %c\n", pvt->id, digit);
 		return -1;
 	}
-	//msg_queue_push(pvt, AT_OK, AT_VTS);
 	msg_queue_push(pvt, AT_OK, AT_DTMF);
 	ast_mutex_unlock(&pvt->lock);
 
@@ -1229,7 +1228,7 @@ static struct ast_frame *dc_audio_read(struct ast_channel *ast)
 	fr = ast_dsp_process(ast, pvt->dsp, &pvt->fr);
 
 	if (pvt->rxgain!=0) {
-		// Lets adjust the volume of the incoming audio
+		/* Lets adjust the volume of the incoming audio */
 		if (ast_frame_adjust_volume(fr, pvt->rxgain) != 0) {
 			ast_debug(1, "[%s] volume could not be adjusted!\n", pvt->id);
 		}
@@ -1246,7 +1245,6 @@ e_return:
 
 static int dc_audio_write(struct ast_channel *ast, struct ast_frame *frame)
 {
-
 	struct dc_pvt *pvt = ast->tech_pvt;
 	struct ast_frame *f;
 
@@ -1264,7 +1262,7 @@ static int dc_audio_write(struct ast_channel *ast, struct ast_frame *frame)
 
 	while ((f = ast_smoother_read(pvt->smoother))) {
 		if (pvt->txgain!=0) {
-			// Lets adjust the volume of the incoming audio
+			/* Lets adjust the volume of the incoming audio */
 			if (ast_frame_adjust_volume(f, pvt->txgain) != 0) {
 				ast_debug(1, "[%s] volume could not be adjusted!\n", pvt->id);
 			}
@@ -1276,12 +1274,10 @@ static int dc_audio_write(struct ast_channel *ast, struct ast_frame *frame)
 	ast_mutex_unlock(&pvt->lock);
 
 	return 0;
-
 }
 
 static int dc_fixup(struct ast_channel *oldchan, struct ast_channel *newchan)
 {
-
 	struct dc_pvt *pvt = newchan->tech_pvt;
 
 	if (!pvt) {
@@ -1295,12 +1291,10 @@ static int dc_fixup(struct ast_channel *oldchan, struct ast_channel *newchan)
 	ast_mutex_unlock(&pvt->lock);
 
 	return 0;
-
 }
 
 static int dc_devicestate(void *data)
 {
-
 	char *device;
 	int res = AST_DEVICE_INVALID;
 	struct dc_pvt *pvt;
@@ -1329,7 +1323,6 @@ static int dc_devicestate(void *data)
 	ast_mutex_unlock(&pvt->lock);
 
 	return res;
-
 }
 
 /*
@@ -1362,7 +1355,6 @@ static int dc_devicestate(void *data)
 
 static void do_alignment_detection(struct dc_pvt *pvt, char *buf, int buflen)
 {
-
 	int i;
 	short a, *s;
 	char *p;
@@ -1393,7 +1385,6 @@ static void do_alignment_detection(struct dc_pvt *pvt, char *buf, int buflen)
 		ast_debug(1, "Alignment Detection Triggered.\n");
 	} else
 		pvt->do_alignment_detection = 0;
-
 }
 
 static int dc_queue_control(struct dc_pvt *pvt, enum ast_control_frame_type control)
@@ -1667,15 +1658,15 @@ static int rfcomm_read_until_crlf(int data_socket, char **buf, size_t count, siz
 	while ((res = read(data_socket, &c, 1)) == 1) {
 		rfcomm_read_debug(c);
 
-		// Fix: The Huawei sticks do not terminate this command with a \r\n
-		// So we have to handle this command separately 
+		/* Fix: The Huawei sticks do not terminate this command with a \r\n */
+		/* So we have to handle this command separately */
 		if (*in_count >= 7 && !strncmp(*buf - *in_count, "+CSSI: ", 7)) {
 			rfcomm_append_buf(buf, count, in_count, c);
 			return 1;
 		}
 
-		// Fix: The Huawei sticks do not terminate this command with a \r\n
-		// So we have to handle this command separately
+		/* Fix: The Huawei sticks do not terminate this command with a \r\n */
+		/* So we have to handle this command separately */
 		if (*in_count >= 7 && !strncmp(*buf - *in_count, "+CSSU: ", 7)) {
 			rfcomm_append_buf(buf, count, in_count, c);
 			return 1;
@@ -2068,7 +2059,6 @@ static ssize_t rfcomm_read(int data_socket, char *buf, size_t count)
 
 static int audio_write(int s, char *buf, int len)
 {
-
 	int r;
 
 	if (s == -1) {
@@ -2095,7 +2085,6 @@ static int audio_write(int s, char *buf, int len)
 	}
 
 	return 1;
-
 }
 
 /*
@@ -2577,7 +2566,7 @@ static char *dc_parse_cusd(struct dc_pvt *pvt, char *buf)
 	return cusd;
 }
 
-// FIXME: Finish parsing
+/* FIXME: Finish parsing */
 /*!
  * \brief Parse a CPIN notification.
  * \param pvt an dc_pvt struct
@@ -4334,19 +4323,19 @@ static void *do_monitor_phone(void *data)
 			ast_mutex_unlock(&pvt->lock);
 			break;
 		case AT_COPS:
-			// An error here is not fatal. Just keep going.
+			/* An error here is not fatal. Just keep going. */
 			ast_mutex_lock(&pvt->lock);
 			handle_response_cops(pvt, buf);
 			ast_mutex_unlock(&pvt->lock);
 			break;
 		case AT_CREG:
-			// An error here is not fatal. Just keep going.
+			/* An error here is not fatal. Just keep going. */
 			ast_mutex_lock(&pvt->lock);
 			handle_response_creg(pvt, buf);
 			ast_mutex_unlock(&pvt->lock);
 			break;
 		case AT_MODE:
-			// An error here is not fatal. Just keep going.
+			/* An error here is not fatal. Just keep going. */
 			ast_mutex_lock(&pvt->lock);
 			handle_response_mode(pvt, buf);
 			ast_mutex_unlock(&pvt->lock);

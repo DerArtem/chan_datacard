@@ -1268,7 +1268,9 @@ static int dc_audio_write(struct ast_channel *ast, struct ast_frame *frame)
 			}
 		}
 		audio_write(pvt->audio_socket, f->data.ptr, f->datalen);
-		ast_frfree(f);
+		if (f != frame) {
+			ast_frfree(f);
+		}
 	}
 
 	ast_mutex_unlock(&pvt->lock);

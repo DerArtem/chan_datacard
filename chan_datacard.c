@@ -122,6 +122,7 @@ struct dc_pvt {
 	int hangupcause;
 	int initialized:1;		/*!< whether a service level connection exists or not */
 	int rssi;
+	int ber;
 	int linkmode;
 	int linksubmode;
 	int rxgain;
@@ -134,6 +135,9 @@ struct dc_pvt {
 	int sms_storage_position;
 	unsigned int auto_delete_sms:1;
 	unsigned int use_ucs2_encoding:1;
+	unsigned int reset_datacard:1;
+	int u2diag;
+	char subscriber_number[1024];
 
 	/* flags */
 	unsigned int outgoing:1;	/*!< outgoing call */
@@ -181,12 +185,16 @@ static int handle_response_cssu(struct dc_pvt *pvt, char *buf);
 static int handle_response_cpin(struct dc_pvt *pvt, char *buf);
 static int handle_response_smmemfull(struct dc_pvt *pvt, char *buf);
 static int handle_response_rssi(struct dc_pvt *pvt, char *buf);
+static int handle_response_csq(struct dc_pvt *pvt, char *buf);
 static int handle_response_cops(struct dc_pvt *pvt, char *buf);
 static int handle_response_mode(struct dc_pvt *pvt, char *buf);
 static int handle_response_cgmi(struct dc_pvt *pvt, char *buf);
 static int handle_response_cgmm(struct dc_pvt *pvt, char *buf);
 static int handle_response_cgmr(struct dc_pvt *pvt, char *buf);
 static int handle_response_cgsn(struct dc_pvt *pvt, char *buf);
+static int handle_response_cnum(struct dc_pvt *pvt, char *buf);
+static int handle_response_conf(struct dc_pvt *pvt, char *buf);
+static int handle_response_boot(struct dc_pvt *pvt, char *buf);
 
 static int handle_sms_prompt(struct dc_pvt *pvt, char *buf);
 
@@ -280,11 +288,15 @@ static int audio_write(int s, char *buf, int len);
 
 static char *dc_parse_clip(struct dc_pvt *pvt, char *buf);
 static char *dc_parse_cops(struct dc_pvt *pvt, char *buf);
+static char *dc_parse_cnum(struct dc_pvt *pvt, char *buf);
 static int dc_parse_cmti(struct dc_pvt *pvt, char *buf);
 static int dc_parse_cmgr(struct dc_pvt *pvt, char *buf, char **from_number, char **text);
 static char *dc_parse_cusd(struct dc_pvt *pvt, char *buf);
 static int dc_parse_cpin(struct dc_pvt *pvt, char *buf);
 static int dc_parse_rssi(struct dc_pvt *pvt, char *buf);
+static int dc_parse_csq(struct dc_pvt *pvt, char *buf, int type);
+static int dc_parse_csq_rssi(struct dc_pvt *pvt, char *buf);
+static int dc_parse_csq_ber(struct dc_pvt *pvt, char *buf);
 static int dc_parse_linkmode(struct dc_pvt *pvt, char *buf);
 static int dc_parse_linksubmode(struct dc_pvt *pvt, char *buf);
 
@@ -296,6 +308,8 @@ static int dc_send_cvoice_test(struct dc_pvt *pvt);
 static int dc_send_cssn(struct dc_pvt *pvt, int cssi, int cssu);
 
 static int dc_send_ate0(struct dc_pvt *pvt);
+static int dc_send_u2diag(struct dc_pvt *pvt, int mode);
+static int dc_send_at(struct dc_pvt *pvt);
 static int dc_send_atz(struct dc_pvt *pvt);
 static int dc_send_dtmf(struct dc_pvt *pvt, char digit);
 static int dc_send_cmgf(struct dc_pvt *pvt, int mode);
@@ -313,11 +327,13 @@ static int dc_send_cops_init(struct dc_pvt *pvt,int mode, int format);
 static int dc_send_cops(struct dc_pvt *pvt);
 static int dc_send_creg_init(struct dc_pvt *pvt, int level);
 static int dc_send_creg(struct dc_pvt *pvt);
+static int dc_send_cnum(struct dc_pvt *pvt);
 static int dc_send_cgmi(struct dc_pvt *pvt);
 static int dc_send_cgmm(struct dc_pvt *pvt);
 static int dc_send_cgmr(struct dc_pvt *pvt);
 static int dc_send_cgsn(struct dc_pvt *pvt);
 static int dc_send_cscs(struct dc_pvt *pvt, const char *encoding);
+static int dc_send_csq(struct dc_pvt *pvt);
 
 /*
  * Hayes AT command helpers
@@ -339,6 +355,7 @@ typedef enum {
 	AT_CMS_ERROR,
 	/* at commands */
 	AT_A,
+	AT,
 	AT_Z,
 	AT_D,
 	AT_E,
@@ -349,6 +366,7 @@ typedef enum {
 	AT_CONF,
 	AT_ORIG,
 	AT_SMMEMFULL,
+	AT_CSQ,
 	AT_RSSI,
 	AT_BOOT,
 	AT_CSSN,
@@ -383,6 +401,8 @@ typedef enum {
 	AT_SIMST,
 	AT_SRVST,
 	AT_CSCS,
+	AT_U2DIAG,
+	AT_CNUM,
 } at_message_t;
 
 static int at_match_prefix(char *buf, char *prefix);
@@ -433,7 +453,7 @@ static char *handle_cli_dc_show_devices(struct ast_cli_entry *e, int cmd, struct
 	char linkmode[6];
 	char linksubmode[6];
 
-#define FORMAT1 "%-15.15s %-6.6s %-9.9s %-5.5s %-5.5s %-5.5s %-5.5s %-5.5s %-7.7s %-15.15s %-12.12s %-10.10s %-17.17s %-17.17s\n"
+#define FORMAT1 "%-15.15s %-6.6s %-9.9s %-5.5s %-5.5s %-5.5s %-5.5s %-5.5s %-7.7s %-15.15s %-12.12s %-10.10s %-17.17s %-17.17s %-17.17s\n"
 
 	switch (cmd) {
 	case CLI_INIT:
@@ -449,7 +469,7 @@ static char *handle_cli_dc_show_devices(struct ast_cli_entry *e, int cmd, struct
 	if (a->argc != 3)
 		return CLI_SHOWUSAGE;
 
-	ast_cli(a->fd, FORMAT1, "ID", "Group", "Connected", "State", "Voice", "SMS", "RSSI", "Mode", "Submode", "Provider Name", "Manufacturer", "Model", "Firmware", "IMEI");
+	ast_cli(a->fd, FORMAT1, "ID", "Group", "Connected", "State", "Voice", "SMS", "RSSI", "Mode", "Submode", "Provider Name", "Manufacturer", "Model", "Firmware", "IMEI", "Number");
 	AST_RWLIST_RDLOCK(&devices);
 	AST_RWLIST_TRAVERSE(&devices, pvt, entry) {
 		ast_mutex_lock(&pvt->lock);
@@ -471,7 +491,8 @@ static char *handle_cli_dc_show_devices(struct ast_cli_entry *e, int cmd, struct
 				pvt->manufacturer,
 				pvt->model,
 				pvt->firmware,
-				pvt->imei
+				pvt->imei,
+				pvt->subscriber_number
 		       );
 		ast_mutex_unlock(&pvt->lock);
 	}
@@ -512,6 +533,7 @@ static int dc_manager_show_devices(struct mansession *s, const struct message *m
 		astman_append(s,"Model: %s\r\n", pvt->model);
 		astman_append(s,"Firmware: %s\r\n", pvt->firmware);
 		astman_append(s,"IMEI: %s\r\n", pvt->imei);
+		astman_append(s,"Number: %s\r\n", pvt->subscriber_number);
 		astman_append(s,"\r\n");
 		count++;
 		ast_mutex_unlock(&pvt->lock);
@@ -2122,6 +2144,8 @@ static at_message_t at_read_full(int data_socket, char *buf, size_t count)
 
 	if (!strcmp("OK", buf)) {
 		return AT_OK;
+	} else if (!strcmp("\r\nOK", buf)) {
+		return AT_OK;
 	} else if (!strcmp("ERROR", buf)) {
 		return AT_ERROR;
 	} else if (!strcmp("COMMAND NOT SUPPORT", buf)) {
@@ -2166,6 +2190,8 @@ static at_message_t at_read_full(int data_socket, char *buf, size_t count)
 		return AT_ORIG;
 	} else if (at_match_prefix(buf, "^SMMEMFULL:")) {
 		return AT_SMMEMFULL;
+	} else if (at_match_prefix(buf, "+CSQ:")) {
+		return AT_CSQ;
 	} else if (at_match_prefix(buf, "^RSSI:")) {
 		return AT_RSSI;
 	} else if (at_match_prefix(buf, "^BOOT:")) {
@@ -2194,6 +2220,12 @@ static at_message_t at_read_full(int data_socket, char *buf, size_t count)
 		return AT_SIMST;
 	} else if (at_match_prefix(buf, "^SRVST:")) {
 		return AT_SRVST;
+	} else if (at_match_prefix(buf, "^U2DIAG:")) {
+		return AT_U2DIAG;
+	} else if (at_match_prefix(buf, "+CNUM:")) {
+		return AT_CNUM;
+	} else if (at_match_prefix(buf, "ERROR+CNUM:")) {
+		return AT_CNUM;
 	} else {
 		return AT_UNKNOWN;
 	}
@@ -2243,6 +2275,8 @@ static inline const char *at_msg2str(at_message_t msg)
 	/* at commands */
 	case AT_A:
 		return "ATA";
+	case AT:
+		return "AT";
 	case AT_Z:
 		return "ATZ";
 	case AT_D:
@@ -2263,6 +2297,8 @@ static inline const char *at_msg2str(at_message_t msg)
 		return "^ORIG:";
 	case AT_SMMEMFULL:
 		return "^SMMEMFULL:";
+	case AT_CSQ:
+		return "AT+CSQ";
 	case AT_RSSI:
 		return "^RSSI:";
 	case AT_BOOT:
@@ -2321,6 +2357,10 @@ static inline const char *at_msg2str(at_message_t msg)
 		return "AT+CPMS";
 	case AT_CSCS:
 		return "AT+CSCS";
+	case AT_U2DIAG:
+		return "AT^U2DIAG";
+	case AT_CNUM:
+		return "AT+CNUM";
 	}
 }
 
@@ -2374,6 +2414,62 @@ static char *dc_parse_clip(struct dc_pvt *pvt, char *buf)
 	}
 
 	return clip;
+}
+
+/*!
+ * \brief Parse a CNUM response.
+ * \param pvt an dc_pvt struct
+ * \param buf the buffer to parse (null terminated)
+ * @note buf will be modified when the CNUM message is parsed
+ * \return NULL on error (parse error) or a pointer to the subscriber number
+ */
+static char *dc_parse_cnum(struct dc_pvt *pvt, char *buf)
+{
+	int i, state;
+	char *subscriber_number;
+	size_t s;
+
+	/* parse CNUM response in the following format:
+	 * +CNUM: "<name>","<number>",<type>
+	 */
+	subscriber_number = NULL;
+	state = 0;
+	s = strlen(buf);
+	for (i = 0; i < s && state != 5; i++) {
+			switch (state) {
+			case 0: /* search for start of the name (") */
+					if (buf[i] == '"') {
+							state++;
+					}
+					break;
+			case 1: /* search for the end of the name (") */
+					if (buf[i] == '"') {
+							state++;
+					}
+					break;
+			case 2: /* search for the start of the number (") */
+					if (buf[i] == '"') {
+							state++;
+					}
+					break;
+			case 3: /* mark the number */
+					subscriber_number = &buf[i];
+					state++;
+					/* fall through */
+			case 4: /* search for the end of the number (") */
+					if (buf[i] == '"') {
+							buf[i] = '\0';
+							state++;
+					}
+					break;
+			}
+	}
+
+	if (state != 5) {
+			return NULL;
+	}
+
+	return subscriber_number;
 }
 
 /*!
@@ -2597,6 +2693,53 @@ static int dc_parse_cpin(struct dc_pvt *pvt, char *buf)
 }
 
 /*!
+ * \brief Parse CSQ response.
+ * \param pvt an dc_pvt struct
+ * \param buf the buffer to parse (null terminated)
+ * \param type value to parse (0 = RSSI, 1 = BER)
+ * \return -1 on error (parse error) or the rssi value
+ */
+static int dc_parse_csq(struct dc_pvt *pvt, char *buf, int type)
+{
+	int rssi = -1;
+	int ber = -1;
+
+	/* parse +CSQ response in the following format:
+	 * +CSQ: <RSSI>,<BER>
+	 */
+	if (!sscanf(buf, "+CSQ: %2d,%2d", &rssi, &ber)) {
+		ast_debug(2, "[%s] error parsing +CSQ result '%s'\n", pvt->id, buf);
+		return -1;
+	}
+
+	if (type == 1)
+		return ber;
+	return rssi;
+}
+
+/*!
+ * \brief Parse CSQ - RSSI response.
+ * \param pvt an dc_pvt struct
+ * \param buf the buffer to parse (null terminated)
+ * \return -1 on error (parse error) or the RSSI value
+ */
+static int dc_parse_csq_rssi(struct dc_pvt *pvt, char *buf)
+{
+	return dc_parse_csq(pvt, buf, 0);
+}
+
+/*!
+ * \brief Parse CSQ - BER response.
+ * \param pvt an dc_pvt struct
+ * \param buf the buffer to parse (null terminated)
+ * \return -1 on error (parse error) or the BER value
+ */
+static int dc_parse_csq_ber(struct dc_pvt *pvt, char *buf)
+{
+	return dc_parse_csq(pvt, buf, 1);
+}
+
+/*!
  * \brief Parse a ^RSSI notification.
  * \param pvt an dc_pvt struct
  * \param buf the buffer to parse (null terminated)
@@ -2662,12 +2805,33 @@ static int dc_parse_linksubmode(struct dc_pvt *pvt, char *buf)
 }
 
 /*!
+ *  * \brief Send the AT command.
+ *   * \param pvt an dc_pvt struct
+ *    */
+static int dc_send_at(struct dc_pvt *pvt)
+{
+	return rfcomm_write(pvt->data_socket, "AT\r");
+}
+
+/*!
  * \brief Send the ATZ command.
  * \param pvt an dc_pvt struct
  */
 static int dc_send_atz(struct dc_pvt *pvt)
 {
 	return rfcomm_write(pvt->data_socket, "ATZ\r");
+}
+
+/*!
+ * \brief Set the U2DIAG mode.
+ * \param pvt an dc_pvt struct
+ * \param mode the U2DIAG mode (0 = Only modem functions)
+ */
+static int dc_send_u2diag(struct dc_pvt *pvt, int mode)
+{
+	char cmd[128];
+	snprintf(cmd, sizeof(cmd), "AT^U2DIAG=%d\r", mode);
+	return rfcomm_write(pvt->data_socket, cmd);
 }
 
 /*!
@@ -2948,6 +3112,15 @@ static int dc_send_clvl(struct dc_pvt *pvt, int level)
 }
 
 /*!
+ * \brief Send AT+CSQ.
+ * \param pvt an dc_pvt struct
+ */
+static int dc_send_csq(struct dc_pvt *pvt)
+{
+	return rfcomm_write(pvt->data_socket, "AT+CSQ\r");
+}
+
+/*!
  * \brief Send AT+CSCS.
  * \param pvt an dc_pvt struct
  * \param volume level to send
@@ -2998,6 +3171,15 @@ static int dc_send_creg_init(struct dc_pvt *pvt, int level)
 static int dc_send_creg(struct dc_pvt *pvt)
 {
 	return rfcomm_write(pvt->data_socket, "AT+CREG?\r");
+}
+
+/*!
+ * \brief Send the AT+CNUM command.
+ * \param pvt an dc_pvt struct
+ */
+static int dc_send_cnum(struct dc_pvt *pvt)
+{
+	return rfcomm_write(pvt->data_socket, "AT+CNUM\r");
 }
 
 /*!
@@ -3151,6 +3333,19 @@ static int handle_response_ok(struct dc_pvt *pvt, char *buf)
 			switch (entry->response_to) {
 		
 		/* initilization stuff */
+		case AT:
+			if (pvt->reset_datacard == 1) {
+				if (dc_send_atz(pvt) || msg_queue_push(pvt, AT_OK, AT_Z)) {
+					ast_debug(1, "[%s] Error disableing echo.\n", pvt->id);
+					goto e_return;
+				}
+			} else {
+				if (dc_send_ate0(pvt) || msg_queue_push(pvt, AT_OK, AT_E)) {
+					ast_debug(1, "[%s] Error disableing echo.\n", pvt->id);
+					goto e_return;
+				}
+			}
+			break;
 		case AT_Z:
 			if (dc_send_ate0(pvt) || msg_queue_push(pvt, AT_OK, AT_E)) {
 				ast_debug(1, "[%s] Error disableing echo.\n", pvt->id);
@@ -3158,6 +3353,19 @@ static int handle_response_ok(struct dc_pvt *pvt, char *buf)
 			}
 			break;
 		case AT_E:
+			if (pvt->u2diag!=-1) {
+				if (dc_send_u2diag(pvt, pvt->u2diag) || msg_queue_push(pvt, AT_OK, AT_U2DIAG)) {
+					ast_debug(1, "[%s] Error setting U2DIAG.\n", pvt->id);
+					goto e_return;
+				}
+			} else {
+				if (dc_send_cgmi(pvt) || msg_queue_push(pvt, AT_OK, AT_CGMI)) {
+					ast_debug(1, "[%s] Error asking datacard for vendor info.\n", pvt->id);
+					goto e_return;
+				}
+			}
+			break;
+		case AT_U2DIAG:
 			if (dc_send_cgmi(pvt) || msg_queue_push(pvt, AT_OK, AT_CGMI)) {
 				ast_debug(1, "[%s] Error asking datacard for vendor info.\n", pvt->id);
 				goto e_return;
@@ -3209,6 +3417,13 @@ static int handle_response_ok(struct dc_pvt *pvt, char *buf)
 			break;
 		case AT_CREG:
 			ast_debug(1, "[%s] registration query sent\n", pvt->id);
+			if (dc_send_cnum(pvt) || msg_queue_push(pvt, AT_OK, AT_CNUM)) {
+				ast_debug(1, "[%s] Error checking subscriber phone number.\n", pvt->id);
+				goto e_return;
+			}
+			break;
+		case AT_CNUM:
+			ast_debug(1, "[%s] subscriber phone number query sent\n", pvt->id);
 			if (dc_send_cvoice_test(pvt) || msg_queue_push(pvt, AT_OK, AT_CVOICE)) {
 				ast_debug(1, "[%s] Error checking voice capabilities.\n", pvt->id);
 				goto e_return;
@@ -3317,6 +3532,9 @@ static int handle_response_ok(struct dc_pvt *pvt, char *buf)
 		case AT_CMGD:
 			ast_debug(1, "[%s] sms message deleted successfully\n", pvt->id);
 			break;
+		case AT_CSQ:
+			ast_debug(1, "[%s] got signal strength result\n", pvt->id);
+			break;
 		case AT_CLVL:
 			if (pvt->volume_synchronized == 0) {
 				pvt->volume_synchronized = 1;
@@ -3363,11 +3581,17 @@ static int handle_response_error(struct dc_pvt *pvt, char *buf)
 		switch (entry->response_to) {
 
 		/* initilization stuff */
+		case AT:
+			ast_debug(1, "[%s] AT failed\n", pvt->id);
+			goto e_return;
 		case AT_Z:
 			ast_debug(1, "[%s] ATZ failed\n", pvt->id);
 			goto e_return;
 		case AT_E:
 			ast_debug(1, "[%s] ATE0 failed\n", pvt->id);
+			goto e_return;
+		case AT_U2DIAG:
+			ast_debug(1, "[%s] U2DIAG failed\n", pvt->id);
 			goto e_return;
 		case AT_CGMI:
 			ast_debug(1, "[%s] getting manufacturer info failed.\n", pvt->id);
@@ -3402,6 +3626,14 @@ static int handle_response_error(struct dc_pvt *pvt, char *buf)
 			}
 			break;
 		case AT_CREG:
+			ast_debug(1, "[%s] error getting registration info\n", pvt->id);
+			/* this is not a fatal error, let's continue with initilization */
+			if (dc_send_cnum(pvt) || msg_queue_push(pvt, AT_OK, AT_CNUM)) {
+				ast_debug(1, "[%s] Error checking subscriber phone number.\n", pvt->id);
+				goto e_return;
+			}
+			break;
+		case AT_CNUM:
 			ast_debug(1, "[%s] error getting registration info\n", pvt->id);
 			/* this is not a fatal error, let's continue with initilization */
 			if (dc_send_cvoice_test(pvt) || msg_queue_push(pvt, AT_OK, AT_CVOICE)) {
@@ -3526,6 +3758,22 @@ e_return:
  */
 static int handle_response_conf(struct dc_pvt *pvt, char *buf)
 {
+	return 0;
+}
+
+/*!
+ * \brief Handle ^BOOT AT messages.
+ * \param pvt a dc_pvt structure
+ * \param buf a null terminated buffer containing an AT message
+ * \retval 0 success
+ * \retval -1 error
+ */
+static int handle_response_boot(struct dc_pvt *pvt, char *buf)
+{
+	if (dc_send_csq(pvt) || msg_queue_push(pvt, AT_OK, AT_CSQ)) {
+		ast_debug(1, "[%s] Error querying signal strength.\n", pvt->id);
+		return -1;
+	}	
 	return 0;
 }
 
@@ -3974,6 +4222,21 @@ static int handle_response_smmemfull(struct dc_pvt *pvt, char *buf)
 }
 
 /*!
+ * \brief Handle +CSQ messages. Here we get the signal strength and bit error rate.
+ * \param pvt a dc_pvt structure
+ * \param buf a null terminated buffer containing an AT message
+ * \retval 0 success
+ * \retval -1 error
+ */
+static int handle_response_csq(struct dc_pvt *pvt, char *buf)
+{
+	pvt->rssi = dc_parse_csq_rssi(pvt, buf);
+	pvt->ber = dc_parse_csq_ber(pvt, buf);
+	if (pvt->rssi == -1) return -1;
+	return 0;
+}
+
+/*!
  * \brief Handle ^RSSI messages. Here we get the signal strength.
  * \param pvt a dc_pvt structure
  * \param buf a null terminated buffer containing an AT message
@@ -4004,6 +4267,27 @@ static int handle_response_mode(struct dc_pvt *pvt, char *buf)
 	if (pvt->linkmode == -1 || pvt->linksubmode == -1) return -1;
 
 	return 0;
+}
+
+/*!
+ * \brief Handle +CNUM messages. Here we get our own phone number.
+ * \param pvt a dc_pvt structure
+ * \param buf a null terminated buffer containing an AT message
+ * \retval 0 success
+ * \retval -1 error
+ */
+static int handle_response_cnum(struct dc_pvt *pvt, char *buf)
+{
+	char * subscriber_number;
+	subscriber_number = dc_parse_cnum(pvt, buf);
+
+	if (subscriber_number!=NULL) {
+			ast_copy_string(pvt->subscriber_number, subscriber_number, sizeof(pvt->subscriber_number));
+			return 0;
+	}
+
+	ast_copy_string(pvt->subscriber_number, "Unknown", sizeof(pvt->subscriber_number));
+	return -1;
 }
 
 /*!
@@ -4112,7 +4396,7 @@ static void *do_monitor_phone(void *data)
 	/* start initilization with the ATE0 request (disable echo) */
 	ast_mutex_lock(&pvt->lock);
 	pvt->timeout = 10000;
-	if (dc_send_atz(pvt) || msg_queue_push(pvt, AT_OK, AT_Z)) {
+	if (dc_send_at(pvt) || msg_queue_push(pvt, AT_OK, AT)) {
 		ast_debug(1, "[%s] error sending ATZ\n", pvt->id);
 		goto e_cleanup;
 	}
@@ -4243,6 +4527,14 @@ static void *do_monitor_phone(void *data)
 			}
 			ast_mutex_unlock(&pvt->lock);
 			break;
+		case AT_CSQ:
+			ast_mutex_lock(&pvt->lock);
+			if (handle_response_csq(pvt, buf)) {
+				ast_mutex_unlock(&pvt->lock);
+				goto e_cleanup;
+			}
+			ast_mutex_unlock(&pvt->lock);
+			break;
 		case AT_RSSI:
 			ast_mutex_lock(&pvt->lock);
 			if (handle_response_rssi(pvt, buf)) {
@@ -4252,6 +4544,12 @@ static void *do_monitor_phone(void *data)
 			ast_mutex_unlock(&pvt->lock);
 			break;
 		case AT_BOOT:
+			ast_mutex_lock(&pvt->lock);
+			if (handle_response_boot(pvt, buf)) {
+				ast_mutex_unlock(&pvt->lock);
+				goto e_cleanup;
+			}
+			ast_mutex_unlock(&pvt->lock);
 			break;
 		case AT_CLIP:
 			ast_mutex_lock(&pvt->lock);
@@ -4323,6 +4621,12 @@ static void *do_monitor_phone(void *data)
 				ast_mutex_unlock(&pvt->lock);
 				goto e_cleanup;
 			}
+			ast_mutex_unlock(&pvt->lock);
+			break;
+		case AT_CNUM:
+			/* An error here is not fatal. Just keep going. */
+			ast_mutex_lock(&pvt->lock);
+			handle_response_cnum(pvt, buf);
 			ast_mutex_unlock(&pvt->lock);
 			break;
 		case AT_COPS:
@@ -4527,6 +4831,7 @@ static struct dc_pvt *dc_load_device(struct ast_config *cfg, const char *cat)
 	pvt->has_sms = 0;
 	pvt->has_voice = 0;
 	pvt->rssi = 0;
+	pvt->ber = 99;
 	pvt->linkmode = 0;
 	pvt->linksubmode = 0;
 	pvt->volume_synchronized = 0;
@@ -4534,6 +4839,11 @@ static struct dc_pvt *dc_load_device(struct ast_config *cfg, const char *cat)
 	pvt->txgain = 0;
 	pvt->sms_storage_position = 0;
 	pvt->use_ucs2_encoding = 1;
+	pvt->auto_delete_sms = 0;
+	pvt->reset_datacard = 1;
+	pvt->u2diag = -1;
+
+	ast_copy_string(pvt->subscriber_number, "Unknown", sizeof(pvt->subscriber_number));
 
 	/* setup the smoother */
 	if (!(pvt->smoother = ast_smoother_new(DEVICE_FRAME_SIZE))) {
@@ -4565,6 +4875,12 @@ static struct dc_pvt *dc_load_device(struct ast_config *cfg, const char *cat)
 		} else if (!strcasecmp(v->name, "autodeletesms")) {
 			/* auto_delete_sms is set to 0 if invalid */
 			pvt->auto_delete_sms = ast_true(v->value);
+		} else if (!strcasecmp(v->name, "resetdatacard")) {
+			/* reset_datacard is set to 1 if invalid */
+			pvt->reset_datacard = ast_true(v->value);
+		} else if (!strcasecmp(v->name, "u2diag")) {
+			/* u2diag is set to -1 if invalid */
+			pvt->u2diag = atoi(v->value);
 		}
 	}
 

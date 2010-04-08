@@ -161,12 +161,10 @@ static int rfcomm_read_and_expect_char(int data_socket, char *result, char expec
 static int rfcomm_read_and_append_char(int data_socket, char **buf, size_t count, size_t *in_count, char *result, char expected);
 static int rfcomm_read_until_crlf(int data_socket, char **buf, size_t count, size_t *in_count);
 static int rfcomm_read_until_ok(int data_socket, char **buf, size_t count, size_t *in_count);
-static int rfcomm_read_until_cusd_end(int data_socket, char **buf, size_t count, size_t *in_count);
 static int rfcomm_read_sms_prompt(int data_socket, char **buf, size_t count, size_t *in_count);
 static int rfcomm_read_result(int data_socket, char **buf, size_t count, size_t *in_count);
 static int rfcomm_read_command(int data_socket, char **buf, size_t count, size_t *in_count);
 static int rfcomm_read_cmgr(int data_socket, char **buf, size_t count, size_t *in_count);
-static int rfcomm_read_cusd(int data_socket, char **buf, size_t count, size_t *in_count);
 
 static int handle_response_ok(struct dc_pvt *pvt, char *buf);
 static int handle_response_error(struct dc_pvt *pvt, char *buf);
@@ -1827,101 +1825,6 @@ static int rfcomm_read_until_ok(int data_socket, char **buf, size_t count, size_
 }
 
 /*!
- * \brief Read until a ",15\r\n message.
- */
-static int rfcomm_read_until_cusd_end(int data_socket, char **buf, size_t count, size_t *in_count)
-{
-	int res;
-	char c;
-
-	/* here, we read one character at a time looking for the
-	 * string '",15\r\n'.  If we only find a partial
-	 * match, we place that in the buffer and try again. */
-
-	for (;;) {
-		if ((res = rfcomm_read_and_expect_char(data_socket, &c, '\"')) != 1) {
-			if (res != -2) {
-				break;
-			}
-
-			rfcomm_append_buf(buf, count, in_count, c);
-			continue;
-		}
-
-		if ((res = rfcomm_read_and_expect_char(data_socket, &c, ',')) != 1) {
-			if (res != -2) {
-				break;
-			}
-
-			rfcomm_append_buf(buf, count, in_count, '\"');
-			rfcomm_append_buf(buf, count, in_count, c);
-			continue;
-		}
-		if ((res = rfcomm_read_and_expect_char(data_socket, &c, '1')) != 1) {
-			if (res != -2) {
-				break;
-			}
-
-			rfcomm_append_buf(buf, count, in_count, '\"');
-			rfcomm_append_buf(buf, count, in_count, ',');
-			rfcomm_append_buf(buf, count, in_count, c);
-			continue;
-		}
-
-		if ((res = rfcomm_read_and_expect_char(data_socket, &c, '5')) != 1) {
-			if (res != -2) {
-				break;
-			}
-
-			rfcomm_append_buf(buf, count, in_count, '\"');
-			rfcomm_append_buf(buf, count, in_count, ',');
-			rfcomm_append_buf(buf, count, in_count, '1');
-			rfcomm_append_buf(buf, count, in_count, c);
-			continue;
-		}
-
-		if ((res = rfcomm_read_and_expect_char(data_socket, &c, '\r')) != 1) {
-			if (res != -2) {
-				break;
-			}
-
-			rfcomm_append_buf(buf, count, in_count, '\"');
-			rfcomm_append_buf(buf, count, in_count, ',');
-			rfcomm_append_buf(buf, count, in_count, '1');
-			rfcomm_append_buf(buf, count, in_count, '5');
-			rfcomm_append_buf(buf, count, in_count, c);
-			continue;
-		}
-
-		if ((res = rfcomm_read_and_expect_char(data_socket, &c, '\n')) != 1) {
-			if (res != -2) {
-				break;
-			}
-
-			rfcomm_append_buf(buf, count, in_count, '\"');
-			rfcomm_append_buf(buf, count, in_count, ',');
-			rfcomm_append_buf(buf, count, in_count, '1');
-			rfcomm_append_buf(buf, count, in_count, '5');
-			rfcomm_append_buf(buf, count, in_count, '\r');
-			rfcomm_append_buf(buf, count, in_count, c);
-			continue;
-		}
-
-		/* we have successfully parsed a '",15\r\n' string */
-		rfcomm_append_buf(buf, count, in_count, '\"');
-		rfcomm_append_buf(buf, count, in_count, ',');
-		rfcomm_append_buf(buf, count, in_count, '1');
-		rfcomm_append_buf(buf, count, in_count, '5');
-		rfcomm_append_buf(buf, count, in_count, '\r');
-		rfcomm_append_buf(buf, count, in_count, '\n');
-		return 1;
-	}
-
-	return res;
-}
-
-
-/*!
  * \brief Read the remainder of a +CMGR message.
  * \note the entire parsed string is '+CMGR: ...\r\n...\r\n...\r\n...\r\nOK\r\n'
  */
@@ -1935,29 +1838,6 @@ static int rfcomm_read_cmgr(int data_socket, char **buf, size_t count, size_t *i
 
 	if ((res = rfcomm_read_until_ok(data_socket, buf, count, in_count)) != 1) {
 		ast_log(LOG_ERROR, "error reading +CMGR message on rfcomm socket\n");
-	}
-
-	return res;
-}
-
-/*!
- * \brief Read the remainder of a +CUSD message.
- * \note the entire parsed string is '+CUSD: 0,"...\r\n...\r\n...\r\n...",15\r\n'
- */
-static int rfcomm_read_cusd(int data_socket, char **buf, size_t count, size_t *in_count)
-{
-	int res;
-
-	/* append the \r\n that was stripped by the calling function */
-	rfcomm_append_buf(buf, count, in_count, '\r');
-	rfcomm_append_buf(buf, count, in_count, '\n');
-
-	if (*in_count >= 6 && !strncmp(*buf - 6, "\",15\r\n", 6)) {
-		return 1;
-	}
-
-	if ((res = rfcomm_read_until_cusd_end(data_socket, buf, count, in_count)) != 1) {
-		ast_log(LOG_ERROR, "error reading +CUSD message on rfcomm socket\n");
 	}
 
 	return res;
@@ -1992,12 +1872,6 @@ static int rfcomm_read_result(int data_socket, char **buf, size_t count, size_t 
 	 * an \r\nOK\r\n message */
 	if (*in_count >= 5 && !strncmp(*buf - *in_count, "+CMGR", 5)) {
 		return rfcomm_read_cmgr(data_socket, buf, count, in_count);
-	}
-
-	/* check for CUSD, which may contain embedded \r\n pairs terminated by
-	 * a '",15\r\n"' */
-	if (*in_count >= 5 && !strncmp(*buf - *in_count, "+CUSD", 5)) {
-		return rfcomm_read_cusd(data_socket, buf, count, in_count);
 	}
 
 	return 1;

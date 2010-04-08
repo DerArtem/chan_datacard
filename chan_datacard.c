@@ -453,7 +453,7 @@ static char *handle_cli_dc_show_devices(struct ast_cli_entry *e, int cmd, struct
 	char linkmode[6];
 	char linksubmode[6];
 
-#define FORMAT1 "%-15.15s %-6.6s %-9.9s %-5.5s %-5.5s %-5.5s %-5.5s %-5.5s %-7.7s %-15.15s %-12.12s %-10.10s %-17.17s %-17.17s %-17.17s\n"
+#define FORMAT1 "%-15.15s %-6.6s %-9.9s %-5.5s %-5.5s %-5.5s %-5.5s %-5.5s %-7.7s %-15.15s %-10.10s %-17.17s %-17.17s %-17.17s\n"
 
 	switch (cmd) {
 	case CLI_INIT:
@@ -469,7 +469,7 @@ static char *handle_cli_dc_show_devices(struct ast_cli_entry *e, int cmd, struct
 	if (a->argc != 3)
 		return CLI_SHOWUSAGE;
 
-	ast_cli(a->fd, FORMAT1, "ID", "Group", "Connected", "State", "Voice", "SMS", "RSSI", "Mode", "Submode", "Provider Name", "Manufacturer", "Model", "Firmware", "IMEI", "Number");
+	ast_cli(a->fd, FORMAT1, "ID", "Group", "Connected", "State", "Voice", "SMS", "RSSI", "Mode", "Submode", "Provider Name", "Model", "Firmware", "IMEI", "Number");
 	AST_RWLIST_RDLOCK(&devices);
 	AST_RWLIST_TRAVERSE(&devices, pvt, entry) {
 		ast_mutex_lock(&pvt->lock);
@@ -488,7 +488,6 @@ static char *handle_cli_dc_show_devices(struct ast_cli_entry *e, int cmd, struct
 				linkmode,
 				linksubmode,
 				pvt->provider_name,
-				pvt->manufacturer,
 				pvt->model,
 				pvt->firmware,
 				pvt->imei,

@@ -3911,7 +3911,7 @@ static int handle_response_cmgr(struct dc_pvt *pvt, char *buf)
 				ast_log(LOG_ERROR, "[%s] error parsing SMS (convert UCS-2 to UTF-8): %s\n", pvt->id, text);
 			}
 
-			res = hexstr_ucs2_to_utf8(from_number,strlen(from_number)-2,from_number_utf8_buf,sizeof(from_number_utf8_buf));
+			res = hexstr_ucs2_to_utf8(from_number,strlen(from_number),from_number_utf8_buf,sizeof(from_number_utf8_buf));
 			if (res>0) {
 				from_number = from_number_utf8_buf;
 			} else {

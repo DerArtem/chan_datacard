@@ -33,7 +33,7 @@
 
 #include <asterisk.h>
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 947 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Rev$")
 
 #include <stdio.h>
 #include <string.h>
@@ -65,6 +65,8 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 947 $")
 #include <asterisk/manager.h>
 #include <asterisk/io.h>
 
+#include "char_conv.h"
+
 /*! Global jitterbuffer configuration - by default, jb is disabled */
 static struct ast_jb_conf default_jbconf = {
 	.flags = 0,
@@ -74,8 +76,6 @@ static struct ast_jb_conf default_jbconf = {
 	.target_extra = -1,
 };
 static struct ast_jb_conf global_jbconf;
-
-#include "char_conv.h"
 
 #define DC_CONFIG "datacard.conf"
 

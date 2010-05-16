@@ -43,8 +43,16 @@ exten => s,n,Hangup()
 exten => _X.,1,Dial(Datacard/r1/${EXTEN})
 exten => _X.,n,Hangup
 
-you can also use
+you can also use this:
 
+Call using a specific group:
 exten => _X.,1,Dial(Datacard/g1/${EXTEN})
-or
+
+Call using a specific datacard:
 exten => _X.,1,Dial(Datacard/datacard0/${EXTEN})
+
+Call using a specific provider name:
+exten => _X.,1,Dial(Datacard/p:PROVIDER NAME/${EXTEN})
+
+Call using a specific IMEI:
+exten => _X.,1,Dial(Datacard/i:123456789012345/${EXTEN}) 

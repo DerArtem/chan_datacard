@@ -1054,6 +1054,24 @@ static struct ast_channel *dc_request(const char *type, int format, void *data, 
 
 		AST_RWLIST_UNLOCK(&devices);
 	}
+	else if (((dest_dev[0] == 'p') || (dest_dev[0] == 'P')) && dest_dev[1] == ':') {
+		AST_RWLIST_RDLOCK(&devices);
+		AST_RWLIST_TRAVERSE(&devices, pvt, entry) {
+			if (pvt->connected && !strcmp(pvt->provider_name, &dest_dev[2]) && !pvt->owner) {
+				break;
+			}
+		}
+		AST_RWLIST_UNLOCK(&devices);
+	}
+	else if (((dest_dev[0] == 'i') || (dest_dev[0] == 'I')) && dest_dev[1] == ':') {
+		AST_RWLIST_RDLOCK(&devices);
+		AST_RWLIST_TRAVERSE(&devices, pvt, entry) {
+			if (pvt->connected && !strcmp(pvt->imei, &dest_dev[2]) && !pvt->owner) {
+				break;
+			}
+		}
+		AST_RWLIST_UNLOCK(&devices);
+	}
 	else {
 		AST_RWLIST_RDLOCK(&devices);
 		AST_RWLIST_TRAVERSE(&devices, pvt, entry) {

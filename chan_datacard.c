@@ -64,6 +64,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Rev$")
 #include <asterisk/app.h>
 #include <asterisk/manager.h>
 #include <asterisk/io.h>
+#include <asterisk/musiconhold.h>
 
 #include "char_conv.h"
 
@@ -265,6 +266,7 @@ static struct ast_frame *dc_audio_read(struct ast_channel *ast);
 static int dc_audio_write(struct ast_channel *ast, struct ast_frame *frame);
 static int dc_fixup(struct ast_channel *oldchan, struct ast_channel *newchan);
 static int dc_devicestate(void *data);
+static int dc_indicate(struct ast_channel *ast, int condition, const void *data, size_t datalen);
 
 static void do_alignment_detection(struct dc_pvt *pvt, char *buf, int buflen);
 
@@ -438,7 +440,8 @@ static const struct ast_channel_tech dc_tech = {
 	.read = dc_audio_read,
 	.write = dc_audio_write,
 	.fixup = dc_fixup,
-	.devicestate = dc_devicestate
+	.devicestate = dc_devicestate,
+	.indicate = dc_indicate
 };
 
 /* CLI Commands implementation */
@@ -1342,6 +1345,50 @@ static int dc_devicestate(void *data)
 		else
 			res = AST_DEVICE_NOT_INUSE;
 	}
+	ast_mutex_unlock(&pvt->lock);
+
+	return res;
+}
+
+static int dc_indicate(struct ast_channel *ast, int condition, const void *data, size_t datalen)
+{
+	int res = 0;
+	struct dc_pvt *pvt = ast->tech_pvt;
+
+	ast_mutex_lock(&pvt->lock);
+
+	ast_debug(1, "Requested indication %d on datacard %s\n", condition, pvt->id);
+
+	switch (condition) {
+	case AST_CONTROL_BUSY:
+		break;
+	case AST_CONTROL_CONGESTION:
+		break;
+	case AST_CONTROL_RINGING:
+		break;
+	case -1:
+		res = -1;  /* Ask for inband indications */
+		break;
+	case AST_CONTROL_PROGRESS:
+		break;
+	case AST_CONTROL_PROCEEDING:
+		break;
+	case AST_CONTROL_VIDUPDATE:
+		break;
+	case AST_CONTROL_SRCUPDATE:
+		break;
+	case AST_CONTROL_HOLD:
+		ast_moh_start(ast, data, NULL);
+		break;
+	case AST_CONTROL_UNHOLD:
+		ast_moh_stop(ast);
+		break;
+	default:
+		ast_log(LOG_WARNING, "Don't know how to indicate condition %d\n on %s", condition, pvt->id);
+		res = -1;
+		break;
+	}
+
 	ast_mutex_unlock(&pvt->lock);
 
 	return res;

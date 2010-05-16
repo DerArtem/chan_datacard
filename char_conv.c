@@ -17,8 +17,8 @@ size_t convert_string(char *in, size_t in_length, char *out, size_t out_length, 
 	int res;
 	size_t inbytesleft = in_length;
 	size_t outbytesleft = out_length;
-	char *in_ptr = &in[0];
-	char *out_ptr = &out[0];
+	char *in_ptr = in;
+	char *out_ptr = out;
 	iconv_t cd;
 
 	if (out_length-in_length<0) {

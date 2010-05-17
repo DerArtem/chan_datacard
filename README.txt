@@ -8,6 +8,8 @@ This channel driver is in beta stage.
 I am not responsible if this channel driver will eat your money on
 your SIM card or do any unpredicted things.
 
+Please use a recent Kernel. Kernel 2.6.33+ recommended.
+
 This channel driver should work with the folowing UMTS cards:
 * Huawei K3715
 * Huawei E169 / K3520

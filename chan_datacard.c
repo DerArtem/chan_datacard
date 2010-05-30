@@ -3361,7 +3361,7 @@ static int handle_response_ok(struct dc_pvt *pvt, char *buf)
 			}
 			break;
 		case AT_CNUM:
-			ast_debug(1, "[%s] subscriber phone number query sent\n", pvt->id);
+			ast_debug(1, "[%s] subscriber phone number query successed\n", pvt->id);
 			if (dc_send_cvoice_test(pvt) || msg_queue_push(pvt, AT_OK, AT_CVOICE)) {
 				ast_debug(1, "[%s] Error checking voice capabilities.\n", pvt->id);
 				goto e_return;
@@ -3572,12 +3572,9 @@ static int handle_response_error(struct dc_pvt *pvt, char *buf)
 			}
 			break;
 		case AT_CNUM:
-			ast_debug(1, "[%s] error getting registration info\n", pvt->id);
-			/* this is not a fatal error, let's continue with initilization */
-			if (dc_send_cvoice_test(pvt) || msg_queue_push(pvt, AT_OK, AT_CVOICE)) {
-				ast_debug(1, "[%s] Error checking voice capabilities.\n", pvt->id);
-				goto e_return;
-			}
+			ast_debug(1, "[%s] error checking subscriber phone number.\n", pvt->id);
+			ast_verb(3, "Datacard %s needs to be reinitialized. The SIM card is not ready yet.\n", pvt->id);
+			goto e_return;
 			break;
 		case AT_CVOICE:
 			ast_debug(1, "[%s] Datacard has NO voice support.\n", pvt->id);

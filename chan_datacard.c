@@ -1553,7 +1553,7 @@ static int opentty(char *iface)
 		return -1;
 	}
 
-	term_attr.c_cflag = B115200 | CS8 | CREAD;
+	term_attr.c_cflag = B115200 | CS8 | CREAD | CRTSCTS;
 	term_attr.c_iflag = 0;
 	term_attr.c_oflag = 0;
 	term_attr.c_lflag = 0;
@@ -1586,8 +1586,10 @@ static int dc_audio_connect(char *audio_tty_str)
 static int dc_get_device_status(int fd)
 {
 	struct termios t;
-	if (fd < 0)
+
+	if (fd < 0) {
 		return 0;
+	}
 	return !tcgetattr(fd, &t);
 }
 
@@ -3382,7 +3384,7 @@ static int handle_response_ok(struct dc_pvt *pvt, char *buf)
 				goto e_return;
 			}
 
-			pvt->timeout = -1;
+			pvt->timeout = 15000;
 			pvt->initialized = 1;
 			ast_verb(3, "Datacard %s initialized and ready.\n", pvt->id);
 
@@ -4330,7 +4332,6 @@ static void *do_monitor_phone(void *data)
 
 	/* start initilization with the ATE0 request (disable echo) */
 	ast_mutex_lock(&pvt->lock);
-	pvt->timeout = 10000;
 	if (dc_send_at(pvt) || msg_queue_push(pvt, AT_OK, AT)) {
 		ast_debug(1, "[%s] error sending ATZ\n", pvt->id);
 		goto e_cleanup;
@@ -4342,20 +4343,15 @@ static void *do_monitor_phone(void *data)
 		t = pvt->timeout;
 		ast_mutex_unlock(&pvt->lock);
 
-		if (dc_get_device_status(pvt->data_socket) != 1) {
-			ast_log(LOG_ERROR, "Lost data connection to Datacard %s.\n", pvt->id);
-			goto e_cleanup;
-		}
-
-		if (dc_get_device_status(pvt->audio_socket) != 1) {
-			ast_log(LOG_ERROR, "Lost audio connection to Datacard %s.\n", pvt->id);
+		if (!dc_get_device_status(pvt->data_socket) || !dc_get_device_status(pvt->audio_socket)) {
+			ast_log(LOG_ERROR, "Lost connection to Datacard %s.\n", pvt->id);
 			goto e_cleanup;
 		}
 
 		if (!rfcomm_wait(pvt->data_socket, &t)) {
-			ast_debug(1, "[%s] timeout waiting for rfcomm data, disconnecting\n", pvt->id);
-			ast_mutex_lock(&pvt->lock);
 			if (!pvt->initialized) {
+				ast_debug(1, "[%s] timeout waiting for rfcomm data, disconnecting\n", pvt->id);
+				ast_mutex_lock(&pvt->lock);
 				if ((entry = msg_queue_head(pvt))) {
 					switch (entry->response_to) {
 					default:
@@ -4363,9 +4359,11 @@ static void *do_monitor_phone(void *data)
 						break;
 					}
 				}
+				ast_mutex_unlock(&pvt->lock);
+				goto e_cleanup;
+			} else {
+				continue;
 			}
-			ast_mutex_unlock(&pvt->lock);
-			goto e_cleanup;
 		}
 
 		if ((at_msg = at_read_full(pvt->data_socket, buf, sizeof(buf))) < 0) {
@@ -4756,7 +4754,7 @@ static struct dc_pvt *dc_load_device(struct ast_config *cfg, const char *cat)
 	ast_copy_string(pvt->id, cat, sizeof(pvt->id));
 	ast_copy_string(pvt->data_tty_str, data_tty_str, sizeof(pvt->data_tty_str));
 	ast_copy_string(pvt->audio_tty_str, audio_tty_str, sizeof(pvt->audio_tty_str));
-	pvt->timeout = -1;
+	pvt->timeout = 10000;
 	pvt->data_socket = -1;
 	pvt->audio_socket = -1;
 	pvt->monitor_thread = AST_PTHREADT_NULL;

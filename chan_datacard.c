@@ -115,10 +115,6 @@ struct dc_pvt {
 	int timeout;					/*!< used to set the timeout for rfcomm data (may be used in the future) */
 	unsigned int has_sms:1;
 	unsigned int has_voice:1;
-	unsigned int do_alignment_detection:1;
-	unsigned int alignment_detection_triggered:1;
-	short alignment_samples[4];
-	int alignment_count;
 	struct ast_dsp *dsp;
 	int hangupcause;
 	int initialized:1;		/*!< whether a service level connection exists or not */
@@ -267,8 +263,6 @@ static int dc_audio_write(struct ast_channel *ast, struct ast_frame *frame);
 static int dc_fixup(struct ast_channel *oldchan, struct ast_channel *newchan);
 static int dc_devicestate(void *data);
 static int dc_indicate(struct ast_channel *ast, int condition, const void *data, size_t datalen);
-
-static void do_alignment_detection(struct dc_pvt *pvt, char *buf, int buflen);
 
 static int dc_queue_control(struct dc_pvt *pvt, enum ast_control_frame_type control);
 static int dc_queue_hangup(struct dc_pvt *pvt);
@@ -929,8 +923,6 @@ static struct ast_channel *dc_new(int state, struct dc_pvt *pvt, char *cid_num)
 	struct ast_channel *chn;
 
 	pvt->answered = 0;
-	pvt->alignment_count = 0;
-	pvt->alignment_detection_triggered = 0;
 
 	ast_smoother_reset(pvt->smoother, DEVICE_FRAME_SIZE);
 	ast_dsp_digitreset(pvt->dsp);
@@ -1264,8 +1256,6 @@ static struct ast_frame *dc_audio_read(struct ast_channel *ast)
 	pvt->fr.datalen = r;
 	pvt->fr.samples = r / 2;
 
-	do_alignment_detection(pvt, pvt->fr.data.ptr, r);
-
 	fr = ast_dsp_process(ast, pvt->dsp, &pvt->fr);
 
 	if (pvt->rxgain!=0) {
@@ -1417,62 +1407,6 @@ static int dc_indicate(struct ast_channel *ast, int condition, const void *data,
 	Callback helpers
 
 */
-
-/*
-
-	do_alignment_detection()
-
-	This routine attempts to detect where we get misaligned audio data from the datacard.
-
-	Sometimes datacards suffer a problem where occasionally they will byte shift the audio stream one byte to the right.
-	The result is static or white noise on the inbound (from the adapter) leg of the call.
-	This is characterised by a sudden jump in magnitude of the value of the 16 bit samples.
-
-	Here we look at the first 4 48 byte frames. We average the absolute values of each sample in the frame,
-	then average the sum of the averages of frames 1, 2, and 3.
-	Frame zero is usually zero.
-	If the end result > 100, and it usually is if we have the problem, set a flag and compensate by shifting the bytes
-	for each subsequent frame during the call.
-
-	If the result is <= 100 then clear the flag so we dont come back in here...
-
-	This seems to work OK....
-
-*/
-
-static void do_alignment_detection(struct dc_pvt *pvt, char *buf, int buflen)
-{
-	int i;
-	short a, *s;
-	char *p;
-
-	if (pvt->alignment_detection_triggered) {
-		for (i=buflen, p=buf+buflen-1; i>0; i--, p--)
-			*p = *(p-1);
-		*(p+1) = 0;
-		return;
-	}
-
-	if (pvt->alignment_count < 4) {
-		s = (short *)buf;
-		for (i=0, a=0; i<buflen/2; i++) {
-			a += *s++;
-			a /= i+1;
-		}
-		pvt->alignment_samples[pvt->alignment_count++] = a;
-		return;
-	}
-
-	ast_debug(2, "Alignment Detection result is [%-d %-d %-d %-d]\n", pvt->alignment_samples[0], pvt->alignment_samples[1], pvt->alignment_samples[2], pvt->alignment_samples[3]);
-
-	a = abs(pvt->alignment_samples[1]) + abs(pvt->alignment_samples[2]) + abs(pvt->alignment_samples[3]);
-	a /= 3;
-	if (a > 100) {
-		pvt->alignment_detection_triggered = 1;
-		ast_debug(1, "Alignment Detection Triggered.\n");
-	} else
-		pvt->do_alignment_detection = 0;
-}
 
 static int dc_queue_control(struct dc_pvt *pvt, enum ast_control_frame_type control)
 {

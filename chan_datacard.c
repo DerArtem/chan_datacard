@@ -1253,6 +1253,10 @@ static struct ast_frame *dc_audio_read(struct ast_channel *ast)
 		goto e_return;
 	}
 
+	if (r != 320) {
+		ast_log(LOG_ERROR, "chan_datacard: dc_audio_read() has wrong packet size: %d\n", r);
+	}
+
 	pvt->fr.datalen = r;
 	pvt->fr.samples = r / 2;
 
@@ -1278,8 +1282,6 @@ static int dc_audio_write(struct ast_channel *ast, struct ast_frame *frame)
 {
 	struct dc_pvt *pvt = ast->tech_pvt;
 	struct ast_frame *f;
-
-	ast_debug(3, "*** dc_write\n");
 
 	if (frame->frametype != AST_FRAME_VOICE) {
 		return 0;
@@ -1960,26 +1962,20 @@ static int audio_write(int s, char *buf, int len)
 {
 	int r;
 
+	if (len != 320) {
+		ast_log(LOG_ERROR, "chan_datacard: audio_write() has wrong packet size: %d\n", len);
+	}
+
 	if (s == -1) {
 		ast_debug(3, "audio_write() not ready\n");
 		return 0;
 	}
 
-	ast_debug(3, "audio_write()\n");
+	ast_debug(3, "audio_write() len: %d\n",len);
 
 	r = write(s, buf, len);
 	if (r == -1) {
-		ast_debug(3, "audio write error %d\n", errno);
-		/*
-		if (errno==EBADF) ast_debug(1, "audio_write() error: EBADF\n");
-                if (errno==EINVAL) ast_debug(1, "audio_write() error: EINVAL\n");
-                if (errno==EFAULT) ast_debug(1, "audio_write() error: EFAULT\n");
-                if (errno==EPIPE) ast_debug(1, "audio_write() error: EPIPE\n");
-                if (errno==EAGAIN) ast_debug(1, "audio_write() error: EAGAIN\n");
-                if (errno==EINTR) ast_debug(1, "audio_write() error: EINTR\n");
-                if (errno==ENOSPC) ast_debug(1, "audio_write() error: ENOSPC\n");
-		*/
-                ast_debug(1, "audio_write() error [%d]\n", errno);
+		ast_debug(1, "audio_write() error %d\n", errno);
 		return 0;
 	}
 

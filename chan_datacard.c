@@ -135,7 +135,6 @@ struct dc_pvt {
 	unsigned int reset_datacard:1;
 	int u2diag;
 	char subscriber_number[1024];
-	char sms_channel_uniqueid[32];
 
 	/* flags */
 	unsigned int outgoing:1;	/*!< outgoing call */
@@ -1155,18 +1154,9 @@ static int dc_hangup(struct ast_channel *ast)
 	}
 	pvt = ast->tech_pvt;
 
-	ast_mutex_lock(&pvt->lock);
-
-	if (!strcmp(pvt->sms_channel_uniqueid,ast->uniqueid)) {
-		ast_debug(1, "[%s] received hangup from sms channel - ignoring it\n", pvt->id);
-		memset(pvt->sms_channel_uniqueid, 0x00, sizeof(pvt->sms_channel_uniqueid));
-		ast->tech_pvt = NULL;
-		ast_mutex_unlock(&pvt->lock);
-		ast_setstate(ast, AST_STATE_DOWN);
-		return 0;
-	}
-
 	ast_debug(1, "[%s] hanging up device\n", pvt->id);
+
+	ast_mutex_lock(&pvt->lock);
 
 	if (pvt->needchup) {
 		dc_send_chup(pvt);
@@ -3927,8 +3917,6 @@ static int handle_response_cmgr(struct dc_pvt *pvt, char *buf)
 		pbx_builtin_setvar_helper(chan, "SMSSRC", from_number);
 		pbx_builtin_setvar_helper(chan, "SMSTXT", text);
 
-		ast_copy_string(pvt->sms_channel_uniqueid, chan->uniqueid, sizeof(pvt->sms_channel_uniqueid));
-
 		dc_send_manager_event_new_sms(pvt, from_number, text);
 
 		if (ast_pbx_start(chan)) {
@@ -4716,7 +4704,6 @@ static struct dc_pvt *dc_load_device(struct ast_config *cfg, const char *cat)
 	pvt->auto_delete_sms = 0;
 	pvt->reset_datacard = 1;
 	pvt->u2diag = -1;
-	memset(pvt->sms_channel_uniqueid, 0x00, sizeof(pvt->sms_channel_uniqueid));
 
 	ast_copy_string(pvt->subscriber_number, "Unknown", sizeof(pvt->subscriber_number));
 

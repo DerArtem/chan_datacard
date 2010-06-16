@@ -38,7 +38,7 @@ static int manager_show_devices (struct mansession* s, const struct message* m)
 		astman_append (s, "Model: %s\r\n", pvt->model);
 		astman_append (s, "Firmware: %s\r\n", pvt->firmware);
 		astman_append (s, "IMEI: %s\r\n", pvt->imei);
-		astman_append (s, "Number: %s\r\n", pvt->subscriber_number);
+		astman_append (s, "Number: %s\r\n", pvt->number);
 		astman_append (s, "\r\n");
 		ast_mutex_unlock (&pvt->lock);
 		count++;

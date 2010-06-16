@@ -131,17 +131,6 @@ static int handle_response_boot(struct dc_pvt *pvt, char *buf);
 
 static int handle_sms_prompt(struct dc_pvt *pvt, char *buf);
 
-/* CLI stuff */
-static char *handle_cli_dc_show_devices(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a);
-static char *handle_cli_dc_rfcomm(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a);
-static char *handle_cli_dc_cusd(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a);
-
-static struct ast_cli_entry dc_cli[] = {
-	AST_CLI_DEFINE(handle_cli_dc_show_devices, "Show Datacard devices"),
-	AST_CLI_DEFINE(handle_cli_dc_rfcomm,       "Send commands to the rfcomm port for debugging"),
-	AST_CLI_DEFINE(handle_cli_dc_cusd,         "Send CUSD commands to the datacard"),
-};
-
 static struct ast_channel *dc_new(int state, struct dc_pvt *pvt, char *cid_num);
 static struct ast_channel *dc_request(const char *type, int format, void *data, int *cause);
 static int dc_call(struct ast_channel *ast, char *dest, int timeout);
@@ -330,6 +319,8 @@ static const struct ast_channel_tech dc_tech = {
 
 #include "__helpers.c"
 
+#include "__cli.c"
+
 #ifdef __APP__
 #include "__app.c"
 #endif
@@ -338,295 +329,6 @@ static const struct ast_channel_tech dc_tech = {
 #include "__manager.c"
 #endif
 
-
-/* CLI Commands implementation */
-
-static char *handle_cli_dc_show_devices(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
-{
-	struct dc_pvt *pvt;
-	char group[6];
-	char rssi[6];
-	char linkmode[6];
-	char linksubmode[6];
-
-#define FORMAT1 "%-15.15s %-6.6s %-9.9s %-5.5s %-5.5s %-5.5s %-5.5s %-5.5s %-7.7s %-15.15s %-10.10s %-17.17s %-17.17s %-17.17s\n"
-
-	switch (cmd) {
-	case CLI_INIT:
-		e->command = "datacard show devices";
-		e->usage =
-			"Usage: datacard show devices\n"
-			"       Shows the state of Datacard devices.\n";
-		return NULL;
-	case CLI_GENERATE:
-		return NULL;
-	}
-
-	if (a->argc != 3)
-		return CLI_SHOWUSAGE;
-
-	ast_cli(a->fd, FORMAT1, "ID", "Group", "Connected", "State", "Voice", "SMS", "RSSI", "Mode", "Submode", "Provider Name", "Model", "Firmware", "IMEI", "Number");
-	AST_RWLIST_RDLOCK(&devices);
-	AST_RWLIST_TRAVERSE(&devices, pvt, entry) {
-		ast_mutex_lock(&pvt->lock);
-		snprintf(group, sizeof(group), "%d", pvt->group);
-		snprintf(rssi, sizeof(rssi), "%d", pvt->rssi);
-		snprintf(linkmode, sizeof(linkmode), "%d", pvt->linkmode);
-		snprintf(linksubmode, sizeof(linksubmode), "%d", pvt->linksubmode);
-		ast_cli(a->fd, FORMAT1,
-				pvt->id,
-				group,
-				pvt->connected ? "Yes" : "No",
-				(!pvt->connected) ? "None" : (pvt->outgoing || pvt->incoming) ? "Busy" : (pvt->outgoing_sms || pvt->incoming_sms) ? "SMS" : "Free",
-				(pvt->has_voice) ? "Yes" : "No",
-				(pvt->has_sms) ? "Yes" : "No",
-				rssi,
-				linkmode,
-				linksubmode,
-				pvt->provider_name,
-				pvt->model,
-				pvt->firmware,
-				pvt->imei,
-				pvt->subscriber_number
-		       );
-		ast_mutex_unlock(&pvt->lock);
-	}
-	AST_RWLIST_UNLOCK(&devices);
-
-#undef FORMAT1
-
-	return CLI_SUCCESS;
-}
-
-static char *handle_cli_dc_rfcomm(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
-{
-	char buf[128];
-	struct dc_pvt *pvt = NULL;
-
-	switch (cmd) {
-	case CLI_INIT:
-		e->command = "datacard rfcomm";
-		e->usage =
-			"Usage: datacard rfcomm <device ID> <command>\n"
-			"       Send <command> to the rfcomm port on the device\n"
-			"       with the specified <device ID>.\n";
-		return NULL;
-	case CLI_GENERATE:
-		return NULL;
-	}
-
-	if (a->argc != 4)
-		return CLI_SHOWUSAGE;
-
-	AST_RWLIST_RDLOCK(&devices);
-	AST_RWLIST_TRAVERSE(&devices, pvt, entry) {
-		if (!strcmp(pvt->id, a->argv[2]))
-			break;
-	}
-	AST_RWLIST_UNLOCK(&devices);
-
-	if (!pvt) {
-		ast_cli(a->fd, "Device %s not found.\n", a->argv[2]);
-		goto e_return;
-	}
-
-	ast_mutex_lock(&pvt->lock);
-	if (!pvt->connected) {
-		ast_cli(a->fd, "Device %s not connected.\n", a->argv[2]);
-		goto e_unlock_pvt;
-	}
-
-	snprintf(buf, sizeof(buf), "%s\r", a->argv[3]);
-	rfcomm_write(pvt->data_socket, buf);
-	msg_queue_push(pvt, AT_OK, AT_UNKNOWN);
-
-e_unlock_pvt:
-	ast_mutex_unlock(&pvt->lock);
-e_return:
-	return CLI_SUCCESS;
-}
-
-static char *handle_cli_dc_cusd(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
-{
-	char *cusd_buf = NULL;
-	struct dc_pvt *pvt = NULL;
-
-	switch (cmd) {
-	case CLI_INIT:
-		e->command = "datacard cusd";
-		e->usage =
-			"Usage: datacard cusd <device ID> <command>\n"
-			"       Send cusd <command> to the datacard\n"
-			"       with the specified <device ID>.\n";
-		return NULL;
-	case CLI_GENERATE:
-		return NULL;
-	}
-
-	if (a->argc != 4)
-		return CLI_SHOWUSAGE;
-
-	AST_RWLIST_RDLOCK(&devices);
-	AST_RWLIST_TRAVERSE(&devices, pvt, entry) {
-		if (!strcmp(pvt->id, a->argv[2]))
-			break;
-	}
-	AST_RWLIST_UNLOCK(&devices);
-
-	if (!pvt) {
-		ast_cli(a->fd, "Device %s not found.\n", a->argv[2]);
-		goto e_return;
-	}
-
-	ast_mutex_lock(&pvt->lock);
-	if (!pvt->connected) {
-		ast_cli(a->fd, "Device %s not connected.\n", a->argv[2]);
-		goto e_unlock_pvt;
-	}
-
-	cusd_buf = ast_strdup(a->argv[3]);
-
-	if (dc_send_cusd(pvt, cusd_buf) || msg_queue_push(pvt, AT_OK, AT_CUSD)) {
-		ast_log(LOG_ERROR, "[%s] problem sending CUSD command.\n", pvt->id);
-		goto e_unlock_pvt;
-	}
-
-e_unlock_pvt:
-	ast_free(cusd_buf);
-	ast_mutex_unlock(&pvt->lock);
-e_return:
-	return CLI_SUCCESS;
-}
-
-/*
-
-	Dialplan applications implementation
-
-*/
-
-static int dc_status_exec(struct ast_channel *ast, void *data)
-{
-	struct dc_pvt *pvt;
-	char *parse;
-	int stat;
-	char status[2];
-
-	AST_DECLARE_APP_ARGS(args,
-		AST_APP_ARG(device);
-		AST_APP_ARG(variable);
-	);
-
-	if (ast_strlen_zero(data))
-		return -1;
-
-	parse = ast_strdupa(data);
-
-	AST_STANDARD_APP_ARGS(args, parse);
-
-	if (ast_strlen_zero(args.device) || ast_strlen_zero(args.variable))
-		return -1;
-
-	stat = 1;
-
-	AST_RWLIST_RDLOCK(&devices);
-	AST_RWLIST_TRAVERSE(&devices, pvt, entry) {
-		if (!strcmp(pvt->id, args.device))
-			break;
-	}
-	AST_RWLIST_UNLOCK(&devices);
-
-	if (pvt) {
-		ast_mutex_lock(&pvt->lock);
-		if (pvt->connected)
-			stat = 2;
-		if (pvt->owner)
-			stat = 3;
-		ast_mutex_unlock(&pvt->lock);
-	}
-
-	snprintf(status, sizeof(status), "%d", stat);
-	pbx_builtin_setvar_helper(ast, args.variable, status);
-
-	return 0;
-
-}
-
-static int dc_sendsms_exec(struct ast_channel *ast, void *data)
-{
-	struct dc_pvt *pvt;
-	char *parse, *message;
-
-	AST_DECLARE_APP_ARGS(args,
-		AST_APP_ARG(device);
-		AST_APP_ARG(dest);
-		AST_APP_ARG(message);
-	);
-
-	if (ast_strlen_zero(data))
-		return -1;
-
-	parse = ast_strdupa(data);
-
-	AST_STANDARD_APP_ARGS(args, parse);
-
-	if (ast_strlen_zero(args.device)) {
-		ast_log(LOG_ERROR,"NULL device for message -- SMS will not be sent.\n");
-		return -1;
-	}
-
-	if (ast_strlen_zero(args.dest)) {
-		ast_log(LOG_ERROR,"NULL destination for message -- SMS will not be sent.\n");
-		return -1;
-	}
-
-	if (ast_strlen_zero(args.message)) {
-		ast_log(LOG_ERROR,"NULL Message to be sent -- SMS will not be sent.\n");
-		return -1;
-	}
-
-	AST_RWLIST_RDLOCK(&devices);
-	AST_RWLIST_TRAVERSE(&devices, pvt, entry) {
-		if (!strcmp(pvt->id, args.device))
-			break;
-	}
-	AST_RWLIST_UNLOCK(&devices);
-
-	if (!pvt) {
-		ast_log(LOG_ERROR,"Datacard %s wasn't found in the list -- SMS will not be sent.\n", args.device);
-		goto e_return;
-	}
-
-	ast_mutex_lock(&pvt->lock);
-	if (!pvt->connected) {
-		ast_log(LOG_ERROR,"Datacard %s wasn't connected -- SMS will not be sent.\n", args.device);
-		goto e_unlock_pvt;
-	}
-
-	if (!pvt->has_sms) {
-		ast_log(LOG_ERROR,"Datacard %s doesn't handle SMS -- SMS will not be sent.\n", args.device);
-		goto e_unlock_pvt;
-	}
-
-	message = ast_strdup(args.message);
-
-	if (dc_send_cmgs(pvt, args.dest)
-		|| msg_queue_push_data(pvt, AT_SMS_PROMPT, AT_CMGS, message)) {
-
-		ast_log(LOG_ERROR, "[%s] problem sending SMS message\n", pvt->id);
-		goto e_free_message;
-	}
-
-	ast_mutex_unlock(&pvt->lock);
-
-	return 0;
-
-e_free_message:
-	ast_free(message);
-e_unlock_pvt:
-	ast_mutex_unlock(&pvt->lock);
-e_return:
-	return -1;
-}
 
 /*
 
@@ -2012,13 +1714,13 @@ static char *dc_parse_clip(struct dc_pvt *pvt, char *buf)
 static char *dc_parse_cnum(struct dc_pvt *pvt, char *buf)
 {
 	int i, state;
-	char *subscriber_number;
+	char *number;
 	size_t s;
 
 	/* parse CNUM response in the following format:
 	 * +CNUM: "<name>","<number>",<type>
 	 */
-	subscriber_number = NULL;
+	number = NULL;
 	state = 0;
 	s = strlen(buf);
 	for (i = 0; i < s && state != 5; i++) {
@@ -2039,7 +1741,7 @@ static char *dc_parse_cnum(struct dc_pvt *pvt, char *buf)
 					}
 					break;
 			case 3: /* mark the number */
-					subscriber_number = &buf[i];
+					number = &buf[i];
 					state++;
 					/* fall through */
 			case 4: /* search for the end of the number (") */
@@ -2055,7 +1757,7 @@ static char *dc_parse_cnum(struct dc_pvt *pvt, char *buf)
 			return NULL;
 	}
 
-	return subscriber_number;
+	return number;
 }
 
 /*!
@@ -3865,15 +3567,15 @@ static int handle_response_mode(struct dc_pvt *pvt, char *buf)
  */
 static int handle_response_cnum(struct dc_pvt *pvt, char *buf)
 {
-	char * subscriber_number;
-	subscriber_number = dc_parse_cnum(pvt, buf);
+	char * number;
+	number = dc_parse_cnum(pvt, buf);
 
-	if (subscriber_number!=NULL) {
-			ast_copy_string(pvt->subscriber_number, subscriber_number, sizeof(pvt->subscriber_number));
+	if (number!=NULL) {
+			ast_copy_string(pvt->number, number, sizeof(pvt->number));
 			return 0;
 	}
 
-	ast_copy_string(pvt->subscriber_number, "Unknown", sizeof(pvt->subscriber_number));
+	ast_copy_string(pvt->number, "Unknown", sizeof(pvt->number));
 	return -1;
 }
 
@@ -4430,7 +4132,7 @@ static struct dc_pvt *dc_load_device(struct ast_config *cfg, const char *cat)
 	pvt->reset_datacard = 1;
 	pvt->u2diag = -1;
 
-	ast_copy_string(pvt->subscriber_number, "Unknown", sizeof(pvt->subscriber_number));
+	ast_copy_string(pvt->number, "Unknown", sizeof(pvt->number));
 
 	/* setup the smoother */
 	if (!(pvt->smoother = ast_smoother_new(DEVICE_FRAME_SIZE))) {
@@ -4557,7 +4259,7 @@ static int unload_module(void)
 	ast_channel_unregister(&dc_tech);
 
 	/* Unregister the CLI & APP & MANAGER */
-	ast_cli_unregister_multiple(dc_cli, sizeof(dc_cli) / sizeof(dc_cli[0]));
+	ast_cli_unregister_multiple (cli, sizeof (cli) / sizeof (cli[0]));
 
 #ifdef __APP__
 	ast_unregister_application (app_status);
@@ -4624,7 +4326,7 @@ static int load_module(void)
 		goto e_cleanup;
 	}
 
-	ast_cli_register_multiple(dc_cli, sizeof(dc_cli) / sizeof(dc_cli[0]));
+	ast_cli_register_multiple (cli, sizeof (cli) / sizeof (cli[0]));
 
 #ifdef __APP__
 	ast_register_application (app_status,   app_status_exec,   app_status_synopsis,   app_status_desc);

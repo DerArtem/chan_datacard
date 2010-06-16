@@ -51,7 +51,7 @@ typedef struct dc_pvt
 	unsigned int use_ucs2_encoding:1;
 	unsigned int reset_datacard:1;
 	int u2diag;
-	char subscriber_number[1024];
+	char number[1024];
 
 	/* flags */
 	unsigned int outgoing:1;	/*!< outgoing call */
@@ -68,6 +68,21 @@ typedef struct dc_pvt
 	AST_LIST_ENTRY(dc_pvt) entry;
 }
 pvt_t;
+
+
+/* CLI */
+
+static char*			cli_show_devices	(struct ast_cli_entry*, int, struct ast_cli_args*);
+static char*			cli_show_device		(struct ast_cli_entry*, int, struct ast_cli_args*);
+static char*			cli_cmd			(struct ast_cli_entry*, int, struct ast_cli_args*);
+static char*			cli_cusd		(struct ast_cli_entry*, int, struct ast_cli_args*);
+
+static struct ast_cli_entry cli[] = {
+	AST_CLI_DEFINE (cli_show_devices,	"Show Datacard devices state"),
+	AST_CLI_DEFINE (cli_show_device,	"Show Datacard device state and config"),
+	AST_CLI_DEFINE (cli_cmd,		"Send commands to port for debugging"),
+	AST_CLI_DEFINE (cli_cusd,		"Send CUSD commands to the datacard"),
+};
 
 
 /* Manager */

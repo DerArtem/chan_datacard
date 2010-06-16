@@ -4,6 +4,12 @@
    http://www.makhutov.org
 */
 
+#define DC_CONFIG "datacard.conf"
+
+#define DEVICE_FRAME_SIZE 320
+#define DEVICE_FRAME_FORMAT AST_FORMAT_SLINEAR
+#define CHANNEL_FRAME_SIZE 320
+
 struct msg_queue_entry;
 struct dc_pvt {
 	struct ast_channel *owner;			/* Channel we belong to, possibly NULL */

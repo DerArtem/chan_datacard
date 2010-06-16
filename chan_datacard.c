@@ -79,12 +79,6 @@ static struct ast_jb_conf default_jbconf = {
 };
 static struct ast_jb_conf global_jbconf;
 
-#define DC_CONFIG "datacard.conf"
-
-#define DEVICE_FRAME_SIZE 320
-#define DEVICE_FRAME_FORMAT AST_FORMAT_SLINEAR
-#define CHANNEL_FRAME_SIZE 320
-
 static int prefformat = DEVICE_FRAME_FORMAT;
 
 static int discovery_interval = 60;			/* The device discovery interval, default 60 seconds. */

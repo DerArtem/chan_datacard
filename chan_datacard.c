@@ -91,7 +91,7 @@ static inline void set_unloading();
 
 static AST_RWLIST_HEAD_STATIC(devices, dc_pvt);
 
-static void inline rfcomm_append_buf(char **buf, size_t count, size_t *in_count, char c);
+static inline void rfcomm_append_buf(char **buf, size_t count, size_t *in_count, char c);
 static int rfcomm_read_and_expect_char(int data_socket, char *result, char expected);
 static int rfcomm_read_and_append_char(int data_socket, char **buf, size_t count, size_t *in_count, char *result, char expected);
 static int rfcomm_read_until_crlf(int data_socket, char **buf, size_t count, size_t *in_count);
@@ -131,37 +131,6 @@ static int handle_response_boot(struct dc_pvt *pvt, char *buf);
 
 static int handle_sms_prompt(struct dc_pvt *pvt, char *buf);
 
-/* Manager stuff */
-static int dc_manager_show_devices(struct mansession *s, const struct message *m);
-static int dc_manager_send_cusd(struct mansession *s, const struct message *m);
-static int dc_manager_send_sms(struct mansession *s, const struct message *m);
-static char *dc_send_manager_event_new_cusd(struct dc_pvt *pvt, char *message);
-static char *dc_send_manager_event_new_sms(struct dc_pvt *pvt, char *from_number, char *message);
-
-static char *manager_show_devices_desc =
-"Description: Lists Datacard devices in text format with details on current status.\n"
-"\n"
-"DatacardShowDevicesComplete.\n"
-"Variables:\n"
-"	ActionID: <id>	Action ID for this transaction. Will be returned.\n";
-
-static char *manager_send_cusd_desc =
-"Description: Send a cusd message to a datacard.\n"
-"\n"
-"Variables: (Names marked with * are required)\n"
-"	ActionID: <id>	Action ID for this transaction. Will be returned.\n"
-"	*Device: <id>	The datacard to which the cusd code will be send.\n"
-"	*CUSD: <code>	The cusd code that will be send to the device.\n";
-
-static char *manager_send_sms_desc =
-"Description: Send a sms message from a datacard.\n"
-"\n"
-"Variables: (Names marked with * are required)\n"
-"	ActionID: <id>	Action ID for this transaction. Will be returned.\n"
-"	*Device: <id>	The datacard to which the cusd code will be send.\n"
-"	*Number: <number>	The phone number to which the sms will be send.\n"
-"	*Message: <message>	The sms message that will be send.\n";
-
 /* CLI stuff */
 static char *handle_cli_dc_show_devices(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a);
 static char *handle_cli_dc_rfcomm(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a);
@@ -172,23 +141,6 @@ static struct ast_cli_entry dc_cli[] = {
 	AST_CLI_DEFINE(handle_cli_dc_rfcomm,       "Send commands to the rfcomm port for debugging"),
 	AST_CLI_DEFINE(handle_cli_dc_cusd,         "Send CUSD commands to the datacard"),
 };
-
-/* App stuff */
-static char *app_dcstatus = "DatacardStatus";
-static char *dcstatus_synopsis = "DatacardStatus(Device,Variable)";
-static char *dcstatus_desc =
-"DatacardStatus(Device,Variable)\n"
-"  Device - Id of device from datacard.conf\n"
-"  Variable - Variable to store status in will be 1-3.\n"
-"             In order, Disconnected, Connected & Free, Connected & Busy.\n";
-
-static char *app_dcsendsms = "DatacardSendSMS";
-static char *dcsendsms_synopsis = "DatacardSendSMS(Device,Dest,Message)";
-static char *dcsendsms_desc =
-"DatacardSendSms(Device,Dest,Message)\n"
-"  Device - Id of device from datacard.conf\n"
-"  Dest - destination\n"
-"  Message - text of the message\n";
 
 static struct ast_channel *dc_new(int state, struct dc_pvt *pvt, char *cid_num);
 static struct ast_channel *dc_request(const char *type, int format, void *data, int *cause);
@@ -339,7 +291,7 @@ typedef enum {
 
 static int at_match_prefix(char *buf, char *prefix);
 static at_message_t at_read_full(int data_socket, char *buf, size_t count);
-static inline const char *at_msg2str(at_message_t msg);
+static inline const char* at_msg2str (at_message_t msg);
 
 struct msg_queue_entry {
 	at_message_t expected;
@@ -375,6 +327,17 @@ static const struct ast_channel_tech dc_tech = {
 	.devicestate = dc_devicestate,
 	.indicate = dc_indicate
 };
+
+#include "__helpers.c"
+
+#ifdef __APP__
+#include "__app.c"
+#endif
+
+#ifdef __MANAGER__
+#include "__manager.c"
+#endif
+
 
 /* CLI Commands implementation */
 
@@ -433,53 +396,6 @@ static char *handle_cli_dc_show_devices(struct ast_cli_entry *e, int cmd, struct
 #undef FORMAT1
 
 	return CLI_SUCCESS;
-}
-
-static int dc_manager_show_devices(struct mansession *s, const struct message *m)
-{
-	struct dc_pvt *pvt;
-	int count = 0;
-	const char *id = astman_get_header(m, "ActionID");
-	char idtext[256] = "";
-
-	if (!ast_strlen_zero(id))
-		snprintf(idtext, sizeof(idtext), "ActionID: %s\r\n", id);
-
-	astman_send_listack(s, m, "Device status list will follow", "start");
-
-	AST_RWLIST_RDLOCK(&devices);
-	AST_RWLIST_TRAVERSE(&devices, pvt, entry) {
-		ast_mutex_lock(&pvt->lock);
-		astman_append(s,"Event: DatacardDeviceEntry\r\n%s", idtext);
-		astman_append(s,"Device: %s\r\n", pvt->id);
-		astman_append(s,"Group: %d\r\n", pvt->group);
-		astman_append(s,"Connected: %s\r\n", pvt->connected ? "Yes" : "No");
-		astman_append(s,"State: %s\r\n", (!pvt->connected) ? "None" : (pvt->outgoing || pvt->incoming) ? "Busy" : (pvt->outgoing_sms || pvt->incoming_sms) ? "SMS" : "Free");
-		astman_append(s,"Voice: %s\r\n", (pvt->has_voice) ? "Yes" : "No");
-		astman_append(s,"SMS: %s\r\n", (pvt->has_sms) ? "Yes" : "No");
-		astman_append(s,"RSSI: %d\r\n", pvt->rssi);
-		astman_append(s,"Mode: %d\r\n", pvt->linkmode);
-		astman_append(s,"Submode: %d\r\n", pvt->linksubmode);
-		astman_append(s,"ProviderName: %s\r\n", pvt->provider_name);
-		astman_append(s,"Manufacturer: %s\r\n", pvt->manufacturer);
-		astman_append(s,"Model: %s\r\n", pvt->model);
-		astman_append(s,"Firmware: %s\r\n", pvt->firmware);
-		astman_append(s,"IMEI: %s\r\n", pvt->imei);
-		astman_append(s,"Number: %s\r\n", pvt->subscriber_number);
-		astman_append(s,"\r\n");
-		count++;
-		ast_mutex_unlock(&pvt->lock);
-	}
-	AST_RWLIST_UNLOCK(&devices);
-
-	astman_append(s,
-		"Event: DatacardShowDevicesComplete\r\n%s"
-		"EventList: Complete\r\n"
-		"ListItems: %d\r\n"
-		"\r\n",
-		idtext,
-		count);
-	return 0;
 }
 
 static char *handle_cli_dc_rfcomm(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
@@ -580,144 +496,6 @@ e_unlock_pvt:
 	ast_mutex_unlock(&pvt->lock);
 e_return:
 	return CLI_SUCCESS;
-}
-
-static int dc_manager_send_cusd(struct mansession *s, const struct message *m)
-{
-	char *cusd_buf = NULL;
-	char idtext[256] = "";
-	struct dc_pvt *pvt = NULL;
-	const char *id = astman_get_header(m, "ActionID");
-	const char *device = astman_get_header(m, "Device");
-	const char *cusd = astman_get_header(m, "CUSD");
-
-	if (ast_strlen_zero(device)) {
-		astman_send_error(s, m, "Device not specified");
-		return 0;
-	}
-
-		if (ast_strlen_zero(cusd)) {
-		astman_send_error(s, m, "CUSD not specified");
-		return 0;
-	}
-
-	if (!ast_strlen_zero(id))
-		snprintf(idtext, sizeof(idtext), "ActionID: %s\r\n", id);
-
-	AST_RWLIST_RDLOCK(&devices);
-	AST_RWLIST_TRAVERSE(&devices, pvt, entry) {
-		if (!strcmp(pvt->id, device))
-			break;
-	}
-	AST_RWLIST_UNLOCK(&devices);
-
-	if (!pvt) {
-		char buf[256];
-		snprintf(buf, sizeof(buf), "Device %s not found.", device);
-		astman_send_error(s, m, buf);
-		goto e_return;
-	}
-
-	ast_mutex_lock(&pvt->lock);
-	if (!pvt->connected) {
-		char buf[256];
-		snprintf(buf, sizeof(buf), "Device %s not connected.", device);
-		astman_send_error(s, m, buf);
-		goto e_unlock_pvt;
-	}
-
-	cusd_buf = ast_strdup(cusd);
-
-	if (dc_send_cusd(pvt, cusd_buf) || msg_queue_push(pvt, AT_OK, AT_CUSD)) {
-		ast_log(LOG_ERROR, "[%s] problem sending CUSD command.\n", pvt->id);
-		goto e_unlock_pvt;
-	}
-
-	astman_send_ack(s, m, "CUSD code send successful");
-
-e_unlock_pvt:
-	ast_free(cusd_buf);
-	ast_mutex_unlock(&pvt->lock);
-e_return:
-	return 0;
-}
-
-static int dc_manager_send_sms(struct mansession *s, const struct message *m)
-{
-	char *number_buf;
-	char *message_buf;
-	char idtext[256] = "";
-	struct dc_pvt *pvt = NULL;
-	const char *id = astman_get_header(m, "ActionID");
-	const char *device = astman_get_header(m, "Device");
-	const char *number = astman_get_header(m, "Number");
-	const char *message = astman_get_header(m, "Message");
-
-	if (ast_strlen_zero(device)) {
-		astman_send_error(s, m, "Device not specified");
-		return 0;
-	}
-
-	if (ast_strlen_zero(number)) {
-		astman_send_error(s, m, "Number not specified");
-		return 0;
-	}
-
-	if (ast_strlen_zero(message)) {
-		astman_send_error(s, m, "Message not specified");
-		return 0;
-	}
-
-	if (!ast_strlen_zero(id))
-		snprintf(idtext, sizeof(idtext), "ActionID: %s\r\n", id);
-
-	AST_RWLIST_RDLOCK(&devices);
-	AST_RWLIST_TRAVERSE(&devices, pvt, entry) {
-		if (!strcmp(pvt->id, device))
-			break;
-	}
-	AST_RWLIST_UNLOCK(&devices);
-
-	if (!pvt) {
-		char buf[256];
-		snprintf(buf, sizeof(buf), "Device %s not found -- SMS will not be sent.", device);
-		astman_send_error(s, m, buf);
-		goto e_return;
-	}
-
-	ast_mutex_lock(&pvt->lock);
-	if (!pvt->connected) {
-		char buf[256];
-		snprintf(buf, sizeof(buf), "Device %s not connected -- SMS will not be sent.", device);
-		astman_send_error(s, m, buf);
-		goto e_unlock_pvt;
-	}
-
-	if (!pvt->has_sms) {
-		ast_log(LOG_ERROR,"Device %s doesn't handle SMS -- SMS will not be sent.\n", device);
-		goto e_unlock_pvt;
-	}
-
-	number_buf = ast_strdup(number);
-	message_buf = ast_strdup(message);
-
-	if (dc_send_cmgs(pvt, number_buf) || msg_queue_push_data(pvt, AT_SMS_PROMPT, AT_CMGS, message_buf)) {
-		ast_log(LOG_ERROR, "[%s] problem sending SMS message\n", pvt->id);
-		goto e_free_vars;
-	}
-
-	astman_send_ack(s, m, "SMS send successful");
-
-	ast_mutex_unlock(&pvt->lock);
-	return 0;
-
-e_free_vars:
-	ast_free(number_buf);
-	ast_free(message_buf);
-e_unlock_pvt:
-	ast_mutex_unlock(&pvt->lock);
-e_return:
-	return 0;
 }
 
 /*
@@ -1557,7 +1335,7 @@ static void __rfcomm_read_debug(char c)
  * \brief Append the given character to the given buffer and increase the
  * in_count.
  */
-static void inline rfcomm_append_buf(char **buf, size_t count, size_t *in_count, char c)
+static inline void rfcomm_append_buf(char **buf, size_t count, size_t *in_count, char c)
 {
 	if (*in_count < count) {
 		(*in_count)++;
@@ -3855,7 +3633,9 @@ static int handle_response_cmgr(struct dc_pvt *pvt, char *buf)
 		pbx_builtin_setvar_helper(chan, "SMSSRC", from_number);
 		pbx_builtin_setvar_helper(chan, "SMSTXT", text);
 
-		dc_send_manager_event_new_sms(pvt, from_number, text);
+#ifdef __MANAGER__
+		manager_event_new_sms (pvt, from_number, text);
+#endif
 
 		if (ast_pbx_start(chan)) {
 			ast_log(LOG_ERROR, "[%s] unable to start pbx on incoming sms\n", pvt->id);
@@ -3947,7 +3727,9 @@ static int handle_response_cusd(struct dc_pvt *pvt, char *buf)
 	strcpy(chan->exten, "cusd");
 	pbx_builtin_setvar_helper(chan, "CUSDTXT", cusd);
 
-	dc_send_manager_event_new_cusd(pvt, cusd);
+#ifdef __MANAGER__
+	manager_event_new_cusd (pvt, cusd);
+#endif
 
 	if (ast_pbx_start(chan)) {
 		ast_log(LOG_ERROR, "[%s] unable to start pbx on incoming cusd\n", pvt->id);
@@ -4526,7 +4308,10 @@ static int disconnect_datacard(struct dc_pvt *pvt)
 	ast_mutex_unlock(&pvt->lock);
 
 	ast_verb(3, "Datacard %s has disconnected.\n", pvt->id);
-	manager_event(EVENT_FLAG_SYSTEM, "DatacardStatus", "Status: Disconnect\r\nDevice: %s\r\n", pvt->id);
+
+#ifdef __MANAGER__
+	manager_event (EVENT_FLAG_SYSTEM, "DatacardStatus", "Status: Disconnect\r\nDevice: %s\r\n", pvt->id);
+#endif
 
 	return 1;
 }
@@ -4559,7 +4344,9 @@ static void *do_discovery(void *data)
 					if ((pvt->audio_socket = dc_audio_connect(pvt->audio_tty_str)) > -1) {
 						if (start_monitor(pvt)) {
 							pvt->connected = 1;
-							manager_event(EVENT_FLAG_SYSTEM, "DatacardStatus", "Status: Connect\r\nDevice: %s\r\n", pvt->id);
+#ifdef __MANAGER__
+							manager_event (EVENT_FLAG_SYSTEM, "DatacardStatus", "Status: Connect\r\nDevice: %s\r\n", pvt->id);
+#endif
 							ast_verb(3, "Datacard %s has connected, initializing...\n", pvt->id);
 						}
 					}
@@ -4708,7 +4495,7 @@ static int dc_load_config(void)
 	struct ast_variable *v;
 	struct ast_flags config_flags = { 0 };
 
-	cfg = ast_config_load(DC_CONFIG, config_flags);
+	cfg = ast_config_load(CONFIG_FILE, config_flags);
 	if (!cfg)
 		return -1;
 
@@ -4735,89 +4522,6 @@ static int dc_load_config(void)
 	ast_config_destroy(cfg);
 
 	return 0;
-}
-
-/*!
- * \brief Send a DatacardNewCUSD event to the manager
- * This function splits the message in multiple lines, so multi-line
- * CUSD messages can be send over the manager API.
- * \param pvt a dc_pvt structure
- * \param message a null terminated buffer containing the message
- */
-static char *dc_send_manager_event_new_cusd(struct dc_pvt *pvt, char *message)
-{
-	int linecount = 0;
-	struct ast_str *buf;
-	char *pch;
-	char *ret;
-	char *saveptr;
-
-	buf = ast_str_create(256);
-
-	pch = strtok_r (message, "\r\n", &saveptr);
-	while (pch != NULL)
-	{
-		ast_str_append(&buf,0,"MessageLine%d: %s\r\n", linecount, pch);
-		pch = strtok_r (NULL, "\r\n", &saveptr);
-		linecount++;
-	}
-
-	manager_event(EVENT_FLAG_CALL, "DatacardNewCUSD",
-		"Device: %s\r\n"
-		"LineCount: %d\r\n"
-		"%s\r\n",
-		pvt->id,
-		linecount,
-		ast_str_buffer(buf)
-	);
-
-	ret = ast_strdup(ast_str_buffer(buf));
-	ast_free(buf);
-
-	return ret;
-}
-
-/*!
- * \brief Send a DatacardNewSMS event to the manager
- * This function splits the message in multiple lines, so multi-line
- * SMS messages can be send over the manager API.
- * \param pvt a dc_pvt structure
- * \param from_number a null terminated buffer containing the from number
- * \param message a null terminated buffer containing the message
- */
-static char *dc_send_manager_event_new_sms(struct dc_pvt *pvt, char *from_number, char *message)
-{
-	int linecount = 0;
-	struct ast_str *buf;
-	char *pch;
-	char *ret;
-	char *saveptr;
-
-	buf = ast_str_create(256);
-
-	pch = strtok_r (message, "\r\n", &saveptr);
-	while (pch != NULL)
-	{
-		ast_str_append(&buf,0,"MessageLine%d: %s\r\n", linecount, pch);
-		pch = strtok_r (NULL, "\r\n", &saveptr);
-		linecount++;
-	}
-
-	manager_event(EVENT_FLAG_CALL, "DatacardNewSMS",
-		"Device: %s\r\n"
-		"From: %s\r\n"
-		"LineCount: %d\r\n"
-		"%s\r\n",
-		pvt->id,
-		from_number,
-		linecount,
-		ast_str_buffer(buf)
-	);
-
-	ret = ast_strdup(ast_str_buffer(buf));
-	ast_free(buf);
-
-	return ret;
 }
 
 /*!
@@ -4852,10 +4556,19 @@ static int unload_module(void)
 	/* First, take us out of the channel loop */
 	ast_channel_unregister(&dc_tech);
 
-	/* Unregister the CLI & APP */
+	/* Unregister the CLI & APP & MANAGER */
 	ast_cli_unregister_multiple(dc_cli, sizeof(dc_cli) / sizeof(dc_cli[0]));
-	ast_unregister_application(app_dcstatus);
-	ast_unregister_application(app_dcsendsms);
+
+#ifdef __APP__
+	ast_unregister_application (app_status);
+	ast_unregister_application (app_send_sms);
+#endif
+
+#ifdef __MANAGER__
+	ast_manager_unregister ("DatacardShowDevices");
+	ast_manager_unregister ("DatacardSendCUSD");
+	ast_manager_unregister ("DatacardSendSMS");
+#endif
 
 	/* signal everyone we are unloading */
 	set_unloading();
@@ -4893,8 +4606,9 @@ static int load_module(void)
 	/* Copy the default jb config over global_jbconf */
 	memcpy(&global_jbconf, &default_jbconf, sizeof(struct ast_jb_conf));
 
-	if (dc_load_config()) {
-		ast_log(LOG_ERROR, "Errors reading config file %s. Not loading module.\n", DC_CONFIG);
+	if (dc_load_config ())
+	{
+		ast_log (LOG_ERROR, "Errors reading config file " CONFIG_FILE ". Not loading module.\n");
 		return AST_MODULE_LOAD_DECLINE;
 	}
 
@@ -4911,29 +4625,37 @@ static int load_module(void)
 	}
 
 	ast_cli_register_multiple(dc_cli, sizeof(dc_cli) / sizeof(dc_cli[0]));
-	ast_register_application(app_dcstatus, dc_status_exec, dcstatus_synopsis, dcstatus_desc);
-	ast_register_application(app_dcsendsms, dc_sendsms_exec, dcsendsms_synopsis, dcsendsms_desc);
 
-	ast_manager_register2(
+#ifdef __APP__
+	ast_register_application (app_status,   app_status_exec,   app_status_synopsis,   app_status_desc);
+	ast_register_application (app_send_sms, app_send_sms_exec, app_send_sms_synopsis, app_send_sms_desc);
+#endif
+
+#ifdef __MANAGER__
+	ast_manager_register2 (
 		"DatacardShowDevices",
 		EVENT_FLAG_SYSTEM | EVENT_FLAG_CONFIG | EVENT_FLAG_REPORTING,
-		dc_manager_show_devices,
+		manager_show_devices,
 		"List Datacard devices",
-		manager_show_devices_desc);
+		manager_show_devices_desc
+	);
 
-	ast_manager_register2(
+	ast_manager_register2 (
 		"DatacardSendCUSD",
 		EVENT_FLAG_SYSTEM | EVENT_FLAG_CONFIG | EVENT_FLAG_REPORTING,
-		dc_manager_send_cusd,
+		manager_send_cusd,
 		"Send a cusd command to the datacard.",
-		manager_send_cusd_desc);
+		manager_send_cusd_desc
+	);
 
-	ast_manager_register2(
+	ast_manager_register2 (
 		"DatacardSendSMS",
 		EVENT_FLAG_SYSTEM | EVENT_FLAG_CONFIG | EVENT_FLAG_REPORTING,
-		dc_manager_send_sms,
+		manager_send_sms,
 		"Send a sms message.",
-		manager_send_sms_desc);
+		manager_send_sms_desc
+	);
+#endif
 
 	return AST_MODULE_LOAD_SUCCESS;
 

@@ -4,14 +4,15 @@
    http://www.makhutov.org
 */
 
-#define DC_CONFIG "datacard.conf"
+#define CONFIG_FILE		"datacard.conf"
 
-#define DEVICE_FRAME_SIZE 320
-#define DEVICE_FRAME_FORMAT AST_FORMAT_SLINEAR
-#define CHANNEL_FRAME_SIZE 320
+#define DEVICE_FRAME_SIZE	320
+#define CHANNEL_FRAME_SIZE	320
+#define DEVICE_FRAME_FORMAT	AST_FORMAT_SLINEAR
 
 struct msg_queue_entry;
-struct dc_pvt {
+typedef struct dc_pvt
+{
 	struct ast_channel *owner;			/* Channel we belong to, possibly NULL */
 	struct ast_frame fr;				/* "null" frame */
 	ast_mutex_t lock;				/*!< pvt lock */
@@ -65,4 +66,62 @@ struct dc_pvt {
 	unsigned int group_last_used:1; /*!< mark the last used device */
 
 	AST_LIST_ENTRY(dc_pvt) entry;
-};
+}
+pvt_t;
+
+
+/* Manager */
+
+#ifdef __MANAGER__
+
+static int			manager_show_devices	(struct mansession*, const struct message*);
+static int			manager_send_cusd	(struct mansession*, const struct message*);
+static int			manager_send_sms	(struct mansession*, const struct message*);
+static char*			manager_event_new_cusd	(pvt_t*, char*);
+static char*			manager_event_new_sms	(pvt_t*, char*, char*);
+
+static char* manager_show_devices_desc =
+	"Description: Lists Datacard devices in text format with details on current status.\n\n"
+	"DatacardShowDevicesComplete.\n"
+	"Variables:\n"
+	"	ActionID: <id>		Action ID for this transaction. Will be returned.\n";
+
+static char* manager_send_cusd_desc =
+	"Description: Send a cusd message to a datacard.\n\n"
+	"Variables: (Names marked with * are required)\n"
+	"	ActionID: <id>		Action ID for this transaction. Will be returned.\n"
+	"	*Device:  <device>	The datacard to which the cusd code will be send.\n"
+	"	*CUSD:    <code>	The cusd code that will be send to the device.\n";
+
+static char* manager_send_sms_desc =
+	"Description: Send a sms message from a datacard.\n\n"
+	"Variables: (Names marked with * are required)\n"
+	"	ActionID: <id>		Action ID for this transaction. Will be returned.\n"
+	"	*Device:  <device>	The datacard to which the cusd code will be send.\n"
+	"	*Number:  <number>	The phone number to which the sms will be send.\n"
+	"	*Message: <message>	The sms message that will be send.\n";
+
+#endif /* __MANAGER__ */
+
+
+/* Dialplan app */
+
+#ifdef __APP__
+
+static char* app_status			= "DatacardStatus";
+static char* app_status_synopsis	= "DatacardStatus(Device,Variable)";
+static char* app_status_desc		=
+	"DatacardStatus(Device,Variable)\n"
+	"  Device - Id of device from datacard.conf\n"
+	"  Variable - Variable to store status in will be 1-3.\n"
+	"             In order, Disconnected, Connected & Free, Connected & Busy.\n";
+
+static char* app_send_sms		= "DatacardSendSMS";
+static char* app_send_sms_synopsis	= "DatacardSendSMS(Device,Dest,Message)";
+static char* app_send_sms_desc		=
+	"DatacardSendSms(Device,Dest,Message)\n"
+	"  Device - Id of device from datacard.conf\n"
+	"  Dest - destination\n"
+	"  Message - text of the message\n";
+
+#endif /* __APP__ */

@@ -66,6 +66,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Rev$")
 #include <asterisk/io.h>
 #include <asterisk/musiconhold.h>
 
+#include "chan_datacard.h"
 #include "char_conv.h"
 
 /*! Global jitterbuffer configuration - by default, jb is disabled */

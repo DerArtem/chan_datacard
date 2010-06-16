@@ -8,9 +8,9 @@ RM = rm -f
 CHMOD = chmod
 INSTALL = install
 
-CFLAGS  += -Wextra -fPIC -DAST_MODULE=\"$(PROJ)\" -D_THREAD_SAFE @INCDIR@ @CFLAGS@
-LDFLAGS += @LIBDIR@
-LIBS     = @LIBS@
+CFLAGS  += -Wextra -fPIC -DAST_MODULE=\"$(PROJ)\" -D_THREAD_SAFE -I. -I/usr/include -O2 -DICONV_CONST="" -D__DEBUG__ -D__MANAGER__ -D__APP__
+LDFLAGS += 
+LIBS     = 
 
 SOLINK  = -shared -Xlinker -x
 
@@ -18,7 +18,7 @@ all	: clean $(PROJ).so
 
 install	: all
 	$(STRIP) $(PROJ).so
-	$(INSTALL) -m 755 $(PROJ).so @DESTDIR@
+	$(INSTALL) -m 755 $(PROJ).so /usr/lib/asterisk/modules/
 
 $(PROJ).so: $(OBJ)
 	$(LD) $(LDFLAGS) $(SOLINK) $(OBJ) $(LIBS) -o $@

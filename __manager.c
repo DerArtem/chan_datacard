@@ -48,7 +48,7 @@ static int manager_show_devices (struct mansession* s, const struct message* m)
 	astman_append (s,
 		"Event: DatacardShowDevicesComplete\r\n%s"
 		"EventList: Complete\r\n"
-		"ListItems: %d\r\n"
+		"ListItems: %lu\r\n"
 		"\r\n",
 		idtext, count
 	);
@@ -89,7 +89,7 @@ static int manager_send_cusd (struct mansession* s, const struct message* m)
 		ast_mutex_lock (&pvt->lock);
 		if (pvt->connected && pvt->initialized)
 		{
-			if (dc_send_cusd (pvt, cusd) || msg_queue_push (pvt, AT_OK, AT_CUSD))
+			if (at_send_cusd (pvt, cusd) || at_fifo_queue_add (pvt, CMD_AT_CUSD, RES_OK))
 			{
 				ast_log (LOG_ERROR, "[%s] Error sending CUSD command\n", pvt->id);
 			}
@@ -158,7 +158,7 @@ static int manager_send_sms (struct mansession* s, const struct message* m)
 			if (pvt->has_sms)
 			{
 				msg = ast_strdup (message);
-				if (dc_send_cmgs (pvt, number) || msg_queue_push_data (pvt, AT_SMS_PROMPT, AT_CMGS, msg))
+				if (at_send_cmgs (pvt, number) || at_fifo_queue_add_full (pvt, CMD_AT_CMGS, RES_SMS_PROMPT, msg))
 				{
 					ast_free (msg);
 					ast_log (LOG_ERROR, "[%s] Error sending SMS message\n", pvt->id);
@@ -262,7 +262,7 @@ static char* manager_event_new_sms (pvt_t* pvt, char* number, char* message)
 	manager_event (EVENT_FLAG_CALL, "DatacardNewSMS",
 		"Device: %s\r\n"
 		"From: %s\r\n"
-		"LineCount: %d\r\n"
+		"LineCount: %lu\r\n"
 		"%s\r\n",
 		pvt->id, number, linecount, ast_str_buffer (buf)
 	);

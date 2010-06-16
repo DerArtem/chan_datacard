@@ -135,7 +135,7 @@ static char* cli_cmd (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
 		if (pvt->connected)
 		{
 			snprintf (buf, sizeof (buf), "%s\r", a->argv[3]);
-			if (rfcomm_write (pvt->data_socket, buf) || msg_queue_push (pvt, AT_OK, AT_UNKNOWN))
+			if (at_write (pvt, buf) || at_fifo_queue_add (pvt, CMD_UNKNOWN, RES_OK))
 			{
 				ast_log (LOG_ERROR, "[%s] Error sending command: %s\n", pvt->id, a->argv[3]);
 			}
@@ -187,7 +187,7 @@ static char* cli_cusd (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
 		ast_mutex_lock (&pvt->lock);
 		if (pvt->connected && pvt->initialized)
 		{
-			if (dc_send_cusd (pvt, a->argv[3]) || msg_queue_push (pvt, AT_OK, AT_CUSD))
+			if (at_send_cusd (pvt, a->argv[3]) || at_fifo_queue_add (pvt, CMD_AT_CUSD, RES_OK))
 			{
 				ast_log (LOG_ERROR, "[%s] Error sending CUSD command\n", pvt->id);
 			}

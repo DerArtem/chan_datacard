@@ -107,7 +107,7 @@ static int app_send_sms_exec (struct ast_channel* channel, void* data)
 			if (pvt->has_sms)
 			{
 				msg = ast_strdup (args.message);
-				if (dc_send_cmgs (pvt, args.number) || msg_queue_push_data (pvt, AT_SMS_PROMPT, AT_CMGS, msg))
+				if (at_send_cmgs (pvt, args.number) || at_fifo_queue_add_full (pvt, CMD_AT_CMGS, RES_SMS_PROMPT, msg))
 				{
 					ast_mutex_unlock (&pvt->lock);
 					ast_free (msg);

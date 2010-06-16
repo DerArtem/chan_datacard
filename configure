@@ -1,0 +1,35 @@
+#!/bin/sh
+
+host_os=`uname -s`
+config_files="Makefile"
+
+case "$host_os" in
+FreeBSD*)
+	DESTDIR="/usr/local/lib/asterisk/modules/"
+
+	INCDIR="-I. -I/usr/local/include"
+	CFLAGS="-O2 -DICONV_CONST=\"const\" -D__DEBUG__ -D__MANAGER__ -D__APP__"
+
+	LIBDIR="-L/usr/local/lib"
+	LIBS="-liconv"
+;;    
+Linux*)
+	DESTDIR="/usr/lib/asterisk/modules/"
+
+	INCDIR="-I. -I/usr/include"
+	CFLAGS="-O2 -DICONV_CONST=\"\" -D__DEBUG__ -D__MANAGER__ -D__APP__"
+
+	LIBDIR=""
+	LIBS=""
+;;
+esac
+
+for config_file in ${config_files}; do
+	sed -e "
+		s%@DESTDIR@%${DESTDIR}%g
+		s%@INCDIR@%${INCDIR}%g
+		s%@CFLAGS@%${CFLAGS}%g
+		s%@LIBDIR@%${LIBDIR}%g
+		s%@LIBS@%${LIBS}%g
+	" ${config_file}.in > ${config_file}
+done

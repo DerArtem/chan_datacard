@@ -31,8 +31,6 @@
  * \ingroup channel_drivers
  */
 
-// TEST
-
 #include <asterisk.h>
 
 ASTERISK_FILE_VERSION(__FILE__, "$Rev$")

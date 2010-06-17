@@ -33,3 +33,5 @@ for config_file in ${config_files}; do
 		s%@LIBS@%${LIBS}%g
 	" ${config_file}.in > ${config_file}
 done
+
+echo "configure complete, now type 'make'"

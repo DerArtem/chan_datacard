@@ -156,14 +156,14 @@ static ssize_t char_to_hexstr_7bit (const char* in, size_t in_length, char* out,
 		c = c | b;
 		s++;
 
-		snprintf (buf, sizeof(buf), "%0.2X", c);
+		snprintf (buf, sizeof(buf), "%.2X", c);
 
 		memcpy (out + x, buf, 2);
 		x = x + 2;
 	}
 
 	c = in[i] >> s;
-	snprintf (buf, sizeof(buf), "%0.2X", c);
+	snprintf (buf, sizeof(buf), "%.2X", c);
 	memcpy (out + x, buf, 2);
 	x = x + 2;
 

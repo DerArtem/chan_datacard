@@ -28,4 +28,4 @@ $(PROJ).so: $(OBJ)
 	$(CC) $(CFLAGS) -c $<
 
 clean	:
-	@$(RM) $(PROJ).so *.o
+	@$(RM) $(PROJ).so *.o *.core

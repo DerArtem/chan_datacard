@@ -124,7 +124,21 @@ static int at_read_result_iov (pvt_t* pvt)
 		}
 		else
 		{
-			if (rb_memcmp (&pvt->read_rb, "> ", 2) == 0)
+			if (rb_memcmp (&pvt->read_rb, "+CSSI:", 6) == 0)
+			{
+				if ((iovcnt = rb_read_n_iov (&pvt->read_rb, pvt->read_iov, 8)) > 0)
+				{
+					pvt->read_result = 0;
+				}
+
+				return iovcnt;
+			}
+			else if (rb_memcmp (&pvt->read_rb, "\r\n+CSSU:", 8) == 0)
+			{
+				rb_read_upd (&pvt->read_rb, 2);
+				return at_read_result_iov (pvt);
+			}
+			else if (rb_memcmp (&pvt->read_rb, "> ", 2) == 0)
 			{
 				pvt->read_result = 0;
 				return rb_read_n_iov (&pvt->read_rb, pvt->read_iov, 2);
@@ -156,20 +170,6 @@ static int at_read_result_iov (pvt_t* pvt)
 
 				return iovcnt;
 			}
-			else if (rb_memcmp (&pvt->read_rb, "+CSSI:", 6) == 0)
-			{
-				if ((iovcnt = rb_read_n_iov (&pvt->read_rb, pvt->read_iov, 8)) > 0)
-				{
-					pvt->read_result = 0;
-				}
-
-				return iovcnt;
-			}
-			else if (rb_memcmp (&pvt->read_rb, "\r\n+CSSU:", 8) == 0)
-			{
-				rb_read_upd (&pvt->read_rb, 2);
-				return at_read_result_iov (pvt);
-			}
 			else
 			{
 				if ((iovcnt = rb_read_until_mem_iov (&pvt->read_rb, pvt->read_iov, "\r\n", 2)) > 0)
@@ -192,77 +192,96 @@ static inline at_res_t at_read_result_classification (pvt_t* pvt, int iovcnt)
 
 	if (iovcnt > 0)
 	{
-		if (rb_memcmp (&pvt->read_rb, "^BOOT:", 6) == 0)		// 741
+		if (rb_memcmp (&pvt->read_rb, "^BOOT:", 6) == 0)		// 5115
 		{
 			at_res = RES_BOOT;
 		}
-		else if (rb_memcmp (&pvt->read_rb, "OK\r", 3) == 0)		// 454
+		else if (rb_memcmp (&pvt->read_rb, "OK\r", 3) == 0)		// 2637
 		{
 			at_res = RES_OK;
 		}
-		else if (rb_memcmp (&pvt->read_rb, "^RSSI:", 6) == 0)		// 201
+		else if (rb_memcmp (&pvt->read_rb, "^RSSI:", 6) == 0)		// 880
 		{
 			at_res = RES_RSSI;
 		}
-		else if (rb_memcmp (&pvt->read_rb, "^MODE:", 6) == 0)		// 104
+		else if (rb_memcmp (&pvt->read_rb, "^MODE:", 6) == 0)		// 656
 		{
 			at_res = RES_MODE;
 		}
-		else if (rb_memcmp (&pvt->read_rb, "+CSSI:", 6) == 0)		// 59
-		{
-			at_res = RES_CSSI;
-		}
-		else if (rb_memcmp (&pvt->read_rb, "^ORIG:", 6) == 0)		// 54
-		{
-			at_res = RES_ORIG;
-		}
-		else if (rb_memcmp (&pvt->read_rb, "^CONF:", 6) == 0)		// 54
-		{
-			at_res = RES_CONF;
-		}
-		else if (rb_memcmp (&pvt->read_rb, "^CEND:", 6) == 0)		// 54
+		else if (rb_memcmp (&pvt->read_rb, "^CEND:", 6) == 0)		// 425
 		{
 			at_res = RES_CEND;
 		}
-		else if (rb_memcmp (&pvt->read_rb, "^CONN:", 6) == 0)		// 33
+		else if (rb_memcmp (&pvt->read_rb, "+CSSI:", 6) == 0)		// 416
+		{
+			at_res = RES_CSSI;
+		}
+		else if (rb_memcmp (&pvt->read_rb, "^ORIG:", 6) == 0)		// 408
+		{
+			at_res = RES_ORIG;
+		}
+		else if (rb_memcmp (&pvt->read_rb, "^CONF:", 6) == 0)		// 404
+		{
+			at_res = RES_CONF;
+		}
+		else if (rb_memcmp (&pvt->read_rb, "^CONN:", 6) == 0)		// 332
 		{
 			at_res = RES_CONN;
 		}
-		else if (rb_memcmp (&pvt->read_rb, "+CREG:", 6) == 0)		// 11
+		else if (rb_memcmp (&pvt->read_rb, "+CREG:", 6) == 0)		// 56
 		{
 			at_res = RES_CREG;
 		}
-		else if (rb_memcmp (&pvt->read_rb, "+COPS:", 6) == 0)		// 11
+		else if (rb_memcmp (&pvt->read_rb, "+COPS:", 6) == 0)		// 56
 		{
 			at_res = RES_COPS;
 		}
-		else if (rb_memcmp (&pvt->read_rb, "+CSQ:", 5) == 0)		// 9 !!! init
-		{
-			at_res = RES_CSQ;
-		}
-		else if (rb_memcmp (&pvt->read_rb, "+CPIN:", 6) == 0)		// 9 !!! init ?
-		{
-			at_res = RES_CPIN;
-		}
-		else if (rb_memcmp (&pvt->read_rb, "^SRVST:", 7) == 0)		// 3
+		else if (rb_memcmp (&pvt->read_rb, "^SRVST:", 7) == 0)		// 35
 		{
 			at_res = RES_SRVST;
 		}
+		else if (rb_memcmp (&pvt->read_rb, "+CSQ:", 5) == 0)		// 28 init
+		{
+			at_res = RES_CSQ;
+		}
+		else if (rb_memcmp (&pvt->read_rb, "+CPIN:", 6) == 0)		// 28 init
+		{
+			at_res = RES_CPIN;
+		}
 
 
-		else if (rb_memcmp (&pvt->read_rb, "ERROR\r", 6) == 0)		// 1	???
+		else if (rb_memcmp (&pvt->read_rb, "RING\r", 5) == 0)		// 15 incoming
+		{
+			at_res = RES_RING;
+		}
+		else if (rb_memcmp (&pvt->read_rb, "+CLIP:", 6) == 0)		// 15 incoming
+		{
+			at_res = RES_CLIP;
+		}
+
+
+		else if (rb_memcmp (&pvt->read_rb, "ERROR\r", 6) == 0)		// 12
 		{
 			at_res = RES_ERROR;
 		}
 
+		else if (rb_memcmp (&pvt->read_rb, "+CMTI:", 6) == 0)		// 8 SMS
+		{
+			at_res = RES_CMTI;
+		}
+		else if (rb_memcmp (&pvt->read_rb, "+CMGR:", 6) == 0)		// 8 SMS
+		{
+			at_res = RES_CMGR;
+		}
 
+
+		else if (rb_memcmp (&pvt->read_rb, "+CSSU:", 6) == 0)		// 2
+		{
+			at_res = RES_CSSU;
+		}
 		else if (rb_memcmp (&pvt->read_rb, "BUSY\r", 5) == 0)
 		{
 			at_res = RES_BUSY;
-		}
-		else if (rb_memcmp (&pvt->read_rb, "RING\r", 5) == 0)
-		{
-			at_res = RES_RING;
 		}
 		else if (rb_memcmp (&pvt->read_rb, "NO DIALTONE\r", 12) == 0)
 		{
@@ -271,10 +290,6 @@ static inline at_res_t at_read_result_classification (pvt_t* pvt, int iovcnt)
 		else if (rb_memcmp (&pvt->read_rb, "NO CARRIER\r", 11) == 0)
 		{
 			at_res = RES_NO_CARRIER;
-		}
-		else if (rb_memcmp (&pvt->read_rb, "+CSSU:", 6) == 0)		// 
-		{
-			at_res = RES_CSSU;
 		}
 		else if (rb_memcmp (&pvt->read_rb, "COMMAND NOT SUPPORT\r", 20) == 0)
 		{
@@ -287,18 +302,6 @@ static inline at_res_t at_read_result_classification (pvt_t* pvt, int iovcnt)
 		else if (rb_memcmp (&pvt->read_rb, "^SMMEMFULL:", 11) == 0)
 		{
 			at_res = RES_SMMEMFULL;
-		}
-		else if (rb_memcmp (&pvt->read_rb, "+CLIP:", 6) == 0)
-		{
-			at_res = RES_CLIP;
-		}
-		else if (rb_memcmp (&pvt->read_rb, "+CMTI:", 6) == 0)		// 1
-		{
-			at_res = RES_CMTI;
-		}
-		else if (rb_memcmp (&pvt->read_rb, "+CMGR:", 6) == 0)		// 1
-		{
-			at_res = RES_CMGR;
 		}
 		else if (rb_memcmp (&pvt->read_rb, "> ", 2) == 0)
 		{

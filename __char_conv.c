@@ -129,12 +129,12 @@ static ssize_t utf8_to_hexstr_ucs2 (const char* in, size_t in_length, char* out,
 
 static ssize_t char_to_hexstr_7bit (const char* in, size_t in_length, char* out, size_t out_size)
 {
-	size_t	i;
-	size_t	x;
-	size_t	s;
-	char	c;
-	char	b;
-	char	buf[] = { 0x0, 0x0, 0x0 };
+	size_t		i;
+	size_t		x;
+	size_t		s;
+	unsigned char	c;
+	unsigned char	b;
+	unsigned char	buf[] = { 0x0, 0x0, 0x0 };
 
 	x = (in_length - in_length / 8) * 2;
 	if (out_size - 1 < x)
@@ -174,13 +174,13 @@ static ssize_t char_to_hexstr_7bit (const char* in, size_t in_length, char* out,
 
 static ssize_t hexstr_7bit_to_char (const char* in, size_t in_length, char* out, size_t out_size)
 {
-	size_t	i;
-	size_t	x;
-	size_t	s;
-	int	hexval;
-	char	c;
-	char	b;
-	char	buf[] = { 0x0, 0x0, 0x0 };
+	size_t		i;
+	size_t		x;
+	size_t		s;
+	int		hexval;
+	unsigned char	c;
+	unsigned char	b;
+	unsigned char	buf[] = { 0x0, 0x0, 0x0 };
 
 	in_length = in_length / 2;
 	x = in_length + in_length / 7;

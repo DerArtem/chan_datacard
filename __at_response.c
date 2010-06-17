@@ -38,7 +38,7 @@ static inline int at_response (pvt_t* pvt, int iovcnt, at_res_t at_res)
 			str[len] = '\0';
 		}
 
-		ast_debug (5, "[%s] [%.*s]\n", pvt->id, len, str);
+		ast_debug (5, "[%s] [%.*s]\n", pvt->id, (int) len, str);
 
 		switch (at_res)
 		{
@@ -152,13 +152,13 @@ static inline int at_response (pvt_t* pvt, int iovcnt, at_res_t at_res)
 							return at_response_cgsn (pvt, str, len);
 
 						default:
-							ast_debug (1, "[%s] Ignoring unknown result: '%.*s'\n", pvt->id, len, str);
+							ast_debug (1, "[%s] Ignoring unknown result: '%.*s'\n", pvt->id, (int) len, str);
 							break;
 					}
 				}
 				else
 				{
-					ast_debug (1, "[%s] Ignoring unknown result: '%.*s'\n", pvt->id, len, str);
+					ast_debug (1, "[%s] Ignoring unknown result: '%.*s'\n", pvt->id, (int) len, str);
 				}
 
 				break;
@@ -1167,7 +1167,7 @@ static inline int at_response_cusd (pvt_t* pvt, char* str, size_t len)
 
 	if (!(cusd = at_parse_cusd (pvt, str, len)))
 	{
-		ast_verb (1, "[%s] error parsing CUSD: '%.*s'\n", pvt->id, len, str);
+		ast_verb (1, "[%s] error parsing CUSD: '%.*s'\n", pvt->id, (int) len, str);
 		return 0;
 	}
 

@@ -678,7 +678,7 @@ static inline int at_parse_mode (pvt_t* pvt, char* str, size_t len, int* mode, i
 
 	if (!sscanf (str, "^MODE:%d,%d", mode, submode))
 	{
-		ast_debug (2, "[%s] Error parsing MODE event '%.*s'\n", pvt->id, len, str);
+		ast_debug (2, "[%s] Error parsing MODE event '%.*s'\n", pvt->id, (int) len, str);
 		return -1;
 	}
 

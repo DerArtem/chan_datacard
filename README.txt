@@ -31,7 +31,7 @@ Supported features:
 Some useful AT commands:
 AT+CCWA=0,0,1
 AT+CFUN=1,1
-AT^CARDLOCK=""
+AT^CARDLOCK="<code>"
 AT^SYSCFG=13,0,3FFFFFFF,0,3
 AT^U2DIAG=0
 

@@ -39,7 +39,7 @@ static int at_write_full (pvt_t* pvt, char* buf, size_t count)
 	char*	p = buf;
 	ssize_t	out_count;
 
-	ast_debug (5, "[%s] [%.*s]\n", pvt->id, count, buf);
+	ast_debug (5, "[%s] [%.*s]\n", pvt->id, (int) count, buf);
 
 	while (count > 0)
 	{

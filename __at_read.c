@@ -58,8 +58,8 @@ static inline int at_read (pvt_t* pvt)
 			if (iovcnt == 2)
 			{
 				ast_debug (5, "[%s] [%.*s%.*s]\n", pvt->id,
-						pvt->read_iov[0].iov_len, pvt->read_iov[0].iov_base,
-							pvt->read_iov[1].iov_len, pvt->read_iov[1].iov_base);
+						(int) pvt->read_iov[0].iov_len, pvt->read_iov[0].iov_base,
+							(int) pvt->read_iov[1].iov_len, pvt->read_iov[1].iov_base);
 
 				ast_debug (5, "[%s] base1=%lu len1=%lu base2=%lu len2=%lu\n", pvt->id,
 						pvt->read_iov[0].iov_base - (void*) pvt->read_buf, pvt->read_iov[0].iov_len,
@@ -68,7 +68,7 @@ static inline int at_read (pvt_t* pvt)
 			else
 			{
 				ast_debug (5, "[%s] [%.*s]\n", pvt->id,
-						pvt->read_iov[0].iov_len, pvt->read_iov[0].iov_base);
+						(int) pvt->read_iov[0].iov_len, pvt->read_iov[0].iov_base);
 
 				ast_debug (5, "[%s] base1=%lu len1=%lu\n", pvt->id,
 						pvt->read_iov[0].iov_base - (void*) pvt->read_buf, pvt->read_iov[0].iov_len);

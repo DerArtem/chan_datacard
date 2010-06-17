@@ -199,13 +199,12 @@ static int manager_send_sms (struct mansession* s, const struct message* m)
  * \param message a null terminated buffer containing the message
  */
 
-static char* manager_event_new_cusd (pvt_t* pvt, char* message)
+static void manager_event_new_cusd (pvt_t* pvt, char* message)
 {
 	struct ast_str* buf;
 	char*	s = message;
 	char*	sl;
 	size_t	linecount = 0;
-	char*	ret;
 
 	buf = ast_str_create (256);
 
@@ -225,10 +224,7 @@ static char* manager_event_new_cusd (pvt_t* pvt, char* message)
 		pvt->id, linecount, ast_str_buffer (buf)
 	);
 
-	ret = ast_strdup (ast_str_buffer (buf));
 	ast_free (buf);
-
-	return ret;
 }
 
 /*!
@@ -240,7 +236,7 @@ static char* manager_event_new_cusd (pvt_t* pvt, char* message)
  * \param message a null terminated buffer containing the message
  */
 
-static char* manager_event_new_sms (pvt_t* pvt, char* number, char* message)
+static void manager_event_new_sms (pvt_t* pvt, char* number, char* message)
 {
 	struct ast_str* buf;
 	size_t	linecount = 0;
@@ -267,8 +263,5 @@ static char* manager_event_new_sms (pvt_t* pvt, char* number, char* message)
 		pvt->id, number, linecount, ast_str_buffer (buf)
 	);
 
-	ret = ast_strdup (ast_str_buffer (buf));
 	ast_free (buf);
-
-	return ret;
 }

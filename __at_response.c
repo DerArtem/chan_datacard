@@ -958,6 +958,7 @@ static inline int at_response_clip (pvt_t* pvt, char* str, size_t len)
 
 		/* from this point on, we need to send a chup in the event of a hangup */
 		pvt->hookstate = 1;
+
 		/* We dont need to send ring a 2nd time */
 		pvt->needring = 1;
 

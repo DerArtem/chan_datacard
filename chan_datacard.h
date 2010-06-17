@@ -124,7 +124,7 @@ typedef struct pvt_t
 	struct ast_frame	frame;				/* "null" frame */
 	struct ast_smoother*	smoother;			/* our smoother, for making 320 byte frames */
 
-	AST_LIST_HEAD_NOLOCK (at_queue, at_queue_t) at_queue; /*! queue for response we are expecting */
+	AST_LIST_HEAD_NOLOCK (at_queue, at_queue_t) at_queue;	/*! queue for response we are expecting */
 
 	char			io_buf[CHANNEL_FRAME_SIZE + AST_FRIENDLY_OFFSET];
 
@@ -138,9 +138,8 @@ typedef struct pvt_t
 	unsigned int		read_result:1;
 
 
-	int			hangupcause;
 	int			ber;
-
+	int			hangupcause;
 	int			sms_storage_position;
 
 	unsigned int		has_sms:1;
@@ -162,7 +161,7 @@ typedef struct pvt_t
 	unsigned int		incoming:1;		/*!< incoming call */
 	unsigned int		outgoing_sms:1;		/*!< outgoing sms */
 	unsigned int		incoming_sms:1;		/*!< incoming sms */
-	unsigned int		hookstate:1;		/*!< we need to send a chup */
+	unsigned int		hookstate:1;		/*!< we need to send a CHUP */
 	unsigned int		needring:1;		/*!< we need to send a RING */
 	unsigned int		answered:1;		/*!< we sent/recieved an answer */
 	unsigned int		volume_synchronized:1;	/*!< we have synchronized the volume */
@@ -174,12 +173,12 @@ pvt_t;
 
 static AST_RWLIST_HEAD_STATIC (devices, pvt_t);
 
-static int		discovery_interval = DEF_DISCOVERY_INT;	/* The device discovery interval */
-static pthread_t	discovery_thread   = AST_PTHREADT_NULL;	/* The discovery thread */
+static int			discovery_interval = DEF_DISCOVERY_INT;	/* The device discovery interval */
+static pthread_t		discovery_thread   = AST_PTHREADT_NULL;	/* The discovery thread */
 
 AST_MUTEX_DEFINE_STATIC (unload_mtx);
-static		int	unloading_flag = 0;
-static inline	int	check_unloading ();
+static int			unloading_flag = 0;
+static inline int		check_unloading ();
 
 
 /* Helpers */
@@ -361,8 +360,8 @@ static struct ast_cli_entry cli[] = {
 static int			manager_show_devices	(struct mansession*, const struct message*);
 static int			manager_send_cusd	(struct mansession*, const struct message*);
 static int			manager_send_sms	(struct mansession*, const struct message*);
-static char*			manager_event_new_cusd	(pvt_t*, char*);
-static char*			manager_event_new_sms	(pvt_t*, char*, char*);
+static void			manager_event_new_cusd	(pvt_t*, char*);
+static void			manager_event_new_sms	(pvt_t*, char*, char*);
 
 static char* manager_show_devices_desc =
 	"Description: Lists Datacard devices in text format with details on current status.\n\n"

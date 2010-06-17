@@ -8,11 +8,13 @@ This channel driver is in beta stage.
 I am not responsible if this channel driver will eat your money on
 your SIM card or do any unpredicted things.
 
-Please use a recent Kernel. Kernel 2.6.33+ recommended.
+Please use a recent Linux kernel, 2.6.33+ recommended.
+If you use FreeBSD, 8.0+ recommended.
 
 This channel driver should work with the folowing UMTS cards:
 * Huawei K3715
 * Huawei E169 / K3520
+* Huawei E1550
 
 This channel is known NOT to work with the folowing UMTS cards:
 * Huawei E160 / K3565
@@ -25,6 +27,13 @@ Supported features:
 * Place voice calls and terminate voice calls
 * Send SMS and receive SMS
 * Send and receive CUSD commands / messages
+
+Some useful AT commands:
+AT+CCWA=0,0,1
+AT+CFUN=1,1
+AT^CARDLOCK=""
+AT^SYSCFG=13,0,3FFFFFFF,0,3
+AT^U2DIAG=0
 
 Here is an example for the dialplan:
 

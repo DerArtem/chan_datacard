@@ -179,7 +179,7 @@ static inline int at_response_ok (pvt_t* pvt)
 {
 	at_queue_t* e;
 
-	if ((e = at_fifo_queue_head (pvt)) && e->res == RES_OK)
+	if ((e = at_fifo_queue_head (pvt)) && (e->res == RES_OK || e->res == RES_CMGR))
 	{
 		switch (e->cmd)
 		{

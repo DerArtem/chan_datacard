@@ -509,6 +509,10 @@ static inline int at_response_ok (pvt_t* pvt)
 				ast_debug (1, "[%s] Provider query successfully\n", pvt->id);
 				break;
 
+			case CMD_AT_CMGR:
+				ast_debug (1, "[%s] SMS message see later\n", pvt->id);
+				break;
+
 			case CMD_AT_CMGD:
 				ast_debug (1, "[%s] SMS message deleted successfully\n", pvt->id);
 				break;

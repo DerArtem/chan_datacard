@@ -403,8 +403,7 @@ static pvt_t* load_device (struct ast_config* cfg, const char* cat)
 	pvt->timeout			= 10000;
 	pvt->data_socket		= -1;
 	pvt->audio_socket		= -1;
-	pvt->ber			= 99;
-	pvt->reset_datacard		= 1;
+	pvt->reset_datacard		=  1;
 	pvt->u2diag			= -1;
 
 

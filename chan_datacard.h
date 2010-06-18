@@ -93,7 +93,14 @@ typedef struct at_queue_t
 
 	at_cmd_t		cmd;
 	at_res_t		res;
-	void*			data;
+
+	int			dtype;
+
+	union
+	{
+		void*		ptr;
+		int		num;
+	} data;
 }
 at_queue_t;
 
@@ -128,18 +135,15 @@ typedef struct pvt_t
 
 	char			io_buf[CHANNEL_FRAME_SIZE + AST_FRIENDLY_OFFSET];
 
+
 	char			send_buf[2*1024];
 	size_t			send_size;
-
 	char			read_buf[2*1024];
 	char			parse_buf[2*1024];
 	ringbuffer_t		read_rb;
 	struct iovec		read_iov[2];
 	unsigned int		read_result:1;
 
-
-	int			ber;
-	int			sms_storage_position;
 
 	unsigned int		has_sms:1;
 	unsigned int		has_voice:1;
@@ -152,6 +156,7 @@ typedef struct pvt_t
 	char			firmware[32];
 	char			imei[17];
 	char			number[128];
+
 
 	/* flags */
 	unsigned int		connected:1;		/*!< do we have an rfcomm connection to a device */
@@ -286,7 +291,7 @@ static int			at_parse_cmti		(pvt_t*, char*, size_t);
 static inline char*		at_parse_cnum		(pvt_t*, char*, size_t);
 static inline char*		at_parse_cops		(pvt_t*, char*, size_t);
 static inline int		at_parse_cpin		(pvt_t*, char*, size_t);
-static inline int		at_parse_csq		(pvt_t*, char*, size_t, int*, int*);
+static inline int		at_parse_csq		(pvt_t*, char*, size_t, int*);
 static inline char*		at_parse_cusd		(pvt_t*, char*, size_t);
 static inline int		at_parse_mode		(pvt_t*, char*, size_t, int*, int*);
 static inline int		at_parse_rssi		(pvt_t*, char*, size_t);
@@ -330,7 +335,8 @@ static inline int		at_send_u2diag		(pvt_t*, int mode);
 
 
 static inline int		at_fifo_queue_add	(pvt_t*, at_cmd_t, at_res_t);
-static int			at_fifo_queue_add_full	(pvt_t*, at_cmd_t, at_res_t, void*);
+static int			at_fifo_queue_add_ptr	(pvt_t*, at_cmd_t, at_res_t, void*);
+static int			at_fifo_queue_add_num	(pvt_t*, at_cmd_t, at_res_t, int);
 static inline void		at_fifo_queue_rem	(pvt_t*);
 static inline void		at_fifo_queue_flush	(pvt_t*);
 static inline at_queue_t*	at_fifo_queue_head	(pvt_t*);

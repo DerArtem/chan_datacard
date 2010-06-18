@@ -542,7 +542,7 @@ static int channel_devicestate (void* data)
 	pvt = find_device (device);
 	if (pvt)
 	{
-		ast_mutex_lock(&pvt->lock);
+		ast_mutex_lock (&pvt->lock);
 		if (pvt->connected)
 		{
 			if (pvt->owner)
@@ -554,7 +554,7 @@ static int channel_devicestate (void* data)
 				res = AST_DEVICE_NOT_INUSE;
 			}
 		}
-		ast_mutex_unlock(&pvt->lock);
+		ast_mutex_unlock (&pvt->lock);
 	}
 
 	return res;

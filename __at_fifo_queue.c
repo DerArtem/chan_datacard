@@ -13,18 +13,18 @@
 
 static inline int at_fifo_queue_add (pvt_t* pvt, at_cmd_t cmd, at_res_t res)
 {
-	return at_fifo_queue_add_full (pvt, cmd, res, NULL);
+	return at_fifo_queue_add_ptr (pvt, cmd, res, NULL);
 }
 
 /*!
- * \brief Add an item to the back of the queue with data
+ * \brief Add an item to the back of the queue with pointer data
  * \param pvt -- pvt structure
  * \param cmd -- the command that was sent to generate the response
  * \param res -- the expected response
- * \param data -- data associated with this entry, it will be freed when the message is freed
+ * \param data -- pointer data associated with this entry, it will be freed when the message is freed
  */
 
-static int at_fifo_queue_add_full (pvt_t* pvt, at_cmd_t cmd, at_res_t res, void* data)
+static int at_fifo_queue_add_ptr (pvt_t* pvt, at_cmd_t cmd, at_res_t res, void* ptr)
 {
 	at_queue_t* e;
 
@@ -33,9 +33,40 @@ static int at_fifo_queue_add_full (pvt_t* pvt, at_cmd_t cmd, at_res_t res, void*
 		return -1;
 	}
 
-	e->cmd  = cmd;
-	e->res  = res;
-	e->data = data;
+	e->cmd		= cmd;
+	e->res		= res;
+	e->dtype	= 0;
+	e->data.ptr	= ptr;
+
+	AST_LIST_INSERT_TAIL (&pvt->at_queue, e, entry);
+
+	ast_debug (4, "[%s] add command '%s' expected response '%s'\n", pvt->id,
+							 at_cmd2str (e->cmd), at_res2str (e->res));
+
+	return 0;
+}
+
+/*!
+ * \brief Add an item to the back of the queue with pointer data
+ * \param pvt -- pvt structure
+ * \param cmd -- the command that was sent to generate the response
+ * \param res -- the expected response
+ * \param num -- numeric data
+ */
+
+static int at_fifo_queue_add_num (pvt_t* pvt, at_cmd_t cmd, at_res_t res, int num)
+{
+	at_queue_t* e;
+
+	if (!(e = ast_calloc (1, sizeof(*e))))
+	{
+		return -1;
+	}
+
+	e->cmd		= cmd;
+	e->res		= res;
+	e->dtype	= 1;
+	e->data.num	= num;
 
 	AST_LIST_INSERT_TAIL (&pvt->at_queue, e, entry);
 
@@ -59,9 +90,9 @@ static inline void at_fifo_queue_rem (pvt_t* pvt)
 		ast_debug (4, "[%s] remove command '%s' expected response '%s'\n", pvt->id,
 							at_cmd2str (e->cmd), at_res2str (e->res));
 
-		if (e->data)
+		if (e->dtype == 0 && e->data.ptr)
 		{
-			ast_free (e->data);
+			ast_free (e->data.ptr);
 		}
 
 		ast_free (e);

@@ -1011,8 +1011,7 @@ static inline int at_response_cmti (pvt_t* pvt, char* str, size_t len)
 	{
 		ast_debug (1, "[%s] Incoming SMS message\n", pvt->id);
 
-		pvt->sms_storage_position = index;
-		if (at_send_cmgr (pvt, index) || at_fifo_queue_add (pvt, CMD_AT_CMGR, RES_CMGR))
+		if (at_send_cmgr (pvt, index) || at_fifo_queue_add_num (pvt, CMD_AT_CMGR, RES_CMGR, index))
 		{
 			ast_debug (1, "[%s] Error sending CMGR to retrieve SMS message\n", pvt->id);
 			return -1;
@@ -1091,6 +1090,14 @@ static inline int at_response_cmgr (pvt_t* pvt, char* str, size_t len)
 		manager_event_new_sms (pvt, from_number, text);
 #endif
 
+		if (pvt->auto_delete_sms && e->dtype == 1)
+		{
+			if (at_send_cmgd (pvt, e->data.num) || at_fifo_queue_add (pvt, CMD_AT_CMGD, RES_OK))
+			{
+				ast_debug (1, "[%s] Error sending CMGD to delete SMS message\n", pvt->id);
+				return -1;
+			}
+		}
 	}
 	else if (e)
 	{
@@ -1100,15 +1107,6 @@ static inline int at_response_cmgr (pvt_t* pvt, char* str, size_t len)
 	else
 	{
 		ast_debug (1, "[%s] Recieved unexpected '+CMGR'\n", pvt->id);
-	}
-
-	if (pvt->auto_delete_sms)
-	{
-		if (at_send_cmgd (pvt, pvt->sms_storage_position) || at_fifo_queue_add (pvt, CMD_AT_CMGD, RES_OK))
-		{
-			ast_debug (1, "[%s] Error sending CMGD to delete SMS message\n", pvt->id);
-			return -1;
-		}
 	}
 
 	return 0;
@@ -1129,7 +1127,8 @@ static inline int at_response_sms_prompt (pvt_t* pvt)
 	{
 		at_fifo_queue_rem (pvt);
 
-		if (!e->data && (at_send_sms_text (pvt, e->data) || at_fifo_queue_add (pvt, CMD_AT_CMGS, RES_OK)))
+		if (e->dtype != 0 && !e->data.ptr &&
+			(at_send_sms_text (pvt, e->data.ptr) || at_fifo_queue_add (pvt, CMD_AT_CMGS, RES_OK)))
 		{
 			ast_debug (1, "[%s] error sending sms message\n", pvt->id);
 			return -1;
@@ -1279,7 +1278,7 @@ static inline int at_response_smmemfull (pvt_t* pvt)
  */
 static inline int at_response_csq (pvt_t* pvt, char* str, size_t len)
 {
-	return at_parse_csq (pvt, str, len, &pvt->rssi, &pvt->ber);
+	return at_parse_csq (pvt, str, len, &pvt->rssi);
 }
 
 /*!

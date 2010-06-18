@@ -158,7 +158,7 @@ static int manager_send_sms (struct mansession* s, const struct message* m)
 			if (pvt->has_sms)
 			{
 				msg = ast_strdup (message);
-				if (at_send_cmgs (pvt, number) || at_fifo_queue_add_full (pvt, CMD_AT_CMGS, RES_SMS_PROMPT, msg))
+				if (at_send_cmgs (pvt, number) || at_fifo_queue_add_ptr (pvt, CMD_AT_CMGS, RES_SMS_PROMPT, msg))
 				{
 					ast_free (msg);
 					ast_log (LOG_ERROR, "[%s] Error sending SMS message\n", pvt->id);

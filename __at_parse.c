@@ -613,7 +613,7 @@ static inline int at_parse_cpin (pvt_t* pvt, char* str, size_t len)
  * \retval -1 error
  */
 
-static inline int at_parse_csq (pvt_t* pvt, char* str, size_t len, int* rssi, int* ber)
+static inline int at_parse_csq (pvt_t* pvt, char* str, size_t len, int* rssi)
 {
 	/*
 	 * parse +CSQ response in the following format:
@@ -621,9 +621,8 @@ static inline int at_parse_csq (pvt_t* pvt, char* str, size_t len, int* rssi, in
 	 */
 
 	*rssi = -1;
-	*ber  = -1;
 
-	if (!sscanf (str, "+CSQ: %2d,%2d", rssi, ber))
+	if (!sscanf (str, "+CSQ: %2d,", rssi))
 	{
 		ast_debug (2, "[%s] Error parsing +CSQ result '%s'\n", pvt->id, str);
 		return -1;

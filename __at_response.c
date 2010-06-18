@@ -467,8 +467,6 @@ static inline int at_response_ok (pvt_t* pvt)
 			case CMD_AT_A:
 				ast_debug(1, "[%s] Answer sent successfully\n", pvt->id);
 
-				pvt->hookstate = 1;
-
 				if (at_send_ddsetex (pvt) || at_fifo_queue_add (pvt, CMD_AT_DDSETEX, RES_OK))
 				{
 					ast_debug (1, "[%s] error sending AT^DDSETEX\n", pvt->id);
@@ -700,12 +698,13 @@ static inline int at_response_error (pvt_t* pvt)
 
 			case CMD_AT_A:
 				ast_debug (1, "[%s] Answer failed\n", pvt->id);
-				channel_queue_hangup (pvt);
+				channel_queue_hangup (pvt, 0);
 				break;
 
 			case CMD_AT_D:
 				ast_debug(1, "[%s] Dial failed\n", pvt->id);
-				pvt->hookstate = 0;
+				pvt->outgoing = 0;
+				pvt->needchup = 0;
 				channel_queue_control (pvt, AST_CONTROL_CONGESTION);
 				break;
 
@@ -742,8 +741,6 @@ static inline int at_response_error (pvt_t* pvt)
 
 			case CMD_AT_CLVL:
 				ast_debug (1, "[%s] Error syncronizing audio level\n", pvt->id);
-
-				/* this is not a fatal error, let's continue with initilization */
 				pvt->volume_synchronized = 0;
 				break;
 
@@ -816,8 +813,8 @@ static inline int at_response_mode (pvt_t* pvt, char* str, size_t len)
 
 static int at_response_orig (pvt_t* pvt, char* str, size_t len)
 {
-	int	call_index = 1;
-	int	call_type  = 0;
+	int call_index = 1;
+	int call_type  = 0;
 
 	channel_queue_control (pvt, AST_CONTROL_PROGRESS);
 
@@ -840,6 +837,8 @@ static int at_response_orig (pvt_t* pvt, char* str, size_t len)
 		ast_debug (1, "[%s] Error syncronizing audio level (part 1/2)\n", pvt->id);
 	}
 
+	pvt->volume_synchronized = 0;
+
 	return 0;
 }
 
@@ -854,10 +853,10 @@ static int at_response_orig (pvt_t* pvt, char* str, size_t len)
 
 static inline int at_response_cend (pvt_t* pvt, char* str, size_t len)
 {
-	int	call_index = 0;
-	int	duration   = 0;
-	int	end_status = 0;
-	int	cc_cause   = 0;
+	int call_index = 0;
+	int duration   = 0;
+	int end_status = 0;
+	int cc_cause   = 0;
 
 	/*
 	 * parse CEND info in the following format:
@@ -869,31 +868,29 @@ static inline int at_response_cend (pvt_t* pvt, char* str, size_t len)
 		ast_debug (1, "[%s] Could not parse all CEND parameters\n", pvt->id);
 	}
 
-	ast_debug (1, "[%s] CEND: call_index: %d\n",	pvt->id, call_index);
-	ast_debug (1, "[%s] CEND: duration:   %d\n",	pvt->id, duration);
-	ast_debug (1, "[%s] CEND: end_status: %d\n",	pvt->id, end_status);
-	ast_debug (1, "[%s] CEND: cc_cause:   %d\n",	pvt->id, cc_cause);
-
-	pvt->hangupcause = cc_cause;
+	ast_debug (1, "[%s] CEND: call_index: %d\n", pvt->id, call_index);
+	ast_debug (1, "[%s] CEND: duration:   %d\n", pvt->id, duration);
+	ast_debug (1, "[%s] CEND: end_status: %d\n", pvt->id, end_status);
+	ast_debug (1, "[%s] CEND: cc_cause:   %d\n", pvt->id, cc_cause);
 
 	ast_debug (1, "[%s] Line disconnected\n", pvt->id);
+
+	pvt->needchup = 0;
 
 	if (pvt->owner)
 	{
 		ast_debug (1, "[%s] hanging up owner\n", pvt->id);
 
-		if (channel_queue_hangup (pvt))
+		if (channel_queue_hangup (pvt, cc_cause))
 		{
-			ast_log (LOG_ERROR, "[%s] Error queueing hangup, disconnecting...\n", pvt->id);
+			ast_log (LOG_ERROR, "[%s] Error queueing hangup...\n", pvt->id);
 			return -1;
 		}
 	}
 
-	pvt->hookstate = 0;
-	pvt->needring  = 0;
-	pvt->incoming  = 0;
-	pvt->outgoing  = 0;
-	pvt->volume_synchronized = 0;
+	pvt->incoming = 0;
+	pvt->outgoing = 0;
+	pvt->needring = 0;
 
 	return 0;
 }
@@ -936,18 +933,19 @@ static inline int at_response_clip (pvt_t* pvt, char* str, size_t len)
 
 	ast_debug (1, "[%s] Executing at_response_clip\n", pvt->id);
 
-	if ((clip = at_parse_clip (pvt, str, len)) == NULL)
-	{
-		ast_debug (1, "[%s] Error parsing CLIP: %s\n", pvt->id, str);
-	}
-	
 	if (pvt->needring == 0)
 	{
 		pvt->incoming = 1;
-		
+
+		if ((clip = at_parse_clip (pvt, str, len)) == NULL)
+		{
+			ast_debug (1, "[%s] Error parsing CLIP: %s\n", pvt->id, str);
+		}
+
 		if (!(channel = channel_new (pvt, AST_STATE_RING, clip)))
 		{
 			ast_log (LOG_ERROR, "[%s] Unable to allocate channel for incoming call\n", pvt->id);
+
 			if (at_send_chup (pvt) || at_fifo_queue_add (pvt, CMD_AT_CHUP, RES_OK))
 			{
 				ast_log (LOG_ERROR, "[%s] Error sending AT+CHUP command\n", pvt->id);
@@ -956,10 +954,7 @@ static inline int at_response_clip (pvt_t* pvt, char* str, size_t len)
 			return -1;
 		}
 
-		/* from this point on, we need to send a chup in the event of a hangup */
-		pvt->hookstate = 1;
-
-		/* We dont need to send ring a 2nd time */
+		pvt->needchup = 1;
 		pvt->needring = 1;
 
 		if (ast_pbx_start (channel))
@@ -990,6 +985,8 @@ static inline int at_response_ring (pvt_t* pvt)
 		{
 			ast_debug (1, "[%s] Error syncronizing audio level (part 1/2)\n", pvt->id);
 		}
+
+		pvt->volume_synchronized = 0;
 	}
 
 	pvt->incoming = 1;
@@ -1205,8 +1202,7 @@ static inline int at_response_cusd (pvt_t* pvt, char* str, size_t len)
 
 static inline int at_response_busy (pvt_t* pvt)
 {
-	pvt->hookstate = 1;
-	pvt->hangupcause = AST_CAUSE_USER_BUSY;
+	pvt->needchup = 1;
 	channel_queue_control (pvt, AST_CONTROL_BUSY);
 
 	return 0;
@@ -1223,7 +1219,7 @@ static inline int at_response_no_dialtone (pvt_t* pvt)
 {
 	ast_verb (1, "[%s] Datacard reports 'NO DIALTONE'\n", pvt->id);
 
-	pvt->hookstate = 1;
+	pvt->needchup = 1;
 	channel_queue_control (pvt, AST_CONTROL_CONGESTION);
 
 	return 0;
@@ -1240,7 +1236,7 @@ static inline int at_response_no_carrier (pvt_t* pvt)
 {
 	ast_verb (1, "[%s] Datacard reports 'NO CARRIER'\n", pvt->id);
 
-	pvt->hookstate = 1;
+	pvt->needchup = 1;
 	channel_queue_control (pvt, AST_CONTROL_CONGESTION);
 
 	return 0;

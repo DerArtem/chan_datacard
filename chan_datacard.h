@@ -139,7 +139,6 @@ typedef struct pvt_t
 
 
 	int			ber;
-	int			hangupcause;
 	int			sms_storage_position;
 
 	unsigned int		has_sms:1;
@@ -161,7 +160,7 @@ typedef struct pvt_t
 	unsigned int		incoming:1;		/*!< incoming call */
 	unsigned int		outgoing_sms:1;		/*!< outgoing sms */
 	unsigned int		incoming_sms:1;		/*!< incoming sms */
-	unsigned int		hookstate:1;		/*!< we need to send a CHUP */
+	unsigned int		needchup:1;		/*!< we need to send a CHUP */
 	unsigned int		needring:1;		/*!< we need to send a RING */
 	unsigned int		answered:1;		/*!< we sent/recieved an answer */
 	unsigned int		volume_synchronized:1;	/*!< we have synchronized the volume */
@@ -202,7 +201,7 @@ static int			channel_devicestate		(void* data);
 static int			channel_indicate		(struct ast_channel*, int, const void* data, size_t);
 
 static int			channel_queue_control		(pvt_t* pvt, enum ast_control_frame_type);
-static int			channel_queue_hangup		(pvt_t* pvt);
+static int			channel_queue_hangup		(pvt_t* pvt, int);
 static int			channel_ast_hangup		(pvt_t* pvt);
 
 static const struct ast_channel_tech channel_tech =

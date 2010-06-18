@@ -246,9 +246,9 @@ static int disconnect_datacard (pvt_t* pvt)
 {
 	if (pvt->owner)
 	{
-		ast_debug(1, "[%s] Datacard disconnected, hanging up owner\n", pvt->id);
-		pvt->hookstate = 0;
-		channel_queue_hangup (pvt);
+		ast_debug (1, "[%s] Datacard disconnected, hanging up owner\n", pvt->id);
+		pvt->needchup = 0;
+		channel_queue_hangup (pvt, 0);
 	}
 
 	close (pvt->data_socket);
@@ -259,6 +259,11 @@ static int disconnect_datacard (pvt_t* pvt)
 
 	pvt->connected		= 0;
 	pvt->initialized	= 0;
+
+	pvt->incoming		= 0;
+	pvt->outgoing		= 0;
+	pvt->needring		= 0;
+	pvt->needchup		= 0;
 
 	pvt->manufacturer[0]	= '\0';
 	pvt->model[0]		= '\0';

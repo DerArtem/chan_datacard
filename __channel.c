@@ -309,10 +309,8 @@ static int channel_call (struct ast_channel* channel, char* dest, int timeout)
 		return -1;
 	}
 
-	pvt->hookstate			= 1;
-	pvt->outgoing			= 1;
-	pvt->hangupcause		= 0;
-	pvt->volume_synchronized	= 0;
+	pvt->outgoing = 1;
+	pvt->needchup = 1;
 
 	ast_mutex_unlock (&pvt->lock);
 
@@ -335,21 +333,18 @@ static int channel_hangup (struct ast_channel* channel)
 
 	ast_mutex_lock (&pvt->lock);
 
-	if (pvt->hookstate)
+	if (pvt->needchup)
 	{
 		if (at_send_chup (pvt) || at_fifo_queue_add (pvt, CMD_AT_CHUP, RES_OK))
 		{
 			ast_log (LOG_ERROR, "[%s] Error sending AT+CHUP command\n", pvt->id);
 		}
 
-		pvt->hookstate = 0;
+		pvt->needchup = 0;
 	}
 
-	pvt->owner			= NULL;
-	pvt->outgoing			= 0;
-	pvt->incoming			= 0;
-	pvt->needring			= 0;
-	pvt->volume_synchronized	= 0;
+	pvt->owner = NULL;
+	pvt->needring = 0;
 
 	channel->tech_pvt = NULL;
 
@@ -647,7 +642,7 @@ static int channel_queue_control (pvt_t* pvt, enum ast_control_frame_type contro
 	return 0;
 }
 
-static int channel_queue_hangup (pvt_t* pvt)
+static int channel_queue_hangup (pvt_t* pvt, int hangupcause)
 {
 	for (;;)
 	{
@@ -659,9 +654,9 @@ static int channel_queue_hangup (pvt_t* pvt)
 			}
 			else
 			{
-				if (pvt->hangupcause != 0)
+				if (hangupcause != 0)
 				{
-					pvt->owner->hangupcause = pvt->hangupcause;
+					pvt->owner->hangupcause = hangupcause;
 				}
 
 				ast_queue_hangup (pvt->owner);
@@ -694,8 +689,7 @@ static int channel_ast_hangup (pvt_t* pvt)
 			else
 			{
 				res = ast_hangup (pvt->owner);
-				/* no need to unlock, ast_hangup() frees the
-				 * channel */
+				/* no need to unlock, ast_hangup() frees the channel */
 				break;
 			}
 		}

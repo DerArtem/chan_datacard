@@ -354,7 +354,8 @@ static inline int at_send_cusd (pvt_t* pvt, const char* code)	// !!!!!!!!!!
 	memcpy (pvt->send_buf, "AT+CUSD=1,\"", 11);
 	p = pvt->send_buf + 11;
 
-	if (pvt->cusd_use_7bit_GSM_encoding) {
+	if (pvt->cusd_use_7bit_encoding)
+	{
 		res = char_to_hexstr_7bit (code, strlen (code), p, sizeof (pvt->send_buf) - 11 - 6);
 		if (res <= 0)
 		{
@@ -363,19 +364,26 @@ static inline int at_send_cusd (pvt_t* pvt, const char* code)	// !!!!!!!!!!
 		}
 	
 		p += res;
-	} else {
-		if (pvt->use_ucs2_encoding) {
-			res = utf8_to_hexstr_ucs2(code,strlen(code),ucs2_code,sizeof(ucs2_code));
-			if (res>0) {
+	}
+	else
+	{
+		if (pvt->use_ucs2_encoding)
+		{
+			res = utf8_to_hexstr_ucs2 (code, strlen (code), ucs2_code, sizeof (ucs2_code));
+			if (res > 0)
+			{
 				code = ucs2_code;
-			} else {
-				ast_log(LOG_ERROR, "[%s] error converting CUSD code to UCS-2): %s\n", pvt->id, code);
+			}
+			else
+			{
+				ast_log (LOG_ERROR, "[%s] error converting CUSD code to UCS-2): %s\n", pvt->id, code);
 			}
 		}
 
-		memcpy (p, code, strlen(code));
-		p += strlen(code);
+		memcpy (p, code, strlen (code));
+		p += strlen (code);
 	}
+
 	memcpy (p, "\",15\r", 6);
 	code = old_code;
 

@@ -118,7 +118,6 @@ typedef struct pvt_t
 	int			txgain;				/* increase the outgoint volume */
 	unsigned int		auto_delete_sms:1;
 	unsigned int		reset_datacard:1;
-	unsigned int		use_ucs2_encoding:1;
 	int			u2diag;
 
 	ast_mutex_t		lock;				/*!< pvt lock */
@@ -147,7 +146,8 @@ typedef struct pvt_t
 
 	unsigned int		has_sms:1;
 	unsigned int		has_voice:1;
-	unsigned int		cusd_use_7bit_GSM_encoding:1;
+	unsigned int		use_ucs2_encoding:1;
+	unsigned int		cusd_use_7bit_encoding:1;
 	int			rssi;
 	int			linkmode;
 	int			linksubmode;

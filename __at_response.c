@@ -1173,20 +1173,30 @@ static inline int at_response_cusd (pvt_t* pvt, char* str, size_t len)
 
 	ast_debug (1, "[%s] Got CUSD response: '%s'\n", pvt->id, cusd);
 
-	if (pvt->cusd_use_7bit_GSM_encoding) {
+	if (pvt->cusd_use_7bit_encoding)
+	{
 		res = hexstr_7bit_to_char(cusd, strlen (cusd), cusd_utf8_str, sizeof (cusd_utf8_str));
-		if (res > 0) {
+		if (res > 0)
+		{
 			cusd = cusd_utf8_str;
-		} else {
+		}
+		else
+		{
 			ast_log (LOG_ERROR, "[%s] Error converting CUSD code to PDU): %s\n", pvt->id, cusd);
 			return -1;
 		}
-	} else {
-		if (pvt->use_ucs2_encoding) {
+	}
+	else
+	{
+		if (pvt->use_ucs2_encoding)
+		{
 			res = hexstr_ucs2_to_utf8 (cusd, strlen (cusd), cusd_utf8_str, sizeof (cusd_utf8_str));
-			if (res > 0) {
+			if (res > 0)
+			{
 				cusd = cusd_utf8_str;
-			} else {
+			}
+			else
+			{
 				ast_log (LOG_ERROR, "[%s] Error parsing CUSD (convert UCS-2 to UTF-8): %s\n", pvt->id, cusd);
 				return -1;
 			}
@@ -1389,9 +1399,11 @@ static inline int at_response_cgmm (pvt_t* pvt, char* str, size_t len)
 
 	if (!strcmp (pvt->model, "E1550") || !strcmp (pvt->model, "E160X"))
 	{
-		pvt->cusd_use_7bit_GSM_encoding = 1;
-	} else {
-		pvt->cusd_use_7bit_GSM_encoding = 0;
+		pvt->cusd_use_7bit_encoding = 1;
+	}
+	else
+	{
+		pvt->cusd_use_7bit_encoding = 0;
 	}
 
 	return 0;

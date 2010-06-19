@@ -197,9 +197,9 @@ static ssize_t hexstr_7bit_to_char (const char* in, size_t in_length, char* out,
 			return -1;
 		}
 
-		c = ((char) hexval) << s;
+		c = ((unsigned char) hexval) << s;
 		c = (c >> 1) | b;
-		b = ((char) hexval) >> (8 - s);
+		b = ((unsigned char) hexval) >> (8 - s);
 
 		out[x] = c;
 		x++; s++;

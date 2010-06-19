@@ -127,7 +127,7 @@ static inline int at_response (pvt_t* pvt, int iovcnt, at_res_t at_res)
 				return 0;
 
 			case RES_PARSE_ERROR:
-				ast_debug (1, "[%s] Error parsing message\n", pvt->id);
+				ast_log (LOG_ERROR, "[%s] Error parsing result\n", pvt->id);
 				return -1;
 
 			case RES_UNKNOWN:
@@ -191,7 +191,7 @@ static inline int at_response_ok (pvt_t* pvt)
 					{
 						if (at_send_atz (pvt) || at_fifo_queue_add (pvt, CMD_AT_Z, RES_OK))
 						{
-							ast_debug (1, "[%s] Error reset datacard\n", pvt->id);
+							ast_log (LOG_ERROR, "[%s] Error reset datacard\n", pvt->id);
 							goto e_return;
 						}
 					}
@@ -199,7 +199,7 @@ static inline int at_response_ok (pvt_t* pvt)
 					{
 						if (at_send_ate0 (pvt) || at_fifo_queue_add (pvt, CMD_AT_E, RES_OK))
 						{
-							ast_debug (1, "[%s] Error disabling echo\n", pvt->id);
+							ast_log (LOG_ERROR, "[%s] Error disabling echo\n", pvt->id);
 							goto e_return;
 						}
 					}
@@ -209,7 +209,7 @@ static inline int at_response_ok (pvt_t* pvt)
 			case CMD_AT_Z:
 				if (at_send_ate0 (pvt) || at_fifo_queue_add (pvt, CMD_AT_E, RES_OK))
 				{
-					ast_debug (1, "[%s] Error disabling echo\n", pvt->id);
+					ast_log (LOG_ERROR, "[%s] Error disabling echo\n", pvt->id);
 					goto e_return;
 				}
 				break;
@@ -221,7 +221,7 @@ static inline int at_response_ok (pvt_t* pvt)
 					{
 						if (at_send_u2diag (pvt, pvt->u2diag) || at_fifo_queue_add (pvt, CMD_AT_U2DIAG, RES_OK))
 						{
-							ast_debug (1, "[%s] Error setting U2DIAG\n", pvt->id);
+							ast_log (LOG_ERROR, "[%s] Error setting U2DIAG\n", pvt->id);
 							goto e_return;
 						}
 					}
@@ -229,7 +229,7 @@ static inline int at_response_ok (pvt_t* pvt)
 					{
 						if (at_send_cgmi (pvt) || at_fifo_queue_add (pvt, CMD_AT_CGMI, RES_OK))
 						{
-							ast_debug (1, "[%s] Error asking datacard for vendor info\n", pvt->id);
+							ast_log (LOG_ERROR, "[%s] Error asking datacard for vendor info\n", pvt->id);
 							goto e_return;
 						}
 					}
@@ -241,7 +241,7 @@ static inline int at_response_ok (pvt_t* pvt)
 				{
 					if (at_send_cgmi (pvt) || at_fifo_queue_add (pvt, CMD_AT_CGMI, RES_OK))
 					{
-						ast_debug (1, "[%s] Error asking datacard for vendor info\n", pvt->id);
+						ast_log (LOG_ERROR, "[%s] Error asking datacard for vendor info\n", pvt->id);
 						goto e_return;
 					}
 				}
@@ -252,7 +252,7 @@ static inline int at_response_ok (pvt_t* pvt)
 				{
 					if (at_send_cgmm (pvt) || at_fifo_queue_add (pvt, CMD_AT_CGMM, RES_OK))
 					{
-						ast_debug(1, "[%s] Error asking datacard for manufacturer\n", pvt->id);
+						ast_log (LOG_ERROR, "[%s] Error asking datacard for manufacturer\n", pvt->id);
 						goto e_return;
 					}
 				}
@@ -263,7 +263,7 @@ static inline int at_response_ok (pvt_t* pvt)
 				{
 					if (at_send_cgmr (pvt) || at_fifo_queue_add (pvt, CMD_AT_CGMR, RES_OK))
 					{
-						ast_debug (1, "[%s] Error asking datacard for model\n", pvt->id);
+						ast_log (LOG_ERROR, "[%s] Error asking datacard for model\n", pvt->id);
 						goto e_return;
 					}
 				}
@@ -274,7 +274,7 @@ static inline int at_response_ok (pvt_t* pvt)
 				{
 					if (at_send_cgsn (pvt) || at_fifo_queue_add (pvt, CMD_AT_CGSN, RES_OK))
 					{
-						ast_debug (1, "[%s] Error asking datacard for firmware\n", pvt->id);
+						ast_log (LOG_ERROR, "[%s] Error asking datacard for firmware\n", pvt->id);
 						goto e_return;
 					}
 				}
@@ -285,7 +285,7 @@ static inline int at_response_ok (pvt_t* pvt)
 				{
 					if (at_send_cpin_test (pvt) || at_fifo_queue_add (pvt, CMD_AT_CPIN, RES_OK))
 					{
-						ast_debug (1, "[%s] Error asking datacard for IMEI number\n", pvt->id);
+						ast_log (LOG_ERROR, "[%s] Error asking datacard for IMEI number\n", pvt->id);
 						goto e_return;
 					}
 				}
@@ -296,7 +296,7 @@ static inline int at_response_ok (pvt_t* pvt)
 				{
 					if (at_send_cops_init (pvt, 0, 0) || at_fifo_queue_add (pvt, CMD_AT_COPS_INIT, RES_OK))
 					{
-						ast_debug (1, "[%s] Error setting operator select parameters\n", pvt->id);
+						ast_log (LOG_ERROR, "[%s] Error setting operator select parameters\n", pvt->id);
 						goto e_return;
 					}
 				}
@@ -309,7 +309,7 @@ static inline int at_response_ok (pvt_t* pvt)
 				{
 					if (at_send_creg_init (pvt, 2) || at_fifo_queue_add (pvt, CMD_AT_CREG_INIT, RES_OK))
 					{
-						ast_debug (1, "[%s] Error enabeling registration info\n", pvt->id);
+						ast_log (LOG_ERROR, "[%s] Error enabeling registration info\n", pvt->id);
 						goto e_return;
 					}
 				}
@@ -322,7 +322,7 @@ static inline int at_response_ok (pvt_t* pvt)
 				{
 					if (at_send_creg (pvt) || at_fifo_queue_add (pvt, CMD_AT_CREG, RES_OK))
 					{
-						ast_debug (1, "[%s] Error sending registration query\n", pvt->id);
+						ast_log (LOG_ERROR, "[%s] Error sending registration query\n", pvt->id);
 						goto e_return;
 					}
 				}
@@ -335,7 +335,7 @@ static inline int at_response_ok (pvt_t* pvt)
 				{
 					if (at_send_cnum (pvt) || at_fifo_queue_add (pvt, CMD_AT_CNUM, RES_OK))
 					{
-						ast_debug (1, "[%s] Error checking subscriber phone number\n", pvt->id);
+						ast_log (LOG_ERROR, "[%s] Error checking subscriber phone number\n", pvt->id);
 						goto e_return;
 					}
 				}
@@ -348,7 +348,7 @@ static inline int at_response_ok (pvt_t* pvt)
 				{
 					if (at_send_cvoice_test (pvt) || at_fifo_queue_add (pvt, CMD_AT_CVOICE, RES_OK))
 					{
-						ast_debug (1, "[%s] Error checking voice capabilities\n", pvt->id);
+						ast_log (LOG_ERROR, "[%s] Error checking voice capabilities\n", pvt->id);
 						goto e_return;
 					}
 				}
@@ -363,7 +363,7 @@ static inline int at_response_ok (pvt_t* pvt)
 				{
 					if (at_send_clip (pvt, 1) || at_fifo_queue_add (pvt, CMD_AT_CLIP, RES_OK))
 					{
-						ast_debug (1, "[%s] Error enabling calling line notification\n", pvt->id);
+						ast_log (LOG_ERROR, "[%s] Error enabling calling line notification\n", pvt->id);
 						goto e_return;
 					}
 				}
@@ -376,7 +376,7 @@ static inline int at_response_ok (pvt_t* pvt)
 				{
 					if (at_send_cssn (pvt, 1, 1) || at_fifo_queue_add (pvt, CMD_AT_CSSN, RES_OK))
 					{
-						ast_debug (1, "[%s] Error activating Supplementary Service Notification\n", pvt->id);
+						ast_log (LOG_ERROR, "[%s] Error activating Supplementary Service Notification\n", pvt->id);
 						goto e_return;
 					}
 				}
@@ -391,7 +391,7 @@ static inline int at_response_ok (pvt_t* pvt)
 					/* set the SMS operating mode to text mode */
 					if (at_send_cmgf (pvt, 1) || at_fifo_queue_add (pvt, CMD_AT_CMGF, RES_OK))
 					{
-						ast_debug (1, "[%s] Error setting CMGF\n", pvt->id);
+						ast_log (LOG_ERROR, "[%s] Error setting CMGF\n", pvt->id);
 						goto e_return;
 					}
 				}
@@ -406,7 +406,7 @@ static inline int at_response_ok (pvt_t* pvt)
 					/* set text encoding to UCS-2 */
 					if (at_send_cscs (pvt, "UCS2") || at_fifo_queue_add (pvt, CMD_AT_CSCS, RES_OK))
 					{
-						ast_debug (1, "[%s] Error setting CSCS (text encoding)\n", pvt->id);
+						ast_log (LOG_ERROR, "[%s] Error setting CSCS (text encoding)\n", pvt->id);
 						goto e_return;
 					}
 				}
@@ -422,7 +422,7 @@ static inline int at_response_ok (pvt_t* pvt)
 					/* set SMS storage location */
 					if (at_send_cpms (pvt) || at_fifo_queue_add (pvt, CMD_AT_CPMS, RES_OK))
 					{
-						ast_debug (1, "[%s] Error setting CPMS\n", pvt->id);
+						ast_log (LOG_ERROR, "[%s] Error setting CPMS\n", pvt->id);
 						goto e_return;
 					}
 				}
@@ -436,7 +436,7 @@ static inline int at_response_ok (pvt_t* pvt)
 					/* turn on SMS new message indication */
 					if (at_send_cnmi (pvt) || at_fifo_queue_add (pvt, CMD_AT_CNMI, RES_OK))
 					{
-						ast_debug (1, "[%s] Error sending CNMI\n", pvt->id);
+						ast_log (LOG_ERROR, "[%s] Error sending CNMI\n", pvt->id);
 						goto e_return;
 					}
 				}
@@ -452,7 +452,7 @@ static inline int at_response_ok (pvt_t* pvt)
 				{
 					if (at_send_csq (pvt) || at_fifo_queue_add (pvt, CMD_AT_CSQ, RES_OK))
 					{
-						ast_debug (1, "[%s] Error querying signal strength\n", pvt->id);
+						ast_log (LOG_ERROR, "[%s] Error querying signal strength\n", pvt->id);
 						goto e_return;
 					}
 
@@ -465,11 +465,11 @@ static inline int at_response_ok (pvt_t* pvt)
 			/* end initilization stuff */
 
 			case CMD_AT_A:
-				ast_debug(1, "[%s] Answer sent successfully\n", pvt->id);
+				ast_debug (1, "[%s] Answer sent successfully\n", pvt->id);
 
 				if (at_send_ddsetex (pvt) || at_fifo_queue_add (pvt, CMD_AT_DDSETEX, RES_OK))
 				{
-					ast_debug (1, "[%s] error sending AT^DDSETEX\n", pvt->id);
+					ast_log (LOG_ERROR, "[%s] Error sending AT^DDSETEX\n", pvt->id);
 					goto e_return;
 				}
 				break;
@@ -479,7 +479,7 @@ static inline int at_response_ok (pvt_t* pvt)
 
 				if (at_send_ddsetex (pvt) || at_fifo_queue_add (pvt, CMD_AT_DDSETEX, RES_OK))
 				{
-					ast_debug (1, "[%s] Error sending AT^DDSETEX\n", pvt->id);
+					ast_log (LOG_ERROR, "[%s] Error sending AT^DDSETEX\n", pvt->id);
 					goto e_return;
 				}
 				break;
@@ -528,7 +528,7 @@ static inline int at_response_ok (pvt_t* pvt)
 
 					if (at_send_clvl (pvt, 5) || at_fifo_queue_add (pvt, CMD_AT_CLVL, RES_OK))
 					{
-						ast_debug (1, "[%s] Error syncronizing audio level (part 2/2)\n", pvt->id);
+						ast_log (LOG_ERROR, "[%s] Error syncronizing audio level (part 2/2)\n", pvt->id);
 						goto e_return;
 					}
 				}
@@ -580,35 +580,35 @@ static inline int at_response_error (pvt_t* pvt)
 			case CMD_AT_Z:
 			case CMD_AT_E:
 			case CMD_AT_U2DIAG:
-				ast_debug (1, "[%s] Error '%s' failed\n", pvt->id, at_cmd2str (e->cmd));
+				ast_log (LOG_ERROR, "[%s] Command '%s' failed\n", pvt->id, at_cmd2str (e->cmd));
 				goto e_return;
 
 			case CMD_AT_CGMI:
-				ast_debug (1, "[%s] Getting manufacturer info failed\n", pvt->id);
+				ast_log (LOG_ERROR, "[%s] Getting manufacturer info failed\n", pvt->id);
 				goto e_return;
 
 			case CMD_AT_CGMM:
-				ast_debug(1, "[%s] Getting model info failed\n", pvt->id);
+				ast_log (LOG_ERROR, "[%s] Getting model info failed\n", pvt->id);
 				goto e_return;
 
 			case CMD_AT_CGMR:
-				ast_debug(1, "[%s] Getting firmware info failed\n", pvt->id);
+				ast_log (LOG_ERROR, "[%s] Getting firmware info failed\n", pvt->id);
 				goto e_return;
 
 			case CMD_AT_CGSN:
-				ast_debug (1, "[%s] Getting IMEI number failed\n", pvt->id);
+				ast_log (LOG_ERROR, "[%s] Getting IMEI number failed\n", pvt->id);
 				goto e_return;
 
 			case CMD_AT_CPIN:
-				ast_debug(1, "[%s] Error checking PIN state\n", pvt->id);
+				ast_log (LOG_ERROR, "[%s] Error checking PIN state\n", pvt->id);
 				goto e_return;
 
 			case CMD_AT_COPS_INIT:
-				ast_debug (1, "[%s] Error setting operator select parameters\n", pvt->id);
+				ast_log (LOG_ERROR, "[%s] Error setting operator select parameters\n", pvt->id);
 				goto e_return;
 
 			case CMD_AT_CREG_INIT:
-				ast_debug(1, "[%s] Error enableling registration info\n", pvt->id);
+				ast_log (LOG_ERROR, "[%s] Error enableling registration info\n", pvt->id);
 				goto e_return;
 
 			case CMD_AT_CREG:
@@ -616,17 +616,16 @@ static inline int at_response_error (pvt_t* pvt)
 
 				if (!pvt->initialized)
 				{
-					/* this is not a fatal error, let's continue with initilization */
 					if (at_send_cnum (pvt) || at_fifo_queue_add (pvt, CMD_AT_CNUM, RES_OK))
 					{
-						ast_debug (1, "[%s] Error checking subscriber phone number\n", pvt->id);
+						ast_log (LOG_ERROR, "[%s] Error checking subscriber phone number\n", pvt->id);
 						goto e_return;
 					}
 				}
 				break;
 
 			case CMD_AT_CNUM:
-				ast_debug (1, "[%s] Error checking subscriber phone number\n", pvt->id);
+				ast_log (LOG_ERROR, "[%s] Error checking subscriber phone number\n", pvt->id);
 				ast_verb (3, "Datacard %s needs to be reinitialized. The SIM card is not ready yet\n", pvt->id);
 				goto e_return;
 
@@ -637,27 +636,26 @@ static inline int at_response_error (pvt_t* pvt)
 
 				if (!pvt->initialized)
 				{
-					/* this is not a fatal error, let's continue with initilization */
 					if (at_send_cmgf (pvt, 1) || at_fifo_queue_add (pvt, CMD_AT_CMGF, RES_OK))
 					{
-						ast_debug (1, "[%s] Error setting CMGF\n", pvt->id);
+						ast_log (LOG_ERROR, "[%s] Error setting CMGF\n", pvt->id);
 						goto e_return;
 					}
 				}
 				break;
 
 			case CMD_AT_CLIP:
-				ast_debug (1, "[%s] Error enabling calling line indication\n", pvt->id);
+				ast_log (LOG_ERROR, "[%s] Error enabling calling line indication\n", pvt->id);
 				goto e_return;
 
 			case CMD_AT_CSSN:
-				ast_debug (1, "[%s] Error Supplementary Service Notification activation failed\n", pvt->id);
+				ast_log (LOG_ERROR, "[%s] Error Supplementary Service Notification activation failed\n", pvt->id);
 				goto e_return;
 
 			case CMD_AT_CMGF:
 			case CMD_AT_CPMS:
 			case CMD_AT_CNMI:
-				ast_debug (1, "[%s] Error '%s' failed\n", pvt->id, at_cmd2str (e->cmd));
+				ast_debug (1, "[%s] Command '%s' failed\n", pvt->id, at_cmd2str (e->cmd));
 				ast_debug (1, "[%s] No SMS support\n", pvt->id);
 
 				pvt->has_sms = 0;
@@ -668,7 +666,7 @@ static inline int at_response_error (pvt_t* pvt)
 					{
 						if (at_send_csq (pvt) || at_fifo_queue_add (pvt, CMD_AT_CSQ, RES_OK))
 						{
-							ast_debug (1, "[%s] Error querying signal strength\n", pvt->id);
+							ast_log (LOG_ERROR, "[%s] Error querying signal strength\n", pvt->id);
 							goto e_return;
 						}
 
@@ -682,7 +680,6 @@ static inline int at_response_error (pvt_t* pvt)
 				break;
 
 			case CMD_AT_CSCS:
-				/* this is not a fatal error, let's continue with initilization */
 				ast_debug (1, "[%s] No UCS-2 encoding support\n", pvt->id);
 
 				pvt->use_ucs2_encoding = 0;
@@ -692,7 +689,7 @@ static inline int at_response_error (pvt_t* pvt)
 					/* set SMS storage location */
 					if (at_send_cpms (pvt) || at_fifo_queue_add (pvt, CMD_AT_CPMS, RES_OK))
 					{
-						ast_debug(1, "[%s] error setting CPMS\n", pvt->id);
+						ast_log (LOG_ERROR, "[%s] Error setting SMS storage location\n", pvt->id);
 						goto e_return;
 					}
 				}
@@ -701,42 +698,42 @@ static inline int at_response_error (pvt_t* pvt)
 			/* end initilization stuff */
 
 			case CMD_AT_A:
-				ast_debug (1, "[%s] Answer failed\n", pvt->id);
+				ast_log (LOG_ERROR, "[%s] Answer failed\n", pvt->id);
 				channel_queue_hangup (pvt, 0);
 				break;
 
 			case CMD_AT_D:
-				ast_debug(1, "[%s] Dial failed\n", pvt->id);
+				ast_log (LOG_ERROR, "[%s] Dial failed\n", pvt->id);
 				pvt->outgoing = 0;
 				pvt->needchup = 0;
 				channel_queue_control (pvt, AST_CONTROL_CONGESTION);
 				break;
 
 			case CMD_AT_DDSETEX:
-				ast_debug (1, "[%s] AT^DDSETEX failed\n", pvt->id);
+				ast_log (LOG_ERROR, "[%s] AT^DDSETEX failed\n", pvt->id);
 				break;
 
 			case CMD_AT_CHUP:
-				ast_debug (1, "[%s] Error sending hangup, disconnecting\n", pvt->id);
+				ast_log (LOG_ERROR, "[%s] Error sending hangup, disconnecting\n", pvt->id);
 				goto e_return;
 
 			case CMD_AT_CMGR:
-				ast_debug (1, "[%s] Error reading SMS message\n", pvt->id);
+				ast_log (LOG_ERROR, "[%s] Error reading SMS message\n", pvt->id);
 				pvt->incoming_sms = 0;
 				break;
 
 			case CMD_AT_CMGD:
-				ast_debug (1, "[%s] Error deleting SMS message\n", pvt->id);
+				ast_log (LOG_ERROR, "[%s] Error deleting SMS message\n", pvt->id);
 				pvt->incoming_sms = 0;
 				break;
 
 			case CMD_AT_CMGS:
-				ast_debug (1, "[%s] Error sending SMS message\n", pvt->id);
+				ast_log (LOG_ERROR, "[%s] Error sending SMS message\n", pvt->id);
 				pvt->outgoing_sms = 0;
 				break;
 
 			case CMD_AT_DTMF:
-				ast_debug (1, "[%s] Error sending DTMF\n", pvt->id);
+				ast_log (LOG_ERROR, "[%s] Error sending DTMF\n", pvt->id);
 				break;
 
 			case CMD_AT_COPS:
@@ -829,7 +826,7 @@ static int at_response_orig (pvt_t* pvt, char* str, size_t len)
 
 	if (!sscanf (str, "^ORIG:%d,%d", &call_index, &call_type))
 	{
-		ast_debug (1, "[%s] Error parsing ORIG event '%s'\n", pvt->id, str);
+		ast_log (LOG_ERROR, "[%s] Error parsing ORIG event '%s'\n", pvt->id, str);
 		return -1;
 	}
 
@@ -838,7 +835,7 @@ static int at_response_orig (pvt_t* pvt, char* str, size_t len)
 
 	if (at_send_clvl (pvt, 1) || at_fifo_queue_add (pvt, CMD_AT_CLVL, RES_OK))
 	{
-		ast_debug (1, "[%s] Error syncronizing audio level (part 1/2)\n", pvt->id);
+		ast_log (LOG_ERROR, "[%s] Error syncronizing audio level (part 1/2)\n", pvt->id);
 	}
 
 	pvt->volume_synchronized = 0;
@@ -935,15 +932,13 @@ static inline int at_response_clip (pvt_t* pvt, char* str, size_t len)
 	struct ast_channel*	channel;
 	char*			clip;
 
-	ast_debug (1, "[%s] Executing at_response_clip\n", pvt->id);
-
 	if (pvt->needring == 0)
 	{
 		pvt->incoming = 1;
 
 		if ((clip = at_parse_clip (pvt, str, len)) == NULL)
 		{
-			ast_debug (1, "[%s] Error parsing CLIP: %s\n", pvt->id, str);
+			ast_log (LOG_ERROR, "[%s] Error parsing CLIP: %s\n", pvt->id, str);
 		}
 
 		if (!(channel = channel_new (pvt, AST_STATE_RING, clip)))
@@ -987,7 +982,7 @@ static inline int at_response_ring (pvt_t* pvt)
 	{
 		if (at_send_clvl (pvt, 1) || at_fifo_queue_add (pvt, CMD_AT_CLVL, RES_OK))
 		{
-			ast_debug (1, "[%s] Error syncronizing audio level (part 1/2)\n", pvt->id);
+			ast_log (LOG_ERROR, "[%s] Error syncronizing audio level (part 1/2)\n", pvt->id);
 		}
 
 		pvt->volume_synchronized = 0;
@@ -1017,7 +1012,7 @@ static inline int at_response_cmti (pvt_t* pvt, char* str, size_t len)
 
 		if (at_send_cmgr (pvt, index) || at_fifo_queue_add_num (pvt, CMD_AT_CMGR, RES_CMGR, index))
 		{
-			ast_debug (1, "[%s] Error sending CMGR to retrieve SMS message\n", pvt->id);
+			ast_log (LOG_ERROR, "[%s] Error sending CMGR to retrieve SMS message\n", pvt->id);
 			return -1;
 		}
 
@@ -1027,7 +1022,7 @@ static inline int at_response_cmti (pvt_t* pvt, char* str, size_t len)
 	}
 	else
 	{
-		ast_debug (1, "[%s] Error parsing incoming sms message alert, disconnecting\n", pvt->id);
+		ast_log (LOG_ERROR, "[%s] Error parsing incoming sms message alert, disconnecting\n", pvt->id);
 		return -1;
 	}
 }
@@ -1057,7 +1052,7 @@ static inline int at_response_cmgr (pvt_t* pvt, char* str, size_t len)
 
 		if (at_parse_cmgr (pvt, str, len, &from_number, &text))
 		{
-			ast_debug (1, "[%s] Error parsing SMS message, disconnecting\n", pvt->id);
+			ast_log (LOG_ERROR, "[%s] Error parsing SMS message, disconnecting\n", pvt->id);
 			return -1;
 		}
 
@@ -1098,7 +1093,7 @@ static inline int at_response_cmgr (pvt_t* pvt, char* str, size_t len)
 		{
 			if (at_send_cmgd (pvt, e->data.num) || at_fifo_queue_add (pvt, CMD_AT_CMGD, RES_OK))
 			{
-				ast_debug (1, "[%s] Error sending CMGD to delete SMS message\n", pvt->id);
+				ast_log (LOG_ERROR, "[%s] Error sending CMGD to delete SMS message\n", pvt->id);
 				return -1;
 			}
 		}
@@ -1134,7 +1129,7 @@ static inline int at_response_sms_prompt (pvt_t* pvt)
 		if (e->dtype != 0 && !e->data.ptr &&
 			(at_send_sms_text (pvt, e->data.ptr) || at_fifo_queue_add (pvt, CMD_AT_CMGS, RES_OK)))
 		{
-			ast_debug (1, "[%s] error sending sms message\n", pvt->id);
+			ast_log (LOG_ERROR, "[%s] Error sending sms message\n", pvt->id);
 			return -1;
 		}
 	}
@@ -1168,7 +1163,7 @@ static inline int at_response_cusd (pvt_t* pvt, char* str, size_t len)
 
 	if (!(cusd = at_parse_cusd (pvt, str, len)))
 	{
-		ast_verb (1, "[%s] error parsing CUSD: '%.*s'\n", pvt->id, (int) len, str);
+		ast_verb (1, "[%s] Error parsing CUSD: '%.*s'\n", pvt->id, (int) len, str);
 		return 0;
 	}
 
@@ -1183,7 +1178,7 @@ static inline int at_response_cusd (pvt_t* pvt, char* str, size_t len)
 		}
 		else
 		{
-			ast_log (LOG_ERROR, "[%s] error parsing CUSD (convert UCS-2 to UTF-8): %s\n", pvt->id, cusd);
+			ast_log (LOG_ERROR, "[%s] Error parsing CUSD (convert UCS-2 to UTF-8): %s\n", pvt->id, cusd);
 		}
 	}
 
@@ -1260,7 +1255,7 @@ static inline int at_response_cpin (pvt_t* pvt, char* str, size_t len)
 }
 
 /*!
- * \brief Handle ^SMMEMFULL response This event notifies us, that the sms storage is full.
+ * \brief Handle ^SMMEMFULL response This event notifies us, that the sms storage is full
  * \param pvt -- pvt structure
  * \retval  0 success
  * \retval -1 error
@@ -1273,7 +1268,7 @@ static inline int at_response_smmemfull (pvt_t* pvt)
 }
 
 /*!
- * \brief Handle +CSQ response Here we get the signal strength and bit error rate.
+ * \brief Handle +CSQ response Here we get the signal strength and bit error rate
  * \param pvt -- pvt structure
  * \param str -- string containing response (null terminated)
  * \param len -- string lenght
@@ -1286,7 +1281,7 @@ static inline int at_response_csq (pvt_t* pvt, char* str, size_t len)
 }
 
 /*!
- * \brief Handle +CNUM response Here we get our own phone number.
+ * \brief Handle +CNUM response Here we get our own phone number
  * \param pvt -- pvt structure
  * \param str -- string containing response (null terminated)
  * \param len -- string lenght
@@ -1310,7 +1305,7 @@ static inline int at_response_cnum (pvt_t* pvt, char* str, size_t len)
 }
 
 /*!
- * \brief Handle +COPS response Here we get the GSM provider name.
+ * \brief Handle +COPS response Here we get the GSM provider name
  * \param pvt -- pvt structure
  * \param str -- string containing response (null terminated)
  * \param len -- string lenght
@@ -1334,7 +1329,7 @@ static inline int at_response_cops (pvt_t* pvt, char* str, size_t len)
 }
 
 /*!
- * \brief Handle +CREG response Here we get the GSM registration status.
+ * \brief Handle +CREG response Here we get the GSM registration status
  * \param pvt -- pvt structure
  * \param str -- string containing response (null terminated)
  * \param len -- string lenght
@@ -1346,7 +1341,7 @@ static inline int at_response_creg (pvt_t* pvt)
 {
 	if (at_send_cops (pvt) || at_fifo_queue_add (pvt, CMD_AT_COPS, RES_OK))
 	{
-		ast_debug (1, "[%s] Error sending query for provider name\n", pvt->id);
+		ast_log (LOG_ERROR, "[%s] Error sending query for provider name\n", pvt->id);
 	}
 
 	return 0;

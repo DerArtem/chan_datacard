@@ -164,7 +164,7 @@ static void* do_monitor_phone (void* data)
 
 	if (at_send_at (pvt) || at_fifo_queue_add (pvt, CMD_AT, RES_OK))
 	{
-		ast_debug (1, "[%s] error sending AT\n", pvt->id);
+		ast_log (LOG_ERROR, "[%s] Error sending AT\n", pvt->id);
 		goto e_cleanup;
 	}
 
@@ -512,7 +512,7 @@ static int load_config ()
 			discovery_interval = (int) strtol (v->value, (char**) NULL, 10);
 			if (discovery_interval == 0 && errno == EINVAL)
 			{
-				ast_log (LOG_NOTICE, "error parsing 'interval' in general section, using default value\n");
+				ast_log (LOG_NOTICE, "Error parsing 'interval' in general section, using default value\n");
 				discovery_interval = DEF_DISCOVERY_INT;
 			}
 		}

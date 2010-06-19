@@ -94,7 +94,7 @@ static int app_send_sms_exec (struct ast_channel* channel, void* data)
 
 	if (ast_strlen_zero (args.message))
 	{
-		ast_log(LOG_ERROR,"NULL Message to be sent -- SMS will not be sent\n");
+		ast_log (LOG_ERROR, "NULL Message to be sent -- SMS will not be sent\n");
 		return -1;
 	}
 

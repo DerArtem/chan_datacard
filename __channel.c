@@ -393,7 +393,7 @@ static int channel_digit_end (struct ast_channel* channel, char digit, unsigned 
 	if (at_send_dtmf (pvt, digit) || at_fifo_queue_add (pvt, CMD_AT_DTMF, RES_OK))
 	{
 		ast_mutex_unlock (&pvt->lock);
-		ast_debug (1, "[%s] Error sending DTMF %c\n", pvt->id, digit);
+		ast_log (LOG_ERROR, "[%s] Error sending DTMF %c\n", pvt->id, digit);
 
 		return -1;
 	}

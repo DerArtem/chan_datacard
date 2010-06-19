@@ -744,6 +744,10 @@ static inline int at_response_error (pvt_t* pvt)
 				pvt->volume_synchronized = 0;
 				break;
 
+			case CMD_AT_CUSD:
+				ast_log (LOG_ERROR, "[%s] Could not send USSD code\n", pvt->id);
+				break;
+
 			default:
 				ast_log (LOG_ERROR, "[%s] Recieved 'ERROR' for unhandled command '%s'\n", pvt->id, at_cmd2str (e->cmd));
 				break;
@@ -1158,28 +1162,34 @@ static inline int at_response_sms_prompt (pvt_t* pvt)
 
 static inline int at_response_cusd (pvt_t* pvt, char* str, size_t len)
 {
-	int	res;
+	ssize_t	res;
 	char*	cusd;
 	char	cusd_utf8_str[4096];
 
-	if (!(cusd = at_parse_cusd (pvt, str, len)))
-	{
+	if (!(cusd = at_parse_cusd (pvt, str, len))) {
 		ast_verb (1, "[%s] Error parsing CUSD: '%.*s'\n", pvt->id, (int) len, str);
 		return 0;
 	}
 
 	ast_debug (1, "[%s] Got CUSD response: '%s'\n", pvt->id, cusd);
 
-	if (pvt->use_ucs2_encoding)
-	{
-		res = hexstr_ucs2_to_utf8 (cusd, strlen (cusd), cusd_utf8_str, sizeof (cusd_utf8_str));
-		if (res > 0)
-		{
+	if (pvt->cusd_use_7bit_GSM_encoding) {
+		res = hexstr_7bit_to_char(cusd, strlen (cusd), cusd_utf8_str, sizeof (cusd_utf8_str));
+		if (res > 0) {
 			cusd = cusd_utf8_str;
+		} else {
+			ast_log (LOG_ERROR, "[%s] Error converting CUSD code to PDU): %s\n", pvt->id, cusd);
+			return -1;
 		}
-		else
-		{
-			ast_log (LOG_ERROR, "[%s] Error parsing CUSD (convert UCS-2 to UTF-8): %s\n", pvt->id, cusd);
+	} else {
+		if (pvt->use_ucs2_encoding) {
+			res = hexstr_ucs2_to_utf8 (cusd, strlen (cusd), cusd_utf8_str, sizeof (cusd_utf8_str));
+			if (res > 0) {
+				cusd = cusd_utf8_str;
+			} else {
+				ast_log (LOG_ERROR, "[%s] Error parsing CUSD (convert UCS-2 to UTF-8): %s\n", pvt->id, cusd);
+				return -1;
+			}
 		}
 	}
 
@@ -1376,6 +1386,13 @@ static inline int at_response_cgmi (pvt_t* pvt, char* str, size_t len)
 static inline int at_response_cgmm (pvt_t* pvt, char* str, size_t len)
 {
 	ast_copy_string (pvt->model, str, sizeof (pvt->model));
+
+	if (!strcmp (pvt->model, "E1550") || !strcmp (pvt->model, "E160X"))
+	{
+		pvt->cusd_use_7bit_GSM_encoding = 1;
+	} else {
+		pvt->cusd_use_7bit_GSM_encoding = 0;
+	}
 
 	return 0;
 }

@@ -147,6 +147,7 @@ typedef struct pvt_t
 
 	unsigned int		has_sms:1;
 	unsigned int		has_voice:1;
+	unsigned int		cusd_use_7bit_GSM_encoding:1;
 	int			rssi;
 	int			linkmode;
 	int			linksubmode;

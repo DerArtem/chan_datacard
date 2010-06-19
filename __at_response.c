@@ -38,7 +38,7 @@ static inline int at_response (pvt_t* pvt, int iovcnt, at_res_t at_res)
 			str[len] = '\0';
 		}
 
-		ast_debug (5, "[%s] [%.*s]\n", pvt->id, (int) len, str);
+//		ast_debug (5, "[%s] [%.*s]\n", pvt->id, (int) len, str);
 
 		switch (at_res)
 		{

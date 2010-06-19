@@ -298,9 +298,16 @@ static int channel_call (struct ast_channel* channel, char* dest, int timeout)
 		return -1;
 	}
 
-	ast_debug (1, "[%s] Calling %s on %s\n", pvt->id, dest, channel->name);
-
 	ast_mutex_lock (&pvt->lock);
+
+	if (pvt->incoming || pvt->outgoing)
+	{
+		ast_mutex_unlock (&pvt->lock);
+		ast_log (LOG_ERROR, "[%s] Error device already in use\n", pvt->id);
+		return -1;
+	}
+
+	ast_debug (1, "[%s] Calling %s on %s\n", pvt->id, dest, channel->name);
 
 	if (at_send_atd (pvt, dest_num) || at_fifo_queue_add (pvt, CMD_AT_D, RES_OK))
 	{

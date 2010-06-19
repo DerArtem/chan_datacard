@@ -249,7 +249,7 @@ static struct ast_channel* channel_request (const char* type, int format, void* 
 
 	AST_RWLIST_UNLOCK (&devices);
 
-	if (!pvt || !pvt->connected || !pvt->initialized || !pvt->has_voice || pvt->owner)
+	if (!pvt || !pvt->connected || !pvt->initialized || pvt->incoming || pvt->outgoing || !pvt->has_voice || pvt->owner)
 	{
 		if (pvt)
 		{
@@ -300,7 +300,7 @@ static int channel_call (struct ast_channel* channel, char* dest, int timeout)
 
 	ast_mutex_lock (&pvt->lock);
 
-	if (pvt->incoming || pvt->outgoing)
+	if (!pvt->initialized || pvt->incoming || pvt->outgoing)
 	{
 		ast_mutex_unlock (&pvt->lock);
 		ast_log (LOG_ERROR, "[%s] Error device already in use\n", pvt->id);

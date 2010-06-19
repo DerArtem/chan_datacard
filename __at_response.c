@@ -932,7 +932,7 @@ static inline int at_response_clip (pvt_t* pvt, char* str, size_t len)
 	struct ast_channel*	channel;
 	char*			clip;
 
-	if (pvt->needring == 0)
+	if (pvt->initialized && pvt->needring == 0)
 	{
 		pvt->incoming = 1;
 
@@ -977,18 +977,21 @@ static inline int at_response_clip (pvt_t* pvt, char* str, size_t len)
 
 static inline int at_response_ring (pvt_t* pvt)
 {
-	/* We only want to syncronize volume on the first ring */
-	if (!pvt->incoming)
+	if (pvt->initialized)
 	{
-		if (at_send_clvl (pvt, 1) || at_fifo_queue_add (pvt, CMD_AT_CLVL, RES_OK))
+		/* We only want to syncronize volume on the first ring */
+		if (!pvt->incoming)
 		{
-			ast_log (LOG_ERROR, "[%s] Error syncronizing audio level (part 1/2)\n", pvt->id);
+			if (at_send_clvl (pvt, 1) || at_fifo_queue_add (pvt, CMD_AT_CLVL, RES_OK))
+			{
+				ast_log (LOG_ERROR, "[%s] Error syncronizing audio level (part 1/2)\n", pvt->id);
+			}
+
+			pvt->volume_synchronized = 0;
 		}
 
-		pvt->volume_synchronized = 0;
+		pvt->incoming = 1;
 	}
-
-	pvt->incoming = 1;
 
 	return 0;
 }

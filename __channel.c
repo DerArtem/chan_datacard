@@ -103,7 +103,7 @@ static struct ast_channel* channel_request (const char* type, int format, void* 
 			AST_RWLIST_TRAVERSE (&devices, pvt, entry)
 			{
 				ast_mutex_lock (&pvt->lock);
-				if (pvt->group == group && pvt->connected && pvt->initialized && !pvt->owner)
+				if (pvt->group == group && pvt->connected && pvt->initialized && !pvt->incoming && !pvt->outgoing && !pvt->owner)
 				{
 					break;
 				}
@@ -158,7 +158,7 @@ static struct ast_channel* channel_request (const char* type, int format, void* 
 				pvt = round_robin[c2];
 
 				ast_mutex_lock (&pvt->lock);
-				if (pvt->connected && pvt->initialized && !pvt->owner)
+				if (pvt->connected && pvt->initialized && !pvt->incoming && !pvt->outgoing && !pvt->owner)
 				{
 					pvt->group_last_used = 1;
 					break;
@@ -212,7 +212,7 @@ static struct ast_channel* channel_request (const char* type, int format, void* 
 			pvt = round_robin[c2];
 
 			ast_mutex_lock (&pvt->lock);
-			if (pvt->connected && pvt->initialized && !pvt->owner)
+			if (pvt->connected && pvt->initialized && !pvt->incoming && !pvt->outgoing && !pvt->owner)
 			{
 				pvt->prov_last_used = 1;
 				break;
@@ -249,7 +249,7 @@ static struct ast_channel* channel_request (const char* type, int format, void* 
 
 	AST_RWLIST_UNLOCK (&devices);
 
-	if (!pvt || !pvt->connected || !pvt->initialized || pvt->incoming || pvt->outgoing || !pvt->has_voice || pvt->owner)
+	if (!pvt || !pvt->has_voice || !pvt->connected || !pvt->initialized || pvt->incoming || pvt->outgoing || pvt->owner)
 	{
 		if (pvt)
 		{

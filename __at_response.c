@@ -534,9 +534,8 @@ static inline int at_response_ok (pvt_t* pvt)
 				}
 				break;
 
-			case CMD_UNKNOWN:
 			default:
-				ast_debug (1, "[%s] Recieved 'OK' for unhandled command '%s'\n", pvt->id, at_cmd2str (e->cmd));
+				ast_log (LOG_ERROR, "[%s] Recieved 'OK' for unhandled command '%s'\n", pvt->id, at_cmd2str (e->cmd));
 				break;
 		}
 
@@ -544,11 +543,11 @@ static inline int at_response_ok (pvt_t* pvt)
 	}
 	else if (e)
 	{
-		ast_debug (1, "[%s] Recieved 'OK' when expecting '%s', ignoring\n", pvt->id, at_res2str (e->res));
+		ast_log (LOG_ERROR, "[%s] Recieved 'OK' when expecting '%s', ignoring\n", pvt->id, at_res2str (e->res));
 	}
 	else
 	{
-		ast_debug (1, "[%s] Recieved unexpected 'OK'\n", pvt->id);
+		ast_log (LOG_ERROR, "[%s] Recieved unexpected 'OK'\n", pvt->id);
 	}
 
 	return 0;
@@ -745,9 +744,8 @@ static inline int at_response_error (pvt_t* pvt)
 				pvt->volume_synchronized = 0;
 				break;
 
-			case CMD_UNKNOWN:
 			default:
-				ast_debug (1, "[%s] Recieved 'ERROR' for unhandled command '%s'\n", pvt->id, at_cmd2str (e->cmd));
+				ast_log (LOG_ERROR, "[%s] Recieved 'ERROR' for unhandled command '%s'\n", pvt->id, at_cmd2str (e->cmd));
 				break;
 		}
 
@@ -755,11 +753,11 @@ static inline int at_response_error (pvt_t* pvt)
 	}
 	else if (e)
 	{
-		ast_debug (1, "[%s] Recieved 'ERROR' when expecting '%s', ignoring\n", pvt->id, at_res2str (e->res));
+		ast_log (LOG_ERROR, "[%s] Recieved 'ERROR' when expecting '%s', ignoring\n", pvt->id, at_res2str (e->res));
 	}
 	else
 	{
-		ast_debug (1, "[%s] Recieved unexpected 'ERROR'\n", pvt->id);
+		ast_log (LOG_ERROR, "[%s] Recieved unexpected 'ERROR'\n", pvt->id);
 	}
 
 	return 0;
@@ -1103,12 +1101,12 @@ static inline int at_response_cmgr (pvt_t* pvt, char* str, size_t len)
 	}
 	else if (e)
 	{
-		ast_debug (1, "[%s] Recieved '+CMGR' when expecting '%s' response to '%s', ignoring\n", pvt->id,
+		ast_log (LOG_ERROR, "[%s] Recieved '+CMGR' when expecting '%s' response to '%s', ignoring\n", pvt->id,
 				at_res2str (e->res), at_cmd2str (e->cmd));
 	}
 	else
 	{
-		ast_debug (1, "[%s] Recieved unexpected '+CMGR'\n", pvt->id);
+		ast_log (LOG_ERROR, "[%s] Recieved unexpected '+CMGR'\n", pvt->id);
 	}
 
 	return 0;
@@ -1138,12 +1136,12 @@ static inline int at_response_sms_prompt (pvt_t* pvt)
 	}
 	else if (e)
 	{
-		ast_debug (1, "[%s] Recieved sms prompt when expecting '%s' response to '%s', ignoring\n", pvt->id,
+		ast_log (LOG_ERROR, "[%s] Recieved sms prompt when expecting '%s' response to '%s', ignoring\n", pvt->id,
 				at_res2str (e->res), at_cmd2str (e->cmd));
 	}
 	else
 	{
-		ast_debug (1, "[%s] Recieved unexpected sms prompt\n", pvt->id);
+		ast_log (LOG_ERROR, "[%s] Recieved unexpected sms prompt\n", pvt->id);
 	}
 
 	return 0;

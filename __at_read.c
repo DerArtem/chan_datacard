@@ -49,7 +49,7 @@ static inline int at_read (pvt_t* pvt)
 		rb_write_upd (&pvt->read_rb, n);
 
 
-//		ast_debug (5, "[%s] recieve %lu byte, free %lu\n", pvt->id, n, rb_free (&pvt->read_rb));
+//		ast_debug (5, "[%s] recieve %zu byte, free %zu\n", pvt->id, n, rb_free (&pvt->read_rb));
 
 		iovcnt = rb_read_all_iov (&pvt->read_rb, pvt->read_iov);
 
@@ -61,7 +61,7 @@ static inline int at_read (pvt_t* pvt)
 						(int) pvt->read_iov[0].iov_len, pvt->read_iov[0].iov_base,
 							(int) pvt->read_iov[1].iov_len, pvt->read_iov[1].iov_base);
 
-				ast_debug (5, "[%s] base1=%lu len1=%lu base2=%lu len2=%lu\n", pvt->id,
+				ast_debug (5, "[%s] base1=%zu len1=%zu base2=%zu len2=%zu\n", pvt->id,
 						pvt->read_iov[0].iov_base - (void*) pvt->read_buf, pvt->read_iov[0].iov_len,
 							pvt->read_iov[1].iov_base - (void*) pvt->read_buf, pvt->read_iov[1].iov_len);
 			}
@@ -70,7 +70,7 @@ static inline int at_read (pvt_t* pvt)
 				ast_debug (5, "[%s] [%.*s]\n", pvt->id,
 						(int) pvt->read_iov[0].iov_len, pvt->read_iov[0].iov_base);
 
-				ast_debug (5, "[%s] base1=%lu len1=%lu\n", pvt->id,
+				ast_debug (5, "[%s] base1=%zu len1=%zu\n", pvt->id,
 						pvt->read_iov[0].iov_base - (void*) pvt->read_buf, pvt->read_iov[0].iov_len);
 			}
 		}

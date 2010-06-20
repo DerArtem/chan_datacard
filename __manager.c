@@ -48,7 +48,7 @@ static int manager_show_devices (struct mansession* s, const struct message* m)
 	astman_append (s,
 		"Event: DatacardShowDevicesComplete\r\n%s"
 		"EventList: Complete\r\n"
-		"ListItems: %lu\r\n"
+		"ListItems: %zu\r\n"
 		"\r\n",
 		idtext, count
 	);
@@ -212,14 +212,14 @@ static void manager_event_new_cusd (pvt_t* pvt, char* message)
 	{
 		if (*sl != '\0')
 		{
-			ast_str_append (&buf, 0, "MessageLine%lu: %s\r\n", linecount, sl);
+			ast_str_append (&buf, 0, "MessageLine%zu: %s\r\n", linecount, sl);
 			linecount++;
 		}
 	}
 
 	manager_event (EVENT_FLAG_CALL, "DatacardNewCUSD",
 		"Device: %s\r\n"
-		"LineCount: %lu\r\n"
+		"LineCount: %zu\r\n"
 		"%s\r\n",
 		pvt->id, linecount, ast_str_buffer (buf)
 	);
@@ -250,7 +250,7 @@ static void manager_event_new_sms (pvt_t* pvt, char* number, char* message)
 	{
 		if (*sl != '\0')
 		{
-			ast_str_append (&buf, 0, "MessageLine%lu: %s\r\n", linecount, sl);
+			ast_str_append (&buf, 0, "MessageLine%zu: %s\r\n", linecount, sl);
 			linecount++;
 		}
 	}
@@ -258,7 +258,7 @@ static void manager_event_new_sms (pvt_t* pvt, char* number, char* message)
 	manager_event (EVENT_FLAG_CALL, "DatacardNewSMS",
 		"Device: %s\r\n"
 		"From: %s\r\n"
-		"LineCount: %lu\r\n"
+		"LineCount: %zu\r\n"
 		"%s\r\n",
 		pvt->id, number, linecount, ast_str_buffer (buf)
 	);

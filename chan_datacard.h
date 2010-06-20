@@ -100,7 +100,6 @@ typedef struct at_queue_t
 	{
 		void*		ptr;
 		int		num;
-		char*		chr;
 	} data;
 }
 at_queue_t;

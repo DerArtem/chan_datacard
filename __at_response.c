@@ -1131,9 +1131,13 @@ static inline int at_response_sms_prompt (pvt_t* pvt)
 	{
 		at_fifo_queue_rem (pvt);
 
-		if (e->dtype != 0 && !e->data.ptr &&
-			(at_send_sms_text (pvt, e->data.ptr) || at_fifo_queue_add (pvt, CMD_AT_CMGS, RES_OK)))
+		if (e->dtype != 2 || !e->data.chr) 
 		{
+			ast_log (LOG_ERROR, "[%s] Error sending sms message - invalide dtype or data.chr\n", pvt->id);
+			return -1;
+		}
+
+		if (at_send_sms_text (pvt, e->data.chr) || at_fifo_queue_add (pvt, CMD_AT_CMGS, RES_OK)) {
 			ast_log (LOG_ERROR, "[%s] Error sending sms message\n", pvt->id);
 			return -1;
 		}

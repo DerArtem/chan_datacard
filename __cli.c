@@ -230,3 +230,83 @@ static char* cli_cusd (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
 
 	return CLI_SUCCESS;
 }
+
+static char* cli_sms (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
+{
+	int i;
+	struct ast_str *buf;
+	char *number_buf;
+	char *message_buf;
+	pvt_t* pvt = NULL;
+
+	buf = ast_str_create(1024);
+
+	switch (cmd) {
+	case CLI_INIT:
+		e->command = "datacard sms send";
+		e->usage =
+			"Usage: datacard sms <device ID> <number> <message>\n"
+			"       Send a sms to <number> with the <message>\n";
+		return NULL;
+	case CLI_GENERATE:
+		if (a->pos == 3)
+		{
+			return complete_device (a->line, a->word, a->pos, a->n, 0);
+		}
+		return NULL;
+	}
+
+	if (a->argc < 6)
+		return CLI_SHOWUSAGE;
+
+	pvt = find_device (a->argv[3]);
+
+	if (!pvt) {
+		ast_cli(a->fd, "Device %s not found.\n", a->argv[3]);
+		goto e_return;
+	}
+
+	ast_mutex_lock(&pvt->lock);
+	if (!pvt->connected || !pvt->initialized) {
+		ast_cli (a->fd, "Device %s not connected / initialized\n", a->argv[3]);
+		goto e_unlock_pvt;
+	}
+
+	if (!pvt->has_sms) {
+		ast_log(LOG_ERROR,"Device %s doesn't handle SMS -- SMS will not be sent.\n", a->argv[3]);
+		goto e_unlock_pvt;
+	}
+
+	number_buf = ast_strdup(a->argv[4]);
+
+	for (i = 5; i < a->argc; i++) {
+		if (i < (a->argc-1)) {
+			ast_str_append(&buf,0,"%s ", a->argv[i]);
+		}
+		else {
+			ast_str_append(&buf,0,"%s", a->argv[i]);
+		}
+	}
+
+	message_buf = ast_strdup(ast_str_buffer(buf));
+
+	if (at_send_cmgs (pvt, number_buf) || at_fifo_queue_add_chr (pvt, CMD_AT_CMGS, RES_SMS_PROMPT, message_buf)) {
+		ast_log(LOG_ERROR, "[%s] problem sending SMS message\n", pvt->id);
+		goto e_free_vars;
+	}
+
+	ast_free(number_buf);
+	ast_free(buf);
+	ast_cli(a->fd, "SMS was send from Device %s.\n", pvt->id);
+	ast_mutex_unlock(&pvt->lock);
+	return 0;
+
+e_free_vars:
+	ast_free(buf);
+	ast_free(number_buf);
+	ast_free(message_buf);
+e_unlock_pvt:
+	ast_mutex_unlock(&pvt->lock);
+e_return:
+	return CLI_SUCCESS;
+}

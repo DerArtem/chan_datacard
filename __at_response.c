@@ -1173,7 +1173,7 @@ static inline int at_response_cusd (pvt_t* pvt, char* str, size_t len)
 
 	ast_debug (1, "[%s] Got CUSD response: '%s'\n", pvt->id, cusd);
 
-	if (dcs == 0 || dcs == 15)
+	if ((dcs == 0 || dcs == 15) && !pvt->cusd_use_ucs2_decoding)
 	{
 		res = hexstr_7bit_to_char (cusd, strlen (cusd), cusd_utf8_str, sizeof (cusd_utf8_str));
 		if (res > 0)
@@ -1397,10 +1397,12 @@ static inline int at_response_cgmm (pvt_t* pvt, char* str, size_t len)
 	if (!strcmp (pvt->model, "E1550") || !strcmp (pvt->model, "E160X"))
 	{
 		pvt->cusd_use_7bit_encoding = 1;
+		pvt->cusd_use_ucs2_decoding = 0;
 	}
 	else
 	{
 		pvt->cusd_use_7bit_encoding = 0;
+		pvt->cusd_use_ucs2_decoding = 1;
 	}
 
 	return 0;

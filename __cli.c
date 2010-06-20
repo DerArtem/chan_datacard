@@ -113,7 +113,7 @@ static char* cli_show_device (struct ast_cli_entry* e, int cmd, struct ast_cli_a
 		ast_str_append (&buf, 0, "Number:                  %s\n", pvt->number);
 		ast_str_append (&buf, 0, "Use UCS-2 encoding:      %s\n", pvt->use_ucs2_encoding ? "Yes" : "No");
 		ast_str_append (&buf, 0, "USSD use 7 bit encoding: %s\n", pvt->cusd_use_7bit_encoding ? "Yes" : "No");
-		ast_str_append (&buf, 0, "USSD use UCS-2 encoding: %s\n", pvt->cusd_use_ucs2_decoding ? "Yes" : "No");
+		ast_str_append (&buf, 0, "USSD use UCS-2 decoding: %s\n", pvt->cusd_use_ucs2_decoding ? "Yes" : "No");
 		ast_mutex_unlock (&pvt->lock);
 
 		ast_cli (a->fd, "%s", ast_str_buffer (buf));

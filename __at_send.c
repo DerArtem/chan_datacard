@@ -474,8 +474,6 @@ static inline int at_send_sms_text (pvt_t* pvt, const char* msg)	// !!!!!!!!!
 	char	ucs2_msg[1024];
 	char	cmd[sizeof (ucs2_msg) + 162];
 
-	ast_log (LOG_ERROR, "[%s] SMS msg: '%s'\n", pvt->id, msg);
-
 	if (pvt->use_ucs2_encoding)
 	{
 		ucs2_msg[0] = '\0';

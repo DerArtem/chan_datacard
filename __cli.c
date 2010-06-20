@@ -95,27 +95,27 @@ static char* cli_show_device (struct ast_cli_entry* e, int cmd, struct ast_cli_a
 		ast_mutex_lock (&pvt->lock);
 		ast_str_append (&buf, 0, "Current device settings:\n");
 		ast_str_append (&buf, 0, "------------------------\n");
-		ast_str_append (&buf, 0, "Device: %s\n", pvt->id);
-		ast_str_append (&buf, 0, "Group: %d\n", pvt->group);
-		ast_str_append (&buf, 0, "Connected: %s\n", pvt->connected ? "Yes" : "No");
-		ast_str_append (&buf, 0, "Initialized: %s\n", pvt->initialized ? "Yes" : "No");
-		ast_str_append (&buf, 0, "State: %s\n", (!pvt->connected) ? "None" : (pvt->outgoing || pvt->incoming) ? "Busy" : (pvt->outgoing_sms || pvt->incoming_sms) ? "SMS" : "Free");
-		ast_str_append (&buf, 0, "Voice: %s\n", (pvt->has_voice) ? "Yes" : "No");
-		ast_str_append (&buf, 0, "SMS: %s\n", (pvt->has_sms) ? "Yes" : "No");
-		ast_str_append (&buf, 0, "RSSI: %d\n", pvt->rssi);
-		ast_str_append (&buf, 0, "Mode: %d\n", pvt->linkmode);
-		ast_str_append (&buf, 0, "Submode: %d\n", pvt->linksubmode);
+		ast_str_append (&buf, 0, "Device:       %s\n", pvt->id);
+		ast_str_append (&buf, 0, "Group:        %d\n", pvt->group);
+		ast_str_append (&buf, 0, "Connected:    %s\n", pvt->connected ? "Yes" : "No");
+		ast_str_append (&buf, 0, "Initialized:  %s\n", pvt->initialized ? "Yes" : "No");
+		ast_str_append (&buf, 0, "State:        %s\n", (!pvt->connected) ? "None" : (pvt->outgoing || pvt->incoming) ? "Busy" : (pvt->outgoing_sms || pvt->incoming_sms) ? "SMS" : "Free");
+		ast_str_append (&buf, 0, "Voice:        %s\n", (pvt->has_voice) ? "Yes" : "No");
+		ast_str_append (&buf, 0, "SMS:          %s\n", (pvt->has_sms) ? "Yes" : "No");
+		ast_str_append (&buf, 0, "RSSI:         %d\n", pvt->rssi);
+		ast_str_append (&buf, 0, "Mode:         %d\n", pvt->linkmode);
+		ast_str_append (&buf, 0, "Submode:      %d\n", pvt->linksubmode);
 		ast_str_append (&buf, 0, "ProviderName: %s\n", pvt->provider_name);
 		ast_str_append (&buf, 0, "Manufacturer: %s\n", pvt->manufacturer);
-		ast_str_append (&buf, 0, "Model: %s\n", pvt->model);
-		ast_str_append (&buf, 0, "Firmware: %s\n", pvt->firmware);
-		ast_str_append (&buf, 0, "IMEI: %s\n", pvt->imei);
-		ast_str_append (&buf, 0, "Number: %s\n", pvt->number);
-		ast_str_append (&buf, 0, "Use UCS-2 encoding: %s\n", pvt->use_ucs2_encoding ? "Yes" : "No");
+		ast_str_append (&buf, 0, "Model:        %s\n", pvt->model);
+		ast_str_append (&buf, 0, "Firmware:     %s\n", pvt->firmware);
+		ast_str_append (&buf, 0, "IMEI:         %s\n", pvt->imei);
+		ast_str_append (&buf, 0, "Number:       %s\n", pvt->number);
+		ast_str_append (&buf, 0, "Use UCS-2 encoding:      %s\n", pvt->use_ucs2_encoding ? "Yes" : "No");
 		ast_str_append (&buf, 0, "USSD use 7 bit encoding: %s\n", pvt->cusd_use_7bit_encoding ? "Yes" : "No");
 		ast_mutex_unlock (&pvt->lock);
 
-		ast_cli (a->fd, "%s", ast_str_buffer(buf));
+		ast_cli (a->fd, "%s", ast_str_buffer (buf));
 		ast_free (buf);
 	}
 	else
@@ -233,80 +233,84 @@ static char* cli_cusd (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
 
 static char* cli_sms (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
 {
-	int i;
-	struct ast_str *buf;
-	char *number_buf;
-	char *message_buf;
-	pvt_t* pvt = NULL;
+	pvt_t*	pvt = NULL;
+	void*	msg;
+	struct ast_str*	buf;
+	int	i;
 
-	buf = ast_str_create(1024);
+	switch (cmd)
+	{
+		case CLI_INIT:
+			e->command = "datacard sms";
+			e->usage =
+				"Usage: datacard sms <device ID> <number> <message>\n"
+				"       Send a sms to <number> with the <message>\n";
+			return NULL;
 
-	switch (cmd) {
-	case CLI_INIT:
-		e->command = "datacard sms send";
-		e->usage =
-			"Usage: datacard sms <device ID> <number> <message>\n"
-			"       Send a sms to <number> with the <message>\n";
-		return NULL;
-	case CLI_GENERATE:
-		if (a->pos == 3)
-		{
-			return complete_device (a->line, a->word, a->pos, a->n, 0);
-		}
-		return NULL;
+		case CLI_GENERATE:
+			if (a->pos == 2)
+			{
+				return complete_device (a->line, a->word, a->pos, a->n, 0);
+			}
+			return NULL;
 	}
 
-	if (a->argc < 6)
+	if (a->argc < 5)
+	{
 		return CLI_SHOWUSAGE;
-
-	pvt = find_device (a->argv[3]);
-
-	if (!pvt) {
-		ast_cli(a->fd, "Device %s not found.\n", a->argv[3]);
-		goto e_return;
 	}
 
-	ast_mutex_lock(&pvt->lock);
-	if (!pvt->connected || !pvt->initialized) {
-		ast_cli (a->fd, "Device %s not connected / initialized\n", a->argv[3]);
-		goto e_unlock_pvt;
-	}
+	pvt = find_device (a->argv[2]);
+	if (pvt)
+	{
+		ast_mutex_lock (&pvt->lock);
+		if (pvt->connected && pvt->initialized)
+		{
+			if (pvt->has_sms)
+			{
+				buf = ast_str_create (256);
 
-	if (!pvt->has_sms) {
-		ast_log(LOG_ERROR,"Device %s doesn't handle SMS -- SMS will not be sent.\n", a->argv[3]);
-		goto e_unlock_pvt;
-	}
+				for (i = 5; i < a->argc; i++)
+				{
+					if (i < (a->argc - 1))
+					{
+						ast_str_append (&buf, 0, "%s ", a->argv[i]);
+					}
+					else
+					{
+						ast_str_append (&buf, 0, "%s", a->argv[i]);
+					}
+				}
 
-	number_buf = ast_strdup(a->argv[4]);
+				msg = ast_strdup (ast_str_buffer (buf));
 
-	for (i = 5; i < a->argc; i++) {
-		if (i < (a->argc-1)) {
-			ast_str_append(&buf,0,"%s ", a->argv[i]);
+				if (at_send_cmgs (pvt, a->argv[3]) || at_fifo_queue_add_ptr (pvt, CMD_AT_CMGS, RES_SMS_PROMPT, msg))
+				{
+					ast_free (msg);
+					ast_log (LOG_ERROR, "[%s] Error sending SMS message\n", pvt->id);
+				}
+				else
+				{
+					ast_cli (a->fd, "[%s] SMS send successful\n", pvt->id);
+				}
+
+				ast_free (buf);
+			}
+			else
+			{
+				ast_cli (a->fd, "Device %s doesn't handle SMS -- SMS will not be sent\n", pvt->id);
+			}
 		}
-		else {
-			ast_str_append(&buf,0,"%s", a->argv[i]);
+		else
+		{
+			ast_cli (a->fd, "Device %s not connected / initialized -- SMS will not be sent\n", pvt->id);
 		}
+		ast_mutex_unlock (&pvt->lock);
+	}
+	else
+	{
+		ast_cli (a->fd, "Device %s not found\n", a->argv[2]);
 	}
 
-	message_buf = ast_strdup(ast_str_buffer(buf));
-
-	if (at_send_cmgs (pvt, number_buf) || at_fifo_queue_add_chr (pvt, CMD_AT_CMGS, RES_SMS_PROMPT, message_buf)) {
-		ast_log(LOG_ERROR, "[%s] problem sending SMS message\n", pvt->id);
-		goto e_free_vars;
-	}
-
-	ast_free(number_buf);
-	ast_free(buf);
-	ast_cli(a->fd, "SMS was send from Device %s.\n", pvt->id);
-	ast_mutex_unlock(&pvt->lock);
-	return 0;
-
-e_free_vars:
-	ast_free(buf);
-	ast_free(number_buf);
-	ast_free(message_buf);
-e_unlock_pvt:
-	ast_mutex_unlock(&pvt->lock);
-e_return:
 	return CLI_SUCCESS;
 }

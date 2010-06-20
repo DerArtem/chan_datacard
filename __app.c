@@ -63,7 +63,7 @@ static int app_send_sms_exec (struct ast_channel* channel, void* data)
 {
 	pvt_t*	pvt;
 	char*	parse;
-	char*	msg;
+	void*	msg;
 
 	AST_DECLARE_APP_ARGS (args,
 		AST_APP_ARG (device);
@@ -107,7 +107,7 @@ static int app_send_sms_exec (struct ast_channel* channel, void* data)
 			if (pvt->has_sms)
 			{
 				msg = ast_strdup (args.message);
-				if (at_send_cmgs (pvt, args.number) || at_fifo_queue_add_chr (pvt, CMD_AT_CMGS, RES_SMS_PROMPT, msg))
+				if (at_send_cmgs (pvt, args.number) || at_fifo_queue_add_ptr (pvt, CMD_AT_CMGS, RES_SMS_PROMPT, msg))
 				{
 					ast_mutex_unlock (&pvt->lock);
 					ast_free (msg);

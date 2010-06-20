@@ -339,7 +339,6 @@ static inline int		at_send_u2diag		(pvt_t*, int mode);
 static inline int		at_fifo_queue_add	(pvt_t*, at_cmd_t, at_res_t);
 static int			at_fifo_queue_add_ptr	(pvt_t*, at_cmd_t, at_res_t, void*);
 static int			at_fifo_queue_add_num	(pvt_t*, at_cmd_t, at_res_t, int);
-static int			at_fifo_queue_add_chr	(pvt_t*, at_cmd_t, at_res_t, char*);
 static inline void		at_fifo_queue_rem	(pvt_t*);
 static inline void		at_fifo_queue_flush	(pvt_t*);
 static inline at_queue_t*	at_fifo_queue_head	(pvt_t*);

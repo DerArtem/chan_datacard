@@ -1131,13 +1131,8 @@ static inline int at_response_sms_prompt (pvt_t* pvt)
 	{
 		at_fifo_queue_rem (pvt);
 
-		if (e->dtype != 2 || !e->data.chr) 
+		if (e->dtype != 0 || !e->data.ptr || at_send_sms_text (pvt, (char*) e->data.ptr) || at_fifo_queue_add (pvt, CMD_AT_CMGS, RES_OK))
 		{
-			ast_log (LOG_ERROR, "[%s] Error sending sms message - invalide dtype or data.chr\n", pvt->id);
-			return -1;
-		}
-
-		if (at_send_sms_text (pvt, e->data.chr) || at_fifo_queue_add (pvt, CMD_AT_CMGS, RES_OK)) {
 			ast_log (LOG_ERROR, "[%s] Error sending sms message\n", pvt->id);
 			return -1;
 		}
@@ -1170,7 +1165,8 @@ static inline int at_response_cusd (pvt_t* pvt, char* str, size_t len)
 	char*	cusd;
 	char	cusd_utf8_str[4096];
 
-	if (!(cusd = at_parse_cusd (pvt, str, len))) {
+	if (!(cusd = at_parse_cusd (pvt, str, len)))
+	{
 		ast_verb (1, "[%s] Error parsing CUSD: '%.*s'\n", pvt->id, (int) len, str);
 		return 0;
 	}
@@ -1179,7 +1175,7 @@ static inline int at_response_cusd (pvt_t* pvt, char* str, size_t len)
 
 	if (pvt->cusd_use_7bit_encoding)
 	{
-		res = hexstr_7bit_to_char(cusd, strlen (cusd), cusd_utf8_str, sizeof (cusd_utf8_str));
+		res = hexstr_7bit_to_char (cusd, strlen (cusd), cusd_utf8_str, sizeof (cusd_utf8_str));
 		if (res > 0)
 		{
 			cusd = cusd_utf8_str;

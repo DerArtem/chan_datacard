@@ -77,35 +77,6 @@ static int at_fifo_queue_add_num (pvt_t* pvt, at_cmd_t cmd, at_res_t res, int nu
 }
 
 /*!
- * \brief Add an item to the back of the queue with char data
- * \param pvt -- pvt structure
- * \param cmd -- the command that was sent to generate the response
- * \param res -- the expected response
- * \param num -- char data
- */
-
-static int at_fifo_queue_add_chr (pvt_t* pvt, at_cmd_t cmd, at_res_t res, char* chr)
-{
-	at_queue_t* e;
-
-	if (!(e = ast_calloc (1, sizeof(*e))))
-	{
-		return -1;
-	}
-
-	e->cmd          = cmd;
-	e->res          = res;
-	e->dtype        = 2;
-	e->data.chr     = chr;
-
-	AST_LIST_INSERT_TAIL (&pvt->at_queue, e, entry);
-
-	ast_debug (4, "[%s] add command '%s' expected response '%s'\n", pvt->id, at_cmd2str (e->cmd), at_res2str (e->res));
-
-	return 0;
-}
-
-/*!
  * \brief Remove an item from the front of the queue, and free it
  * \param pvt -- pvt structure
  */

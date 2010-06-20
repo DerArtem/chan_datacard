@@ -77,7 +77,7 @@ static struct ast_channel* channel_request (const char* type, int format, void* 
 		return NULL;
 	}
 
-	dest_dev = ast_strdupa ((char*) data);
+	dest_dev = ast_strdupa (data);
 
 	dest_num = strchr (dest_dev, '/');
 	if (!dest_num)
@@ -282,7 +282,7 @@ static int channel_call (struct ast_channel* channel, char* dest, int timeout)
 	char*	dest_dev = NULL;
 	char*	dest_num = NULL;
 
-	dest_dev = ast_strdupa ((char*) dest);
+	dest_dev = ast_strdupa (dest);
 
 	dest_num = strchr (dest_dev, '/');
 	if (!dest_num)
@@ -542,7 +542,7 @@ static int channel_devicestate (void* data)
 	pvt_t*	pvt;
 	int	res = AST_DEVICE_INVALID;
 
-	device = ast_strdupa (S_OR (data, ""));
+	device = ast_strdupa (data ? data : "");
 
 	ast_debug (1, "Checking device state for device %s\n", device);
 

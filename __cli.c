@@ -235,7 +235,7 @@ static char* cli_cusd (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
 static char* cli_sms (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
 {
 	pvt_t*	pvt = NULL;
-	void*	msg;
+	char*	msg;
 	struct ast_str*	buf;
 	int	i;
 
@@ -271,7 +271,7 @@ static char* cli_sms (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
 			{
 				buf = ast_str_create (256);
 
-				for (i = 5; i < a->argc; i++)
+				for (i = 4; i < a->argc; i++)
 				{
 					if (i < (a->argc - 1))
 					{

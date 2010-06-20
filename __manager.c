@@ -123,7 +123,7 @@ static int manager_send_sms (struct mansession* s, const struct message* m)
 
 	char		idtext[256] = "";
 	pvt_t*		pvt = NULL;
-	void*		msg;
+	char*		msg;
 	char		buf[256];
 
 	if (ast_strlen_zero (device))

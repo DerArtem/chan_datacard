@@ -169,7 +169,7 @@ typedef struct pvt_t
 	unsigned int		incoming_sms:1;		/*!< incoming sms */
 	unsigned int		needchup:1;		/*!< we need to send a CHUP */
 	unsigned int		needring:1;		/*!< we need to send a RING */
-	unsigned int		answered:1;		/*!< we sent/recieved an answer */
+	unsigned int		answered:1;		/*!< we sent/received an answer */
 	unsigned int		volume_synchronized:1;	/*!< we have synchronized the volume */
 	unsigned int		group_last_used:1;	/*!< mark the last used device */
 	unsigned int		prov_last_used:1;	/*!< mark the last used device */

@@ -49,7 +49,7 @@ static inline int at_read (pvt_t* pvt)
 		rb_write_upd (&pvt->read_rb, n);
 
 
-//		ast_debug (5, "[%s] recieve %zu byte, free %zu\n", pvt->id, n, rb_free (&pvt->read_rb));
+//		ast_debug (5, "[%s] receive %zu byte, free %zu\n", pvt->id, n, rb_free (&pvt->read_rb));
 
 		iovcnt = rb_read_all_iov (&pvt->read_rb, pvt->read_iov);
 
@@ -71,7 +71,7 @@ static inline int at_read (pvt_t* pvt)
 		return 0;
 	}
 
-	ast_debug (1, "[%s] recieve buffer overflow\n", pvt->id);
+	ast_debug (1, "[%s] receive buffer overflow\n", pvt->id);
 
 	return -1;
 }

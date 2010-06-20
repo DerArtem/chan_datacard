@@ -230,9 +230,9 @@ static const char* at_res2str (at_res_t res)
 
 static inline char* at_parse_clip (pvt_t* pvt, char* str, size_t len)
 {
-	char*	clip = NULL;
-	int	state;
 	size_t	i;
+	int	state;
+	char*	clip = NULL;
 
 	/*
 	 * parse clip info in the following format:
@@ -284,9 +284,9 @@ static inline char* at_parse_clip (pvt_t* pvt, char* str, size_t len)
 
 static inline char* at_parse_cnum (pvt_t* pvt, char* str, size_t len)
 {
-	char*	number = NULL;
-	int	state;
 	size_t	i;
+	int	state;
+	char*	number = NULL;
 
 	/*
 	 * parse CNUM response in the following format:
@@ -352,9 +352,9 @@ static inline char* at_parse_cnum (pvt_t* pvt, char* str, size_t len)
 
 static inline char* at_parse_cops (pvt_t* pvt, char* str, size_t len)
 {
-	char*	provider = NULL;
-	int	state;
 	size_t	i;
+	int	state;
+	char*	provider = NULL;
 
 	/*
 	 * parse COPS response in the following format:
@@ -436,8 +436,8 @@ static inline int at_parse_cmti (pvt_t* pvt, char* str, size_t len)
 
 static inline int at_parse_cmgr (pvt_t* pvt, char* str, size_t len, char** number, char** text)
 {
-	int	state;
 	size_t	i;
+	int	state;
 
 	*number = NULL;
 	*text   = NULL;
@@ -467,11 +467,8 @@ static inline int at_parse_cmgr (pvt_t* pvt, char* str, size_t len, char** numbe
 				break;
 
 			case 2: /* mark the start of the number */
-				if (number)
-				{
-					*number = &str[i];
-					state++;
-				}
+				*number = &str[i];
+				state++;
 				break;
 
 			/* fall through */
@@ -492,11 +489,8 @@ static inline int at_parse_cmgr (pvt_t* pvt, char* str, size_t len, char** numbe
 				break;
 
 			case 5: /* mark the start of the message text */
-				if (text)
-				{
-					*text = &str[i];
-					state++;
-				}
+				*text = &str[i];
+				state++;
 				break;
 		}
 	}
@@ -521,12 +515,12 @@ static inline int at_parse_cmgr (pvt_t* pvt, char* str, size_t len, char** numbe
 
 static inline int at_parse_cusd (pvt_t* pvt, char* str, size_t len, char** cusd, unsigned char* dcs)
 {
+	size_t	i;
 	int	state;
 	char*	p = NULL;
-	size_t	i;
 
 	*cusd = NULL;
-	*dcs = 0;
+	*dcs  = 0;
 
 	/*
 	 * parse cusd message in the following format:
@@ -545,11 +539,8 @@ static inline int at_parse_cusd (pvt_t* pvt, char* str, size_t len, char** cusd,
 				break;
 
 			case 1:
-				if (cusd)
-				{
-					*cusd = &str[i];
-					state++;
-				}
+				*cusd = &str[i];
+				state++;
 				break;
 
 			case 2:

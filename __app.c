@@ -63,7 +63,7 @@ static int app_send_sms_exec (struct ast_channel* channel, void* data)
 {
 	pvt_t*	pvt;
 	char*	parse;
-	void*	msg;
+	char*	msg;
 
 	AST_DECLARE_APP_ARGS (args,
 		AST_APP_ARG (device);

@@ -87,8 +87,8 @@ static ssize_t ucs2char_to_hexstr (const char* in, size_t in_length, char* out, 
 
 static ssize_t hexstr_ucs2_to_utf8 (const char* in, size_t in_length, char* out, size_t out_size)
 {
-	char buf[out_size];
-	ssize_t res;
+	char	buf[out_size];
+	ssize_t	res;
 
 	if (out_size - 1 < in_length / 2)
 	{

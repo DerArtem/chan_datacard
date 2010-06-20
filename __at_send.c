@@ -192,7 +192,7 @@ static inline int at_send_cmgr (pvt_t* pvt, int index)
  * \param number -- the destination of the message
  */
 
-static inline int at_send_cmgs (pvt_t* pvt, const char* number)	// !!!!!!!!!
+static inline int at_send_cmgs (pvt_t* pvt, const char* number)		// !!!!!!!!!
 {
 	ssize_t	res;
 	char*	p;
@@ -468,29 +468,27 @@ static inline int at_send_ate0 (pvt_t* pvt)
  * \param msg -- the text of the message
  */
 
-static inline int at_send_sms_text (pvt_t* pvt, const char* msg)	// !!!!!!!!!
+static inline int at_send_sms_text (pvt_t* pvt, const char* msg)
 {
 	ssize_t	res;
-	char	ucs2_msg[1024];
-	char	cmd[sizeof (ucs2_msg) + 162];
 
 	if (pvt->use_ucs2_encoding)
 	{
-		ucs2_msg[0] = '\0';
-		res = utf8_to_hexstr_ucs2 (msg, strlen (msg), ucs2_msg, sizeof (ucs2_msg));
+		res = utf8_to_hexstr_ucs2 (msg, strlen (msg), pvt->send_buf, 280 + 1);
 		if (res < 0)
 		{
-			ast_log (LOG_ERROR, "[%s] Error converting SMS to UCS-2): %s\n", pvt->id, msg);
-			return -1;
+			ast_log (LOG_ERROR, "[%s] Error converting SMS to UCS-2: '%s'\n", pvt->id, msg);
+			res = 0;
 		}
-		snprintf (cmd, sizeof (cmd), "%.160s\x1a", ucs2_msg);
+		pvt->send_buf[res] = 0x1a;
+		pvt->send_size = res + 1;
 	}
 	else
 	{
-		snprintf (cmd, sizeof (cmd), "%.160s\x1a", msg);
+		pvt->send_size = snprintf (pvt->send_buf, sizeof (pvt->send_buf), "%.160s\x1a", msg);
 	}
 
-	return at_write (pvt, cmd);
+	return at_write_full (pvt, pvt->send_buf, MIN (pvt->send_size, sizeof (pvt->send_buf) - 1));
 }
 
 /*!

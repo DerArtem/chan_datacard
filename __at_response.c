@@ -1043,13 +1043,12 @@ static inline int at_response_cmti (pvt_t* pvt, char* str, size_t len)
 
 static inline int at_response_cmgr (pvt_t* pvt, char* str, size_t len)
 {
-	at_queue_t*		e;
-	ssize_t			res;
-	char			sms_utf8_str[4096];
-	char			from_number_utf8_str[1024];
-	char*			from_number = NULL;
-	char*			text = NULL;
-	struct ast_channel*	channel;
+	at_queue_t*	e;
+	ssize_t		res;
+	char		sms_utf8_str[4096];
+	char		from_number_utf8_str[1024];
+	char*		from_number = NULL;
+	char*		text = NULL;
 
 	if ((e = at_fifo_queue_head (pvt)) && e->res == RES_CMGR)
 	{
@@ -1088,7 +1087,7 @@ static inline int at_response_cmgr (pvt_t* pvt, char* str, size_t len)
 			}
 		}
 
-		ast_verb (1, "[%s] Got SMS from %s: %s\n", pvt->id, from_number, text);
+		ast_verb (1, "[%s] Got SMS from %s: '%s'\n", pvt->id, from_number, text);
 
 #ifdef __MANAGER__
 		manager_event_new_sms (pvt, from_number, text);
@@ -1161,11 +1160,12 @@ static inline int at_response_sms_prompt (pvt_t* pvt)
 
 static inline int at_response_cusd (pvt_t* pvt, char* str, size_t len)
 {
-	ssize_t	res;
-	char*	cusd;
-	char	cusd_utf8_str[4096];
+	ssize_t		res;
+	char*		cusd;
+	unsigned char	dcs;
+	char		cusd_utf8_str[1024];
 
-	if (!(cusd = at_parse_cusd (pvt, str, len)))
+	if (at_parse_cusd (pvt, str, len, &cusd, &dcs))
 	{
 		ast_verb (1, "[%s] Error parsing CUSD: '%.*s'\n", pvt->id, (int) len, str);
 		return 0;
@@ -1173,7 +1173,7 @@ static inline int at_response_cusd (pvt_t* pvt, char* str, size_t len)
 
 	ast_debug (1, "[%s] Got CUSD response: '%s'\n", pvt->id, cusd);
 
-	if (pvt->cusd_use_7bit_encoding)
+	if (dcs == 0 || dcs == 15)
 	{
 		res = hexstr_7bit_to_char (cusd, strlen (cusd), cusd_utf8_str, sizeof (cusd_utf8_str));
 		if (res > 0)
@@ -1188,22 +1188,19 @@ static inline int at_response_cusd (pvt_t* pvt, char* str, size_t len)
 	}
 	else
 	{
-		if (pvt->use_ucs2_encoding)
+		res = hexstr_ucs2_to_utf8 (cusd, strlen (cusd), cusd_utf8_str, sizeof (cusd_utf8_str));
+		if (res > 0)
 		{
-			res = hexstr_ucs2_to_utf8 (cusd, strlen (cusd), cusd_utf8_str, sizeof (cusd_utf8_str));
-			if (res > 0)
-			{
-				cusd = cusd_utf8_str;
-			}
-			else
-			{
-				ast_log (LOG_ERROR, "[%s] Error parsing CUSD (convert UCS-2 to UTF-8): %s\n", pvt->id, cusd);
-				return -1;
-			}
+			cusd = cusd_utf8_str;
+		}
+		else
+		{
+			ast_log (LOG_ERROR, "[%s] Error parsing CUSD (convert UCS-2 to UTF-8): %s\n", pvt->id, cusd);
+			return -1;
 		}
 	}
 
-	ast_verb (1, "[%s] Got CUSD response: %s\n", pvt->id, cusd);
+	ast_verb (1, "[%s] Got CUSD response: '%s'\n", pvt->id, cusd);
 
 #ifdef __MANAGER__
 	manager_event_new_cusd (pvt, cusd);

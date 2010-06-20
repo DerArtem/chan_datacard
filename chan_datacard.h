@@ -294,7 +294,7 @@ static inline char*		at_parse_cnum		(pvt_t*, char*, size_t);
 static inline char*		at_parse_cops		(pvt_t*, char*, size_t);
 static inline int		at_parse_cpin		(pvt_t*, char*, size_t);
 static inline int		at_parse_csq		(pvt_t*, char*, size_t, int*);
-static inline char*		at_parse_cusd		(pvt_t*, char*, size_t);
+static inline int		at_parse_cusd		(pvt_t*, char*, size_t, char**, unsigned char*);
 static inline int		at_parse_mode		(pvt_t*, char*, size_t, int*, int*);
 static inline int		at_parse_rssi		(pvt_t*, char*, size_t);
 

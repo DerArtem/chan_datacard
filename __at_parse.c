@@ -231,7 +231,7 @@ static const char* at_res2str (at_res_t res)
 static inline char* at_parse_clip (pvt_t* pvt, char* str, size_t len)
 {
 	char*	clip = NULL;
-	int	state = 0;
+	int	state;
 	size_t	i;
 
 	/*
@@ -239,7 +239,7 @@ static inline char* at_parse_clip (pvt_t* pvt, char* str, size_t len)
 	 * +CLIP: "123456789",128,...
 	 */
 
-	for (i = 0; i < len && state != 3; i++)
+	for (i = 0, state = 0; i < len && state < 3; i++)
 	{
 		switch (state)
 		{
@@ -285,7 +285,7 @@ static inline char* at_parse_clip (pvt_t* pvt, char* str, size_t len)
 static inline char* at_parse_cnum (pvt_t* pvt, char* str, size_t len)
 {
 	char*	number = NULL;
-	int	state = 0;
+	int	state;
 	size_t	i;
 
 	/*
@@ -293,7 +293,7 @@ static inline char* at_parse_cnum (pvt_t* pvt, char* str, size_t len)
 	 * +CNUM: "<name>","<number>",<type>
 	 */
 
-	for (i = 0; i < len && state != 5; i++)
+	for (i = 0, state = 0; i < len && state < 5; i++)
 	{
 		switch (state)
 		{
@@ -353,7 +353,7 @@ static inline char* at_parse_cnum (pvt_t* pvt, char* str, size_t len)
 static inline char* at_parse_cops (pvt_t* pvt, char* str, size_t len)
 {
 	char*	provider = NULL;
-	int	state = 0;
+	int	state;
 	size_t	i;
 
 	/*
@@ -361,7 +361,7 @@ static inline char* at_parse_cops (pvt_t* pvt, char* str, size_t len)
 	 * +COPS: <mode>[,<format>,<oper>]
 	 */
 
-	for (i = 0; i < len && state != 3; i++)
+	for (i = 0, state = 0; i < len && state < 3; i++)
 	{
 		switch (state)
 		{
@@ -436,7 +436,7 @@ static inline int at_parse_cmti (pvt_t* pvt, char* str, size_t len)
 
 static inline int at_parse_cmgr (pvt_t* pvt, char* str, size_t len, char** number, char** text)
 {
-	int	state = 0;
+	int	state;
 	size_t	i;
 
 	*number = NULL;
@@ -448,18 +448,20 @@ static inline int at_parse_cmgr (pvt_t* pvt, char* str, size_t len, char** numbe
 	 * <message text>
 	 */
 
-	for (i = 0; i < len && state != 6; i++)
+	for (i = 0, state = 0; i < len && state < 6; i++)
 	{
 		switch (state)
 		{
 			case 0: /* search for start of the number section (,) */
-				if (str[i] == ',') {
+				if (str[i] == ',')
+				{
 					state++;
 				}
 				break;
 
 			case 1: /* find the opening quote (") */
-				if (str[i] == '"') {
+				if (str[i] == '"')
+				{
 					state++;
 				}
 				break;
@@ -513,62 +515,78 @@ static inline int at_parse_cmgr (pvt_t* pvt, char* str, size_t len, char** numbe
  * \param str -- string to parse (null terminated)
  * \param len -- string lenght
  * @note str will be modified when the CUSD string is parsed
- * \return NULL on error (parse error) or a pointer to the cusd message
- * inforamtion in str on success
+ * \retval  0 success
+ * \retval -1 parse error
  */
 
-static inline char* at_parse_cusd (pvt_t* pvt, char* str, size_t len)
+static inline int at_parse_cusd (pvt_t* pvt, char* str, size_t len, char** cusd, unsigned char* dcs)
 {
-	int	state = 0;
-	char*	cusd;
+	int	state;
+	char*	p = NULL;
 	size_t	i;
-	size_t	message_start = 0;
-	size_t	message_end = 0;
+
+	*cusd = NULL;
+	*dcs = 0;
 
 	/*
 	 * parse cusd message in the following format:
 	 * +CUSD: 0,"100,00 EURO, valid till 01.01.2010, you are using tariff "Mega Tariff". More informations *111#.",15
 	 */
 
-	/* Find the start of the message (") */
-	for (i = 0; i < len; i++)
+	for (i = 0, state = 0; i < len && state < 5; i++)
 	{
-		if (str[i] == '"')
+		switch (state)
 		{
-			message_start = i + 1;
-			break;
+			case 0:
+				if (str[i] == '"')
+				{
+					state++;
+				}
+				break;
+
+			case 1:
+				if (cusd)
+				{
+					*cusd = &str[i];
+					state++;
+				}
+				break;
+
+			case 2:
+				if (str[i] == '"')
+				{
+					str[i] = '\0';
+					state++;
+				}
+				break;
+
+			case 3:
+				if (str[i] == ',')
+				{
+					state++;
+				}
+				break;
+
+			case 4:
+				p = &str[i];
+				state++;
+				break;
 		}
 	}
 
-	if (message_start == 0 || message_start >= len)
+	if (state != 5)
 	{
-		return NULL;
+		return -1;
 	}
 
-	/* Find the end of the message (") */
-	for (i = len; i > 0; i--)
+	errno = 0;
+	*dcs = (unsigned char) strtol (p, (char**) NULL, 10);
+	if (errno == EINVAL)
 	{
-		if (str[i] == '"')
-		{
-			message_end = i;
-			break;
-		}
+		return -1;
 	}
 
-	if (message_end == 0)
-	{
-		return NULL;
-	}
-
-	if (message_start >= message_end)
-	{
-		return NULL;
-	}
-
-	cusd = str + message_start;
-	str[message_end] = '\0';
-
-	return cusd;
+	return 0;
 }
 
 /*!

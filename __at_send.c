@@ -347,7 +347,7 @@ static inline int at_send_cusd (pvt_t* pvt, const char* code)	// !!!!!!!!!!
 {
 	ssize_t		res;
 	char*		p;
-	char		ucs2_code[4096];
+	char		ucs2_code[1024];
 	const char*	old_code = code;
 
 	memcpy (pvt->send_buf, "AT+CUSD=1,\"", 11);
@@ -471,15 +471,16 @@ static inline int at_send_ate0 (pvt_t* pvt)
 static inline int at_send_sms_text (pvt_t* pvt, const char* msg)	// !!!!!!!!!
 {
 	ssize_t	res;
-	char	ucs2_msg[4096];
+	char	ucs2_msg[1024];
 	char	cmd[sizeof (ucs2_msg) + 162];
 
 	ast_log (LOG_ERROR, "[%s] SMS msg: '%s'\n", pvt->id, msg);
 
 	if (pvt->use_ucs2_encoding)
 	{
+		ucs2_msg[0] = '\0';
 		res = utf8_to_hexstr_ucs2 (msg, strlen (msg), ucs2_msg, sizeof (ucs2_msg));
-		if (res <= 0)
+		if (res < 0)
 		{
 			ast_log (LOG_ERROR, "[%s] Error converting SMS to UCS-2): %s\n", pvt->id, msg);
 			return -1;

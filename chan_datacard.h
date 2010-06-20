@@ -94,13 +94,13 @@ typedef struct at_queue_t
 	at_cmd_t		cmd;
 	at_res_t		res;
 
-	int			dtype;
+	int			ptype;
 
 	union
 	{
-		void*		ptr;
+		void*		data;
 		int		num;
-	} data;
+	} param;
 }
 at_queue_t;
 

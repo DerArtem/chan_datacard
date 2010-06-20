@@ -1093,9 +1093,9 @@ static inline int at_response_cmgr (pvt_t* pvt, char* str, size_t len)
 		manager_event_new_sms (pvt, from_number, text);
 #endif
 
-		if (pvt->auto_delete_sms && e->dtype == 1)
+		if (pvt->auto_delete_sms && e->ptype == 1)
 		{
-			if (at_send_cmgd (pvt, e->data.num) || at_fifo_queue_add (pvt, CMD_AT_CMGD, RES_OK))
+			if (at_send_cmgd (pvt, e->param.num) || at_fifo_queue_add (pvt, CMD_AT_CMGD, RES_OK))
 			{
 				ast_log (LOG_ERROR, "[%s] Error sending CMGD to delete SMS message\n", pvt->id);
 				return -1;
@@ -1128,13 +1128,13 @@ static inline int at_response_sms_prompt (pvt_t* pvt)
 
 	if ((e = at_fifo_queue_head (pvt)) && e->res == RES_SMS_PROMPT)
 	{
-		at_fifo_queue_rem (pvt);
-
-		if (e->dtype != 0 || !e->data.ptr || at_send_sms_text (pvt, (char*) e->data.ptr) || at_fifo_queue_add (pvt, CMD_AT_CMGS, RES_OK))
+		if (e->ptype != 0 || !e->param.data || at_send_sms_text (pvt, e->param.data) || at_fifo_queue_add (pvt, CMD_AT_CMGS, RES_OK))
 		{
 			ast_log (LOG_ERROR, "[%s] Error sending sms message\n", pvt->id);
 			return -1;
 		}
+
+		at_fifo_queue_rem (pvt);
 	}
 	else if (e)
 	{

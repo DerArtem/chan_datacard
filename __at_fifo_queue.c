@@ -24,7 +24,7 @@ static inline int at_fifo_queue_add (pvt_t* pvt, at_cmd_t cmd, at_res_t res)
  * \param data -- pointer data associated with this entry, it will be freed when the message is freed
  */
 
-static int at_fifo_queue_add_ptr (pvt_t* pvt, at_cmd_t cmd, at_res_t res, void* ptr)
+static int at_fifo_queue_add_ptr (pvt_t* pvt, at_cmd_t cmd, at_res_t res, void* data)
 {
 	at_queue_t* e;
 
@@ -35,8 +35,8 @@ static int at_fifo_queue_add_ptr (pvt_t* pvt, at_cmd_t cmd, at_res_t res, void* 
 
 	e->cmd		= cmd;
 	e->res		= res;
-	e->dtype	= 0;
-	e->data.ptr	= ptr;
+	e->ptype	= 0;
+	e->param.data	= data;
 
 	AST_LIST_INSERT_TAIL (&pvt->at_queue, e, entry);
 
@@ -65,8 +65,8 @@ static int at_fifo_queue_add_num (pvt_t* pvt, at_cmd_t cmd, at_res_t res, int nu
 
 	e->cmd		= cmd;
 	e->res		= res;
-	e->dtype	= 1;
-	e->data.num	= num;
+	e->ptype	= 1;
+	e->param.num	= num;
 
 	AST_LIST_INSERT_TAIL (&pvt->at_queue, e, entry);
 
@@ -90,9 +90,9 @@ static inline void at_fifo_queue_rem (pvt_t* pvt)
 		ast_debug (4, "[%s] remove command '%s' expected response '%s'\n", pvt->id,
 							at_cmd2str (e->cmd), at_res2str (e->res));
 
-		if (e->dtype == 0 && e->data.ptr)
+		if (e->ptype == 0 && e->param.data)
 		{
-			ast_free (e->data.ptr);
+			ast_free (e->param.data);
 		}
 
 		ast_free (e);

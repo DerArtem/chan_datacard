@@ -180,17 +180,17 @@ static char* cli_cmd (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
 	return CLI_SUCCESS;
 }
 
-static char* cli_cusd (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
+static char* cli_ussd (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
 {
 	pvt_t* pvt = NULL;
 
 	switch (cmd)
 	{
 		case CLI_INIT:
-			e->command = "datacard cusd";
+			e->command = "datacard ussd";
 			e->usage =
-				"Usage: datacard cusd <device> <command>\n"
-				"       Send cusd <command> to the datacard\n"
+				"Usage: datacard ussd <device> <command>\n"
+				"       Send ussd <command> to the datacard\n"
 				"       with the specified <device>.\n";
 			return NULL;
 
@@ -215,7 +215,7 @@ static char* cli_cusd (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
 		{
 			if (at_send_cusd (pvt, a->argv[3]) || at_fifo_queue_add (pvt, CMD_AT_CUSD, RES_OK))
 			{
-				ast_log (LOG_ERROR, "[%s] Error sending CUSD command\n", pvt->id);
+				ast_log (LOG_ERROR, "[%s] Error sending USSD command\n", pvt->id);
 			}
 		}
 		else

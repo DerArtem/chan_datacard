@@ -1,4 +1,4 @@
-/*!
+/*!                             
  * \brief Do response
  * \param pvt -- pvt structure
  * \param iovcnt -- number of elements array pvt->read_iov
@@ -1093,6 +1093,23 @@ static inline int at_response_cmgr (pvt_t* pvt, char* str, size_t len)
 		manager_event_new_sms (pvt, from_number, text);
 #endif
 
+#ifdef __MANAGER__
+		struct ast_channel* channel;
+
+		snprintf (pvt->send_buf, sizeof (pvt->send_buf), "sms@%s", pvt->context);
+
+		if (channel = channel_local_request (pvt, pvt->send_buf, pvt->id, from_number, "en"))
+		{
+			pbx_builtin_setvar_helper (channel, "SMS", text);
+
+			if (ast_pbx_start (channel))
+			{
+				ast_hangup (channel);
+				ast_log (LOG_ERROR, "[%s] Unable to start pbx on incoming sms\n", pvt->id);
+			}
+		}
+#endif
+
 		if (pvt->auto_delete_sms && e->ptype == 1)
 		{
 			if (at_send_cmgd (pvt, e->param.num) || at_fifo_queue_add (pvt, CMD_AT_CMGD, RES_OK))
@@ -1171,8 +1188,6 @@ static inline int at_response_cusd (pvt_t* pvt, char* str, size_t len)
 		return 0;
 	}
 
-	ast_debug (1, "[%s] Got CUSD response: '%s'\n", pvt->id, cusd);
-
 	if ((dcs == 0 || dcs == 15) && !pvt->cusd_use_ucs2_decoding)
 	{
 		res = hexstr_7bit_to_char (cusd, strlen (cusd), cusd_utf8_str, sizeof (cusd_utf8_str));
@@ -1182,7 +1197,7 @@ static inline int at_response_cusd (pvt_t* pvt, char* str, size_t len)
 		}
 		else
 		{
-			ast_log (LOG_ERROR, "[%s] Error converting CUSD code to PDU): %s\n", pvt->id, cusd);
+			ast_log (LOG_ERROR, "[%s] Error parsing CUSD (convert 7bit to ASCII): %s\n", pvt->id, cusd);
 			return -1;
 		}
 	}
@@ -1200,10 +1215,27 @@ static inline int at_response_cusd (pvt_t* pvt, char* str, size_t len)
 		}
 	}
 
-	ast_verb (1, "[%s] Got CUSD response: '%s'\n", pvt->id, cusd);
+	ast_verb (1, "[%s] Got USSD response: '%s'\n", pvt->id, cusd);
 
 #ifdef __MANAGER__
-	manager_event_new_cusd (pvt, cusd);
+	manager_event_new_ussd (pvt, cusd);
+#endif
+
+#ifdef __MANAGER__
+	struct ast_channel* channel;
+
+	snprintf (pvt->send_buf, sizeof (pvt->send_buf), "ussd@%s", pvt->context);
+
+	if (channel = channel_local_request (pvt, pvt->send_buf, pvt->id, "ussd", "en"))
+	{
+		pbx_builtin_setvar_helper (channel, "USSD", cusd);
+
+		if (ast_pbx_start (channel))
+		{
+			ast_hangup (channel);
+			ast_log (LOG_ERROR, "[%s] Unable to start pbx on incoming ussd\n", pvt->id);
+		}
+	}
 #endif
 
 	return 0;

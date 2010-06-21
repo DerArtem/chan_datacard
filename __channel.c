@@ -709,3 +709,21 @@ static int channel_ast_hangup (pvt_t* pvt)
 
 	return res;
 }
+
+static struct ast_channel* channel_local_request (pvt_t* pvt, void* data, const char* cid_name, const char* cid_num, const char *language)
+{
+	struct ast_channel*	channel;
+	int			cause = 0;
+
+	if (!(channel = ast_request ("Local", AST_FORMAT_AUDIO_MASK, data, &cause)))
+	{
+		ast_log (LOG_NOTICE, "Unable to request channel Local/%s\n", (char*) data);
+		return channel;
+	}
+
+	ast_set_callerid (channel, cid_num, cid_name, cid_num);
+	pbx_builtin_setvar_helper (channel, "IMEI", pvt->imei);
+	ast_string_field_set (channel, language, language);
+
+	return channel;
+}

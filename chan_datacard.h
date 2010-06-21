@@ -211,6 +211,8 @@ static int			channel_queue_control		(pvt_t* pvt, enum ast_control_frame_type);
 static int			channel_queue_hangup		(pvt_t* pvt, int);
 static int			channel_ast_hangup		(pvt_t* pvt);
 
+static struct ast_channel*	channel_local_request		(pvt_t*, void*, const char*, const char*, const char *);
+
 static const struct ast_channel_tech channel_tech =
 {
 	.type		= "Datacard",
@@ -350,14 +352,14 @@ static inline at_queue_t*	at_fifo_queue_head	(pvt_t*);
 static char*			cli_show_devices	(struct ast_cli_entry*, int, struct ast_cli_args*);
 static char*			cli_show_device		(struct ast_cli_entry*, int, struct ast_cli_args*);
 static char*			cli_cmd			(struct ast_cli_entry*, int, struct ast_cli_args*);
-static char*			cli_cusd		(struct ast_cli_entry*, int, struct ast_cli_args*);
+static char*			cli_ussd		(struct ast_cli_entry*, int, struct ast_cli_args*);
 static char*			cli_sms			(struct ast_cli_entry*, int, struct ast_cli_args*);
 
 static struct ast_cli_entry cli[] = {
 	AST_CLI_DEFINE (cli_show_devices,	"Show Datacard devices state"),
 	AST_CLI_DEFINE (cli_show_device,	"Show Datacard device state and config"),
 	AST_CLI_DEFINE (cli_cmd,		"Send commands to port for debugging"),
-	AST_CLI_DEFINE (cli_cusd,		"Send CUSD commands to the datacard"),
+	AST_CLI_DEFINE (cli_ussd,		"Send USSD commands to the datacard"),
 	AST_CLI_DEFINE (cli_sms,		"Send SMS from the datacard"),
 };
 
@@ -367,9 +369,9 @@ static struct ast_cli_entry cli[] = {
 #ifdef __MANAGER__
 
 static int			manager_show_devices	(struct mansession*, const struct message*);
-static int			manager_send_cusd	(struct mansession*, const struct message*);
+static int			manager_send_ussd	(struct mansession*, const struct message*);
 static int			manager_send_sms	(struct mansession*, const struct message*);
-static void			manager_event_new_cusd	(pvt_t*, char*);
+static void			manager_event_new_ussd	(pvt_t*, char*);
 static void			manager_event_new_sms	(pvt_t*, char*, char*);
 
 static char* manager_show_devices_desc =
@@ -378,18 +380,18 @@ static char* manager_show_devices_desc =
 	"Variables:\n"
 	"	ActionID: <id>		Action ID for this transaction. Will be returned.\n";
 
-static char* manager_send_cusd_desc =
-	"Description: Send a cusd message to a datacard.\n\n"
+static char* manager_send_ussd_desc =
+	"Description: Send a ussd message to a datacard.\n\n"
 	"Variables: (Names marked with * are required)\n"
 	"	ActionID: <id>		Action ID for this transaction. Will be returned.\n"
-	"	*Device:  <device>	The datacard to which the cusd code will be send.\n"
-	"	*CUSD:    <code>	The cusd code that will be send to the device.\n";
+	"	*Device:  <device>	The datacard to which the ussd code will be send.\n"
+	"	*USSD:    <code>	The ussd code that will be send to the device.\n";
 
 static char* manager_send_sms_desc =
 	"Description: Send a sms message from a datacard.\n\n"
 	"Variables: (Names marked with * are required)\n"
 	"	ActionID: <id>		Action ID for this transaction. Will be returned.\n"
-	"	*Device:  <device>	The datacard to which the cusd code will be send.\n"
+	"	*Device:  <device>	The datacard to which the sms be send.\n"
 	"	*Number:  <number>	The phone number to which the sms will be send.\n"
 	"	*Message: <message>	The sms message that will be send.\n";
 

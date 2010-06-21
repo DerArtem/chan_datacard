@@ -567,7 +567,7 @@ static int unload_module ()
 
 #ifdef __MANAGER__
 	ast_manager_unregister ("DatacardShowDevices");
-	ast_manager_unregister ("DatacardSendCUSD");
+	ast_manager_unregister ("DatacardSendUSSD");
 	ast_manager_unregister ("DatacardSendSMS");
 #endif
 
@@ -649,11 +649,11 @@ static int load_module ()
 	);
 
 	ast_manager_register2 (
-		"DatacardSendCUSD",
+		"DatacardSendUSSD",
 		EVENT_FLAG_SYSTEM | EVENT_FLAG_CONFIG | EVENT_FLAG_REPORTING,
-		manager_send_cusd,
-		"Send a cusd command to the datacard.",
-		manager_send_cusd_desc
+		manager_send_ussd,
+		"Send a ussd command to the datacard.",
+		manager_send_ussd_desc
 	);
 
 	ast_manager_register2 (

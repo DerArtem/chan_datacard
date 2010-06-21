@@ -56,10 +56,10 @@ static int manager_show_devices (struct mansession* s, const struct message* m)
 	return 0;
 }
 
-static int manager_send_cusd (struct mansession* s, const struct message* m)
+static int manager_send_ussd (struct mansession* s, const struct message* m)
 {
 	const char*	device	= astman_get_header (m, "Device");
-	const char*	cusd	= astman_get_header (m, "CUSD");
+	const char*	ussd	= astman_get_header (m, "USSD");
 	const char*	id	= astman_get_header (m, "ActionID");
 
 	char		idtext[256] = "";
@@ -72,9 +72,9 @@ static int manager_send_cusd (struct mansession* s, const struct message* m)
 		return 0;
 	}
 
-	if (ast_strlen_zero (cusd))
+	if (ast_strlen_zero (ussd))
 	{
-		astman_send_error (s, m, "CUSD not specified");
+		astman_send_error (s, m, "USSD not specified");
 		return 0;
 	}
 
@@ -89,13 +89,13 @@ static int manager_send_cusd (struct mansession* s, const struct message* m)
 		ast_mutex_lock (&pvt->lock);
 		if (pvt->connected && pvt->initialized)
 		{
-			if (at_send_cusd (pvt, cusd) || at_fifo_queue_add (pvt, CMD_AT_CUSD, RES_OK))
+			if (at_send_cusd (pvt, ussd) || at_fifo_queue_add (pvt, CMD_AT_CUSD, RES_OK))
 			{
-				ast_log (LOG_ERROR, "[%s] Error sending CUSD command\n", pvt->id);
+				ast_log (LOG_ERROR, "[%s] Error sending USSD command\n", pvt->id);
 			}
 			else
 			{
-				astman_send_ack (s, m, "CUSD code send successful");
+				astman_send_ack (s, m, "USSD code send successful");
 			}
 		}
 		else
@@ -192,19 +192,19 @@ static int manager_send_sms (struct mansession* s, const struct message* m)
 }
 
 /*!
- * \brief Send a DatacardNewCUSD event to the manager
+ * \brief Send a DatacardNewUSSD event to the manager
  * This function splits the message in multiple lines, so multi-line
- * CUSD messages can be send over the manager API.
+ * USSD messages can be send over the manager API.
  * \param pvt a pvt structure
  * \param message a null terminated buffer containing the message
  */
 
-static void manager_event_new_cusd (pvt_t* pvt, char* message)
+static void manager_event_new_ussd (pvt_t* pvt, char* message)
 {
-	struct ast_str* buf;
-	char*	s = message;
-	char*	sl;
-	size_t	linecount = 0;
+	struct ast_str*	buf;
+	char*		s = message;
+	char*		sl;
+	size_t		linecount = 0;
 
 	buf = ast_str_create (256);
 
@@ -217,7 +217,7 @@ static void manager_event_new_cusd (pvt_t* pvt, char* message)
 		}
 	}
 
-	manager_event (EVENT_FLAG_CALL, "DatacardNewCUSD",
+	manager_event (EVENT_FLAG_CALL, "DatacardNewUSSD",
 		"Device: %s\r\n"
 		"LineCount: %zu\r\n"
 		"%s\r\n",

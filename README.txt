@@ -26,7 +26,7 @@ Before using the channel driver make sure to:
 Supported features:
 * Place voice calls and terminate voice calls
 * Send SMS and receive SMS
-* Send and receive CUSD commands / messages
+* Send and receive USSD commands / messages
 
 Some useful AT commands:
 AT+CCWA=0,0,1
@@ -38,13 +38,13 @@ AT^U2DIAG=0
 Here is an example for the dialplan:
 
 [datacard-incoming]
-exten => sms,1,Verbose(Incoming SMS from ${SMSSRC} ${SMSTXT})
-exten => sms,n,System(echo '${STRFTIME(${EPOCH},,%Y-%m-%d %H:%M:%S)} - ${CHANNEL} - ${SMSSRC}: ${SMSTXT}' >> /var/log/asterisk/sms.txt)
+exten => sms,1,Verbose(Incoming SMS from ${CALLEID(num)} ${SMS})
+exten => sms,n,System(echo '${STRFTIME(${EPOCH},,%Y-%m-%d %H:%M:%S)} - ${CHANNEL} - ${CALLEID(num)}: ${SMS}' >> /var/log/asterisk/sms.txt)
 exten => sms,n,Hangup()
 
-exten => cusd,1,Verbose(Incoming CUSD: ${CUSDTXT})
-exten => cusd,n,System(echo '${STRFTIME(${EPOCH},,%Y-%m-%d %H:%M:%S)} - ${CHANNEL}: ${CUSDTXT}' >> /var/log/asterisk/cusd.txt)
-exten => cusd,n,Hangup()
+exten => ussd,1,Verbose(Incoming USSD: ${USSD})
+exten => ussd,n,System(echo '${STRFTIME(${EPOCH},,%Y-%m-%d %H:%M:%S)} - ${CHANNEL}: ${USSD}' >> /var/log/asterisk/ussd.txt)
+exten => ussd,n,Hangup()
 
 exten => s,1,Dial(SIP/2001@othersipserver)
 exten => s,n,Hangup()

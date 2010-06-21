@@ -385,7 +385,7 @@ static inline int at_send_cusd (pvt_t* pvt, const char* code)
 		res = char_to_hexstr_7bit (code, strlen (code), p, sizeof (pvt->send_buf) - 11 - 6);
 		if (res <= 0)
 		{
-			ast_log (LOG_ERROR, "[%s] Error converting CUSD code to PDU): %s\n", pvt->id, code);
+			ast_log (LOG_ERROR, "[%s] Error converting USSD code to PDU: %s\n", pvt->id, code);
 			return -1;
 		}
 	}
@@ -394,7 +394,7 @@ static inline int at_send_cusd (pvt_t* pvt, const char* code)
 		res = utf8_to_hexstr_ucs2 (code, strlen (code), p, sizeof (pvt->send_buf) - 11 - 6);
 		if (res <= 0)
 		{
-			ast_log (LOG_ERROR, "[%s] error converting CUSD code to UCS-2): %s\n", pvt->id, code);
+			ast_log (LOG_ERROR, "[%s] error converting USSD code to UCS-2: %s\n", pvt->id, code);
 			return -1;
 		}
 	}

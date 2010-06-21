@@ -1130,7 +1130,6 @@ static inline int at_response_sms_prompt (pvt_t* pvt)
 	{
 		if (e->ptype != 0 || !e->param.data || at_send_sms_text (pvt, e->param.data) || at_fifo_queue_add (pvt, CMD_AT_CMGS, RES_OK))
 		{
-			at_fifo_queue_rem (pvt);
 			ast_log (LOG_ERROR, "[%s] Error sending sms message\n", pvt->id);
 			return -1;
 		}

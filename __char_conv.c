@@ -48,7 +48,7 @@ static ssize_t hexstr_to_ucs2char (const char* in, size_t in_length, char* out, 
 
 	for (i = 0, x = 0; i < in_length; i++)
 	{
-		memcpy (buf, in + i * 2, 2);
+		memmove (buf, in + i * 2, 2);
 		if (sscanf (buf, "%x", &hexval) != 1)
 		{
 			return -1;
@@ -76,7 +76,7 @@ static ssize_t ucs2char_to_hexstr (const char* in, size_t in_length, char* out, 
 	for (i = 0, x = 0; i < in_length; i++)
 	{
 		snprintf (buf,sizeof (buf),"%.2X", in[i]);
-		memcpy (out + x, buf, 2);
+		memmove (out + x, buf, 2);
 		x = x + 2;
 	}
 
@@ -158,13 +158,13 @@ static ssize_t char_to_hexstr_7bit (const char* in, size_t in_length, char* out,
 
 		snprintf (buf, sizeof(buf), "%.2X", c);
 
-		memcpy (out + x, buf, 2);
+		memmove (out + x, buf, 2);
 		x = x + 2;
 	}
 
 	c = in[i] >> s;
 	snprintf (buf, sizeof(buf), "%.2X", c);
-	memcpy (out + x, buf, 2);
+	memmove (out + x, buf, 2);
 	x = x + 2;
 
 	out[x] = '\0';
@@ -191,7 +191,7 @@ static ssize_t hexstr_7bit_to_char (const char* in, size_t in_length, char* out,
 
 	for (i = 0, x = 0, s = 1, b = 0; i < in_length; i++)
 	{
-		memcpy (buf, in + i * 2, 2);
+		memmove (buf, in + i * 2, 2);
 		if (sscanf (buf, "%x", &hexval) != 1)
 		{
 			return -1;

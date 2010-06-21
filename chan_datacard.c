@@ -610,7 +610,7 @@ static int unload_module ()
 static int load_module ()
 {
 	/* Copy the default jb config over jbconf */
-	memcpy (&jbconf, &jbconf_default, sizeof (struct ast_jb_conf));
+	memmove (&jbconf, &jbconf_default, sizeof (struct ast_jb_conf));
 
 	if (load_config ())
 	{

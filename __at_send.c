@@ -197,7 +197,7 @@ static inline int at_send_cmgs (pvt_t* pvt, const char* number)		// !!!!!!!!!
 	ssize_t	res;
 	char*	p;
 
-	memcpy (pvt->send_buf, "AT+CMGS=\"", 9);
+	memmove (pvt->send_buf, "AT+CMGS=\"", 9);
 	p = pvt->send_buf + 9;
 
 //	if (pvt->use_ucs2_encoding)
@@ -205,11 +205,11 @@ static inline int at_send_cmgs (pvt_t* pvt, const char* number)		// !!!!!!!!!
 		res = utf8_to_hexstr_ucs2 (number, strlen (number), p, sizeof (pvt->send_buf) - 9 - 3);
 		if (res <= 0)
 		{
-			ast_log (LOG_ERROR, "[%s] Error converting SMS number to UCS-2): %s\n", pvt->id, number);
+			ast_log (LOG_ERROR, "[%s] Error converting SMS number to UCS-2: %s\n", pvt->id, number);
 			return -1;
 		}
 		p += res;
-		memcpy (p, "\"\r", 3);
+		memmove (p, "\"\r", 3);
 	}
 //	else
 	{
@@ -217,6 +217,35 @@ static inline int at_send_cmgs (pvt_t* pvt, const char* number)		// !!!!!!!!!
 	}
 
 	return at_write (pvt, pvt->send_buf);
+}
+
+/*!
+ * \brief Send the text of an SMS message
+ * \param pvt -- pvt structure
+ * \param msg -- the text of the message
+ */
+
+static inline int at_send_sms_text (pvt_t* pvt, const char* msg)
+{
+	ssize_t	res;
+
+	if (pvt->use_ucs2_encoding)
+	{
+		res = utf8_to_hexstr_ucs2 (msg, strlen (msg), pvt->send_buf, 280 + 1);
+		if (res < 0)
+		{
+			ast_log (LOG_ERROR, "[%s] Error converting SMS to UCS-2: '%s'\n", pvt->id, msg);
+			res = 0;
+		}
+		pvt->send_buf[res] = 0x1a;
+		pvt->send_size = res + 1;
+	}
+	else
+	{
+		pvt->send_size = snprintf (pvt->send_buf, sizeof (pvt->send_buf), "%.160s\x1a", msg);
+	}
+
+	return at_write_full (pvt, pvt->send_buf, MIN (pvt->send_size, sizeof (pvt->send_buf) - 1));
 }
 
 /*!
@@ -343,14 +372,12 @@ static inline int at_send_cssn (pvt_t* pvt, int cssi, int cssu)
  * \param code the CUSD code to send
  */
 
-static inline int at_send_cusd (pvt_t* pvt, const char* code)	// !!!!!!!!!!
+static inline int at_send_cusd (pvt_t* pvt, const char* code)
 {
 	ssize_t		res;
 	char*		p;
-	char		ucs2_code[1024];
-	const char*	old_code = code;
 
-	memcpy (pvt->send_buf, "AT+CUSD=1,\"", 11);
+	memmove (pvt->send_buf, "AT+CUSD=1,\"", 11);
 	p = pvt->send_buf + 11;
 
 	if (pvt->cusd_use_7bit_encoding)
@@ -361,32 +388,27 @@ static inline int at_send_cusd (pvt_t* pvt, const char* code)	// !!!!!!!!!!
 			ast_log (LOG_ERROR, "[%s] Error converting CUSD code to PDU): %s\n", pvt->id, code);
 			return -1;
 		}
-	
-		p += res;
+	}
+	else if (pvt->use_ucs2_encoding)
+	{
+		res = utf8_to_hexstr_ucs2 (code, strlen (code), p, sizeof (pvt->send_buf) - 11 - 6);
+		if (res <= 0)
+		{
+			ast_log (LOG_ERROR, "[%s] error converting CUSD code to UCS-2): %s\n", pvt->id, code);
+			return -1;
+		}
 	}
 	else
 	{
-		if (pvt->use_ucs2_encoding)
-		{
-			res = utf8_to_hexstr_ucs2 (code, strlen (code), ucs2_code, sizeof (ucs2_code));
-			if (res > 0)
-			{
-				code = ucs2_code;
-			}
-			else
-			{
-				ast_log (LOG_ERROR, "[%s] error converting CUSD code to UCS-2): %s\n", pvt->id, code);
-			}
-		}
-
-		memcpy (p, code, strlen (code));
-		p += strlen (code);
+		res = MIN (strlen (code), sizeof (pvt->send_buf) - 11 - 6);
+		memmove (p, code, res);
 	}
 
-	memcpy (p, "\",15\r", 6);
-	code = old_code;
+	p += res;
+	memmove (p, "\",15\r", 6);
+	pvt->send_size = p - pvt->send_buf + 6;
 
-	return at_write (pvt, pvt->send_buf);
+	return at_write_full (pvt, pvt->send_buf, pvt->send_size);
 }
 
 /*!
@@ -460,35 +482,6 @@ static inline int at_send_dtmf (pvt_t* pvt, char digit)
 static inline int at_send_ate0 (pvt_t* pvt)
 {
 	return at_write_full (pvt, "ATE0\r", 5);
-}
-
-/*!
- * \brief Send the text of an SMS message
- * \param pvt -- pvt structure
- * \param msg -- the text of the message
- */
-
-static inline int at_send_sms_text (pvt_t* pvt, const char* msg)
-{
-	ssize_t	res;
-
-	if (pvt->use_ucs2_encoding)
-	{
-		res = utf8_to_hexstr_ucs2 (msg, strlen (msg), pvt->send_buf, 280 + 1);
-		if (res < 0)
-		{
-			ast_log (LOG_ERROR, "[%s] Error converting SMS to UCS-2: '%s'\n", pvt->id, msg);
-			res = 0;
-		}
-		pvt->send_buf[res] = 0x1a;
-		pvt->send_size = res + 1;
-	}
-	else
-	{
-		pvt->send_size = snprintf (pvt->send_buf, sizeof (pvt->send_buf), "%.160s\x1a", msg);
-	}
-
-	return at_write_full (pvt, pvt->send_buf, MIN (pvt->send_size, sizeof (pvt->send_buf) - 1));
 }
 
 /*!

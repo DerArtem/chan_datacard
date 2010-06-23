@@ -107,33 +107,15 @@ at_queue_t;
 typedef struct pvt_t
 {
 	AST_LIST_ENTRY (pvt_t)	entry;
+	AST_LIST_HEAD_NOLOCK (at_queue, at_queue_t) at_queue;	/* queue for response we are expecting */
+	ast_mutex_t		lock;				/* pvt lock */
 
-	/* Config */
-	char			id[31];				/* id from datacard.conf */
-	char			audio_tty[256];			/* tty for audio connection */
-	char			data_tty[256];			/* tty for AT commands */
-	char			context[AST_MAX_CONTEXT];	/* the context for incoming calls */
-	int			group;				/* group number for group dialling */
-	int			rxgain;				/* increase the incoming volume */
-	int			txgain;				/* increase the outgoint volume */
-	unsigned int		auto_delete_sms:1;
-	unsigned int		reset_datacard:1;
-	int			u2diag;
-
-	ast_mutex_t		lock;				/*!< pvt lock */
-	int			audio_socket;			/* audio socket descriptor */
-	int			data_socket;			/* rfcomm socket descriptor */
-	int			timeout;			/*!< used to set the timeout for rfcomm data (may be used in the future) */
+	char			io_buf[CHANNEL_FRAME_SIZE + AST_FRIENDLY_OFFSET];
 	pthread_t		monitor_thread;			/* monitor thread handle */
 	struct ast_channel*	owner;				/* Channel we belong to, possibly NULL */
 	struct ast_dsp*		dsp;
 	struct ast_frame	frame;				/* "null" frame */
 	struct ast_smoother*	smoother;			/* our smoother, for making 320 byte frames */
-
-	AST_LIST_HEAD_NOLOCK (at_queue, at_queue_t) at_queue;	/*! queue for response we are expecting */
-
-	char			io_buf[CHANNEL_FRAME_SIZE + AST_FRIENDLY_OFFSET];
-
 
 	char			send_buf[2*1024];
 	size_t			send_size;
@@ -142,7 +124,6 @@ typedef struct pvt_t
 	ringbuffer_t		read_rb;
 	struct iovec		read_iov[2];
 	unsigned int		read_result:1;
-
 
 	unsigned int		has_sms:1;
 	unsigned int		has_voice:1;
@@ -159,20 +140,34 @@ typedef struct pvt_t
 	char			imei[17];
 	char			number[128];
 
-
 	/* flags */
-	unsigned int		connected:1;		/*!< do we have an rfcomm connection to a device */
-	unsigned int		initialized:1;		/*!< whether a service level connection exists or not */
-	unsigned int		outgoing:1;		/*!< outgoing call */
-	unsigned int		incoming:1;		/*!< incoming call */
-	unsigned int		outgoing_sms:1;		/*!< outgoing sms */
-	unsigned int		incoming_sms:1;		/*!< incoming sms */
-	unsigned int		needchup:1;		/*!< we need to send a CHUP */
-	unsigned int		needring:1;		/*!< we need to send a RING */
-	unsigned int		answered:1;		/*!< we sent/received an answer */
-	unsigned int		volume_synchronized:1;	/*!< we have synchronized the volume */
-	unsigned int		group_last_used:1;	/*!< mark the last used device */
-	unsigned int		prov_last_used:1;	/*!< mark the last used device */
+	unsigned int		connected:1;			/* do we have an rfcomm connection to a device */
+	unsigned int		initialized:1;			/* whether a service level connection exists or not */
+	unsigned int		outgoing:1;			/* outgoing call */
+	unsigned int		incoming:1;			/* incoming call */
+	unsigned int		outgoing_sms:1;			/* outgoing sms */
+	unsigned int		incoming_sms:1;			/* incoming sms */
+	unsigned int		needchup:1;			/* we need to send a CHUP */
+	unsigned int		needring:1;			/* we need to send a RING */
+	unsigned int		answered:1;			/* we sent/received an answer */
+	unsigned int		volume_synchronized:1;		/* we have synchronized the volume */
+	unsigned int		group_last_used:1;		/* mark the last used device */
+	unsigned int		prov_last_used:1;		/* mark the last used device */
+
+	/* Config */
+	char			id[31];				/* id from datacard.conf */
+	char			audio_tty[256];			/* tty for audio connection */
+	char			data_tty[256];			/* tty for AT commands */
+	char			context[AST_MAX_CONTEXT];	/* the context for incoming calls */
+	int			group;				/* group number for group dialling */
+	int			rxgain;				/* increase the incoming volume */
+	int			txgain;				/* increase the outgoint volume */
+	unsigned int		auto_delete_sms:1;
+	unsigned int		reset_datacard:1;
+	int			u2diag;
+	int			audio_socket;			/* audio socket descriptor */
+	int			data_socket;			/* data socket descriptor */
+	int			timeout;			/* used to set the timeout for data (may be used in the future) */
 }
 pvt_t;
 
@@ -200,6 +195,7 @@ static struct ast_channel*	channel_request			(const char*, int, void*, int*);
 static int			channel_call			(struct ast_channel*, char*, int);
 static int			channel_hangup			(struct ast_channel*);
 static int			channel_answer			(struct ast_channel*);
+static int			channel_digit_begin		(struct ast_channel*, char);
 static int			channel_digit_end		(struct ast_channel*, char, unsigned int);
 static struct ast_frame*	channel_audio_read		(struct ast_channel*);
 static int			channel_audio_write		(struct ast_channel*, struct ast_frame*);
@@ -215,19 +211,20 @@ static struct ast_channel*	channel_local_request		(pvt_t*, void*, const char*, c
 
 static const struct ast_channel_tech channel_tech =
 {
-	.type		= "Datacard",
-	.description	= "Datacard Channel Driver",
-	.capabilities	= AST_FORMAT_SLINEAR,
-	.requester	= channel_request,
-	.call		= channel_call,
-	.hangup		= channel_hangup,
-	.answer		= channel_answer,
-	.send_digit_end	= channel_digit_end,
-	.read		= channel_audio_read,
-	.write		= channel_audio_write,
-	.fixup		= channel_fixup,
-	.devicestate	= channel_devicestate,
-	.indicate	= channel_indicate
+	.type			= "Datacard",
+	.description		= "Datacard Channel Driver",
+	.capabilities		= AST_FORMAT_SLINEAR,
+	.requester		= channel_request,
+	.call			= channel_call,
+	.hangup			= channel_hangup,
+	.answer			= channel_answer,
+	.send_digit_begin	= channel_digit_begin,
+	.send_digit_end		= channel_digit_end,
+	.read			= channel_audio_read,
+	.write			= channel_audio_write,
+	.fixup			= channel_fixup,
+	.devicestate		= channel_devicestate,
+	.indicate		= channel_indicate
 };
 
 /*! Global jitterbuffer configuration - by default, jb is disabled */

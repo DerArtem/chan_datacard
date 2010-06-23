@@ -385,7 +385,7 @@ static int channel_answer (struct ast_channel* channel)
 
 }
 
-static int channel_digit_end (struct ast_channel* channel, char digit, unsigned int duration)
+static int channel_digit_begin (struct ast_channel* channel, char digit)
 {
 	pvt_t* pvt = channel->tech_pvt;
 
@@ -403,6 +403,12 @@ static int channel_digit_end (struct ast_channel* channel, char digit, unsigned 
 
 	ast_debug (1, "[%s] Send DTMF %c\n", pvt->id, digit);
 
+	return 0;
+}
+
+
+static int channel_digit_end (struct ast_channel* channel, char digit, unsigned int duration)
+{
 	return 0;
 }
 

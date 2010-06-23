@@ -1424,21 +1424,12 @@ static inline int at_response_cgmi (pvt_t* pvt, char* str, size_t len)
 
 static inline int at_response_cgmm (pvt_t* pvt, char* str, size_t len)
 {
-	// lets initialize some default values
-	pvt->cusd_use_7bit_encoding = 0;
-	pvt->cusd_use_ucs2_decoding = 1;
-
-	// some devices may be broken and no report their model
-	// some other devices require special treatment for ussd
-	if (pvt->model!=NULL)
-	{
-		ast_copy_string (pvt->model, str, sizeof (pvt->model));
+	ast_copy_string (pvt->model, str, sizeof (pvt->model));
 	
-		if (!strcmp (pvt->model, "E1550") || !strcmp (pvt->model, "E160X"))
-		{
-			pvt->cusd_use_7bit_encoding = 1;
-			pvt->cusd_use_ucs2_decoding = 0;
-		}
+	if (!strcmp (pvt->model, "E1550") || !strcmp (pvt->model, "E160X"))
+	{
+		pvt->cusd_use_7bit_encoding = 1;
+		pvt->cusd_use_ucs2_decoding = 0;
 	}
 
 	return 0;

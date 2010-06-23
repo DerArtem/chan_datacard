@@ -405,7 +405,8 @@ static pvt_t* load_device (struct ast_config* cfg, const char* cat)
 	pvt->audio_socket		= -1;
 	pvt->reset_datacard		=  1;
 	pvt->u2diag			= -1;
-
+	pvt->cusd_use_7bit_encoding	=  0;
+	pvt->cusd_use_ucs2_decoding	=  1;
 
 	/* setup the smoother */
 

@@ -424,12 +424,12 @@ static inline int at_send_cvoice_test (pvt_t* pvt)
 /*!
  * \brief Send ATD command
  * \param pvt -- pvt structure
- * \param number -- the number to dial
  */
 
-static inline int at_send_atd (pvt_t* pvt, const char* number)
+static inline int at_send_atd (pvt_t* pvt)
 {
-	pvt->send_size = snprintf (pvt->send_buf, sizeof (pvt->send_buf), "ATD%s;\r", number);
+	pvt->send_size = snprintf (pvt->send_buf, sizeof (pvt->send_buf), "ATD%s;\r", pvt->dest_num);
+	ast_free(pvt->dest_num);
 	return at_write_full (pvt, pvt->send_buf, MIN (pvt->send_size, sizeof (pvt->send_buf) - 1));
 }
 
@@ -504,4 +504,16 @@ static inline int at_send_u2diag (pvt_t* pvt, int mode)
 static inline int at_send_atz (pvt_t* pvt)
 {
 	return at_write_full (pvt, "ATZ\r", 4);
+}
+
+/*!
+ * \brief Send the AT+CLIR command
+ * \param pvt -- pvt structure
+ * \param mode -- the CLIR mode
+ */
+
+static inline int at_send_clir (pvt_t* pvt, int mode)
+{
+        pvt->send_size = snprintf (pvt->send_buf, sizeof (pvt->send_buf), "AT+CLIR=%d\r", mode);
+        return at_write_full (pvt, pvt->send_buf, MIN (pvt->send_size, sizeof (pvt->send_buf) - 1));
 }

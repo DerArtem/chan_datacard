@@ -474,6 +474,15 @@ static inline int at_response_ok (pvt_t* pvt)
 				}
 				break;
 
+			case CMD_AT_CLIR:
+				ast_debug (1, "[%s] CLIR sent successfully\n", pvt->id);
+
+				if (at_send_atd (pvt) || at_fifo_queue_add (pvt, CMD_AT_D, RES_OK)) {
+					ast_log (LOG_ERROR, "[%s] Error sending ATD command\n", pvt->id);
+					goto e_return;
+				}
+				break;
+
 			case CMD_AT_D:
 				ast_debug (1, "[%s] Dial sent successfully\n", pvt->id);
 
@@ -699,6 +708,16 @@ static inline int at_response_error (pvt_t* pvt)
 			case CMD_AT_A:
 				ast_log (LOG_ERROR, "[%s] Answer failed\n", pvt->id);
 				channel_queue_hangup (pvt, 0);
+				break;
+
+			case CMD_AT_CLIR:
+				ast_log (LOG_ERROR, "[%s] Setting CLIR failed\n", pvt->id);
+
+				//Lets continue dialing
+				if (at_send_atd (pvt) || at_fifo_queue_add (pvt, CMD_AT_D, RES_OK)) {
+					ast_log (LOG_ERROR, "[%s] Error sending ATD command\n", pvt->id);
+					goto e_return;
+				}
 				break;
 
 			case CMD_AT_D:

@@ -282,6 +282,7 @@ static int channel_call (struct ast_channel* channel, char* dest, int timeout)
 	pvt_t*	pvt = channel->tech_pvt;
 	char*	dest_dev = NULL;
 	char*	dest_num = NULL;
+	int	clir = 0;
 
 	dest_dev = ast_strdupa (dest);
 
@@ -308,12 +309,20 @@ static int channel_call (struct ast_channel* channel, char* dest, int timeout)
 		return -1;
 	}
 
+	pvt->callingpres = channel->cid.cid_pres;
+	pvt->dest_num = ast_strdup(dest_num);
+	clir = get_clir_value(pvt);
+
 	ast_debug (1, "[%s] Calling %s on %s\n", pvt->id, dest, channel->name);
 
-	if (at_send_atd (pvt, dest_num) || at_fifo_queue_add (pvt, CMD_AT_D, RES_OK))
+	/*
+	 * We can't send ATD directly from here, as we have to set CLIR first.
+	 * So we store the callees number in pvt
+	 */
+	if (at_send_clir (pvt,clir) || at_fifo_queue_add (pvt, CMD_AT_CLIR, RES_OK))
 	{
 		ast_mutex_unlock (&pvt->lock);
-		ast_log (LOG_ERROR, "[%s] Error sending ATD command\n", pvt->id);
+		ast_log (LOG_ERROR, "[%s] Error sending AT+CLIR command\n", pvt->id);
 		return -1;
 	}
 

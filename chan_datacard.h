@@ -51,6 +51,7 @@ typedef enum {
 	CMD_AT_SMS_TEXT,
 	CMD_AT_U2DIAG,
 	CMD_AT_Z,
+	CMD_AT_CLIR,
 } at_cmd_t;
 
 typedef enum {
@@ -133,12 +134,14 @@ typedef struct pvt_t
 	int			rssi;
 	int			linkmode;
 	int			linksubmode;
+	int			callingpres;
 	char			provider_name[32];
 	char			manufacturer[32];
 	char			model[32];
 	char			firmware[32];
 	char			imei[17];
 	char			number[128];
+	char*			dest_num;
 
 	/* flags */
 	unsigned int		connected:1;			/* do we have an rfcomm connection to a device */
@@ -186,6 +189,7 @@ static inline int		check_unloading ();
 
 static pvt_t*			find_device			(const char*);
 static char*			complete_device			(const char*, const char*, int, int, int);
+static int			get_clir_value			(pvt_t*);
 
 
 /* Channel Driver */
@@ -303,7 +307,7 @@ static int			at_write_full		(pvt_t*, char*, size_t);
 
 static inline int		at_send_at		(pvt_t*);
 static inline int		at_send_ata		(pvt_t*);
-static inline int		at_send_atd		(pvt_t*, const char* number);
+static inline int		at_send_atd		(pvt_t*);
 static inline int		at_send_ate0		(pvt_t*);
 static inline int		at_send_atz		(pvt_t*);
 static inline int		at_send_cgmi		(pvt_t*);
@@ -333,6 +337,7 @@ static inline int		at_send_ddsetex		(pvt_t*);
 static inline int		at_send_dtmf		(pvt_t*, char digit);
 static inline int		at_send_sms_text	(pvt_t*, const char* message);
 static inline int		at_send_u2diag		(pvt_t*, int mode);
+static inline int		at_send_clir		(pvt_t*, int mode);
 
 
 static inline int		at_fifo_queue_add	(pvt_t*, at_cmd_t, at_res_t);

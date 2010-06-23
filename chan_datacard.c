@@ -64,6 +64,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Rev: 63 $")
 #include <asterisk/manager.h>
 #include <asterisk/io.h>
 #include <asterisk/musiconhold.h>
+#include <asterisk/callerid.h>
 
 #include "__ringbuffer.h"
 #include "chan_datacard.h"

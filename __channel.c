@@ -64,7 +64,6 @@ static struct ast_channel* channel_request (const char* type, int format, void* 
 	{
 		ast_log (LOG_WARNING, "Channel requested with no data\n");
 		*cause = AST_CAUSE_INCOMPATIBLE_DESTINATION;
-
 		return NULL;
 	}
 
@@ -74,7 +73,6 @@ static struct ast_channel* channel_request (const char* type, int format, void* 
 	{
 		ast_log (LOG_WARNING, "Asked to get a channel of unsupported format '%d'\n", oldformat);
 		*cause = AST_CAUSE_FACILITY_NOT_IMPLEMENTED;
-
 		return NULL;
 	}
 
@@ -85,10 +83,17 @@ static struct ast_channel* channel_request (const char* type, int format, void* 
 	{
 		ast_log (LOG_WARNING, "Can't determine destination\n");
 		*cause = AST_CAUSE_INCOMPATIBLE_DESTINATION;
-
 		return NULL;
 	}
+
 	*dest_num = '\0'; dest_num++;
+
+	if (*dest_num == '\0')
+	{
+		ast_log (LOG_WARNING, "Empty destination\n");
+		*cause = AST_CAUSE_INCOMPATIBLE_DESTINATION;
+		return NULL;
+	}
 
 
 	/* Find requested device and make sure it's connected and initialized. */
@@ -288,7 +293,7 @@ static int channel_call (struct ast_channel* channel, char* dest, int timeout)
 
 	if (!(dest_num = strchr (dest_dev, '/')))
 	{
-		ast_log (LOG_WARNING, "Cant determine destination\n");
+		ast_log (LOG_WARNING, "Can't determine destination\n");
 		return -1;
 	}
 

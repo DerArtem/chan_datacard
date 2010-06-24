@@ -33,7 +33,7 @@
 
 #include <asterisk.h>
 
-ASTERISK_FILE_VERSION(__FILE__, "$Rev: 63 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Rev$")
 
 #include <errno.h>
 #include <fcntl.h>
@@ -47,24 +47,24 @@ ASTERISK_FILE_VERSION(__FILE__, "$Rev: 63 $")
 
 #include <iconv.h>
 
-#include <asterisk/lock.h>
-#include <asterisk/channel.h>
-#include <asterisk/config.h>
-#include <asterisk/logger.h>
-#include <asterisk/module.h>
-#include <asterisk/pbx.h>
-#include <asterisk/options.h>
-#include <asterisk/utils.h>
-#include <asterisk/linkedlists.h>
-#include <asterisk/cli.h>
-#include <asterisk/devicestate.h>
-#include <asterisk/causes.h>
-#include <asterisk/dsp.h>
 #include <asterisk/app.h>
-#include <asterisk/manager.h>
-#include <asterisk/io.h>
-#include <asterisk/musiconhold.h>
 #include <asterisk/callerid.h>
+#include <asterisk/causes.h>
+#include <asterisk/channel.h>
+#include <asterisk/cli.h>
+#include <asterisk/config.h>
+#include <asterisk/devicestate.h>
+#include <asterisk/dsp.h>
+#include <asterisk/io.h>
+#include <asterisk/linkedlists.h>
+#include <asterisk/lock.h>
+#include <asterisk/logger.h>
+#include <asterisk/manager.h>
+#include <asterisk/module.h>
+#include <asterisk/musiconhold.h>
+#include <asterisk/options.h>
+#include <asterisk/pbx.h>
+#include <asterisk/utils.h>
 
 #include "__ringbuffer.h"
 #include "chan_datacard.h"

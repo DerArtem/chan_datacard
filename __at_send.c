@@ -426,10 +426,9 @@ static inline int at_send_cvoice_test (pvt_t* pvt)
  * \param pvt -- pvt structure
  */
 
-static inline int at_send_atd (pvt_t* pvt)
+static inline int at_send_atd (pvt_t* pvt, const char* number)
 {
-	pvt->send_size = snprintf (pvt->send_buf, sizeof (pvt->send_buf), "ATD%s;\r", pvt->dest_num);
-	ast_free(pvt->dest_num);
+	pvt->send_size = snprintf (pvt->send_buf, sizeof (pvt->send_buf), "ATD%s;\r", number);
 	return at_write_full (pvt, pvt->send_buf, MIN (pvt->send_size, sizeof (pvt->send_buf) - 1));
 }
 

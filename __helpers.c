@@ -36,55 +36,42 @@ static char* complete_device (const char* line, const char* word, int pos, int s
 	return res;
 }
 
-static int get_clir_value(pvt_t* pvt)
+static inline int get_clir_value (pvt_t* pvt, struct ast_channel* channel)
 {
 	int res = 0;
 
-	switch (pvt->callingpres) {
-	case AST_PRES_ALLOWED_USER_NUMBER_NOT_SCREENED:
-		ast_debug (2, "[%s] callingpres: AST_PRES_ALLOWED_USER_NUMBER_NOT_SCREENED\n", pvt->id);
-		res = 2;
-		break;
-	case AST_PRES_ALLOWED_USER_NUMBER_PASSED_SCREEN:
-		ast_debug (2, "[%s] callingpres: AST_PRES_ALLOWED_USER_NUMBER_PASSED_SCREEN\n", pvt->id);
-		res = 2;
-		break;
-	case AST_PRES_ALLOWED_USER_NUMBER_FAILED_SCREEN:
-		ast_debug (2, "[%s] callingpres: AST_PRES_ALLOWED_USER_NUMBER_FAILED_SCREEN\n", pvt->id);
-		res = 2;
-		break;
-	case AST_PRES_ALLOWED_NETWORK_NUMBER:
-		ast_debug (2, "[%s] callingpres: AST_PRES_ALLOWED_NETWORK_NUMBER\n", pvt->id);
-		res = 2;
-		break;
-	case AST_PRES_PROHIB_USER_NUMBER_NOT_SCREENED:
-		ast_debug (2, "[%s] callingpres: AST_PRES_PROHIB_USER_NUMBER_NOT_SCREENED\n", pvt->id);
-		res = 1;
-		break;
-	case AST_PRES_PROHIB_USER_NUMBER_PASSED_SCREEN:
-		ast_debug (2, "[%s] callingpres: AST_PRES_PROHIB_USER_NUMBER_PASSED_SCREEN\n", pvt->id);
-		res = 1;
-		break;
-	case AST_PRES_PROHIB_USER_NUMBER_FAILED_SCREEN:
-		ast_debug (2, "[%s] callingpres: AST_PRES_PROHIB_USER_NUMBER_FAILED_SCREEN\n", pvt->id);
-		res = 1;
-		break;
-	case AST_PRES_PROHIB_NETWORK_NUMBER:
-		ast_debug (2, "[%s] callingpres: AST_PRES_PROHIB_NETWORK_NUMBER\n", pvt->id);
-		res = 1;
-		break;
-	case AST_PRES_NUMBER_NOT_AVAILABLE:
-		ast_debug (2, "[%s] callingpres: AST_PRES_NUMBER_NOT_AVAILABLE\n", pvt->id);
-		res = 2;
-		break;
-	default:
-		ast_log(LOG_WARNING, "[%s] Unsupported callingpres (%d)\n", pvt->id, pvt->callingpres);
-		if ((pvt->callingpres & AST_PRES_RESTRICTION) != AST_PRES_ALLOWED) {
-			res = 0;
-		} else {
+	switch (channel->cid.cid_pres)
+	{
+		case AST_PRES_ALLOWED_NETWORK_NUMBER:
+		case AST_PRES_ALLOWED_USER_NUMBER_FAILED_SCREEN:
+		case AST_PRES_ALLOWED_USER_NUMBER_NOT_SCREENED:
+		case AST_PRES_ALLOWED_USER_NUMBER_PASSED_SCREEN:
+		case AST_PRES_NUMBER_NOT_AVAILABLE:
+
+			ast_debug (2, "[%s] callingpres: %s\n", pvt->id, ast_describe_caller_presentation (channel->cid.cid_pres));
 			res = 2;
-		}
-		break;
+			break;
+
+		case AST_PRES_PROHIB_NETWORK_NUMBER:
+		case AST_PRES_PROHIB_USER_NUMBER_FAILED_SCREEN:
+		case AST_PRES_PROHIB_USER_NUMBER_NOT_SCREENED:
+		case AST_PRES_PROHIB_USER_NUMBER_PASSED_SCREEN:
+
+			ast_debug (2, "[%s] callingpres: %s\n", pvt->id, ast_describe_caller_presentation (channel->cid.cid_pres));
+			res = 1;
+			break;
+
+		default:
+			ast_log (LOG_WARNING, "[%s] Unsupported callingpres: %d\n", pvt->id, channel->cid.cid_pres);
+			if ((channel->cid.cid_pres & AST_PRES_RESTRICTION) != AST_PRES_ALLOWED)
+			{
+				res = 0;
+			}
+			else
+			{
+				res = 2;
+			}
+			break;
 	}
 
 	return res;

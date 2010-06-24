@@ -286,13 +286,19 @@ static int channel_call (struct ast_channel* channel, char* dest, int timeout)
 
 	dest_dev = ast_strdupa (dest);
 
-	dest_num = strchr (dest_dev, '/');
-	if (!dest_num)
+	if (!(dest_num = strchr (dest_dev, '/')))
 	{
 		ast_log (LOG_WARNING, "Cant determine destination\n");
 		return -1;
 	}
+
 	*dest_num = '\0'; dest_num++;
+
+	if (*dest_num == '\0')
+	{
+		ast_log (LOG_WARNING, "Empty destination\n");
+		return -1;
+	}
 
 	if ((channel->_state != AST_STATE_DOWN) && (channel->_state != AST_STATE_RESERVED))
 	{
@@ -309,17 +315,15 @@ static int channel_call (struct ast_channel* channel, char* dest, int timeout)
 		return -1;
 	}
 
-	pvt->callingpres = channel->cid.cid_pres;
-	pvt->dest_num = ast_strdup(dest_num);
-	clir = get_clir_value(pvt);
-
 	ast_debug (1, "[%s] Calling %s on %s\n", pvt->id, dest, channel->name);
 
 	/*
 	 * We can't send ATD directly from here, as we have to set CLIR first.
-	 * So we store the callees number in pvt
 	 */
-	if (at_send_clir (pvt,clir) || at_fifo_queue_add (pvt, CMD_AT_CLIR, RES_OK))
+
+	clir = get_clir_value (pvt, channel);
+	dest_num = ast_strdup (dest_num);
+	if (at_send_clir (pvt, clir) || at_fifo_queue_add_ptr (pvt, CMD_AT_CLIR, RES_OK, dest_num))
 	{
 		ast_mutex_unlock (&pvt->lock);
 		ast_log (LOG_ERROR, "[%s] Error sending AT+CLIR command\n", pvt->id);

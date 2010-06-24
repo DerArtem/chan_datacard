@@ -32,6 +32,9 @@ static const char* at_cmd2str (at_cmd_t cmd)
 		case CMD_AT_CLIP:
 			return "AT+CLIP";
 
+		case CMD_AT_CLIR:
+			return "AT+CLIR";
+
 		case CMD_AT_CLVL:
 			return "AT+CLVL";
 
@@ -106,9 +109,6 @@ static const char* at_cmd2str (at_cmd_t cmd)
 
 		case CMD_AT_Z:
 			return "ATZ";
-
-		case CMD_AT_CLIR:
-			return "AT+CLIR";
 
 		case CMD_UNKNOWN:
 			return "UNKNOWN";

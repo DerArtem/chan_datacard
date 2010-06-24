@@ -438,32 +438,44 @@ static pvt_t* load_device (struct ast_config* cfg, const char* cat)
 		}
 		else if (!strcasecmp (v->name, "group"))
 		{
-			pvt->group = (int) strtol (v->value, (char**) NULL, 10);	/* group is set to 0 if invalid */
+			pvt->group = (int) strtol (v->value, (char**) NULL, 10);		/* group is set to 0 if invalid */
 		}
 		else if (!strcasecmp (v->name, "rxgain"))
 		{
-			pvt->rxgain = (int) strtol (v->value, (char**) NULL, 10);	/* rxgain is set to 0 if invalid */
+			pvt->rxgain = (int) strtol (v->value, (char**) NULL, 10);		/* rxgain is set to 0 if invalid */
 		}
 		else if (!strcasecmp (v->name, "txgain"))
 		{
-			pvt->txgain = (int) strtol (v->value, (char**) NULL, 10);	/* txgain is set to 0 if invalid */
+			pvt->txgain = (int) strtol (v->value, (char**) NULL, 10);		/* txgain is set to 0 if invalid */
 		}
 		else if (!strcasecmp (v->name, "autodeletesms"))
 		{
-			pvt->auto_delete_sms = ast_true (v->value);			/* auto_delete_sms is set to 0 if invalid */
+			pvt->auto_delete_sms = ast_true (v->value);				/* auto_delete_sms is set to 0 if invalid */
 
 		}
 		else if (!strcasecmp (v->name, "resetdatacard"))
 		{
-			pvt->reset_datacard = ast_true (v->value);			/* reset_datacard is set to 0 if invalid */
+			pvt->reset_datacard = ast_true (v->value);				/* reset_datacard is set to 0 if invalid */
 		}
 		else if (!strcasecmp (v->name, "u2diag"))
 		{
 			errno = 0;
-			pvt->u2diag = (int) strtol (v->value, (char**) NULL, 10);	/* u2diag is set to -1 if invalid */
+			pvt->u2diag = (int) strtol (v->value, (char**) NULL, 10);		/* u2diag is set to -1 if invalid */
 			if (pvt->u2diag == 0 && errno == EINVAL)
 			{
 				pvt->u2diag = -1;
+			}
+		}
+		else if (!strcasecmp (v->name, "usecallingpres"))
+		{
+			pvt->usecallingpres = ast_true (v->value);				/* usecallingpres is set to 0 if invalid */
+		}
+		else if (!strcasecmp (v->name, "callingpres"))
+		{
+			pvt->callingpres = ast_parse_caller_presentation (v->value);
+			if (pvt->callingpres == -1)
+			{
+				pvt->callingpres = (int) strtol (v->value, (char**) NULL, 10);	/* callingpres is set to 0 if invalid */
 			}
 		}
 	}

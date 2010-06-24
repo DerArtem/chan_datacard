@@ -108,8 +108,12 @@ at_queue_t;
 typedef struct pvt_t
 {
 	AST_LIST_ENTRY (pvt_t)	entry;
-	AST_LIST_HEAD_NOLOCK (at_queue, at_queue_t) at_queue;	/* queue for response we are expecting */
+
 	ast_mutex_t		lock;				/* pvt lock */
+	AST_LIST_HEAD_NOLOCK (at_queue, at_queue_t) at_queue;	/* queue for response we are expecting */
+
+	int			audio_socket;			/* audio socket descriptor */
+	int			data_socket;			/* data  socket descriptor */
 
 	char			io_buf[CHANNEL_FRAME_SIZE + AST_FRIENDLY_OFFSET];
 	pthread_t		monitor_thread;			/* monitor thread handle */
@@ -125,6 +129,7 @@ typedef struct pvt_t
 	ringbuffer_t		read_rb;
 	struct iovec		read_iov[2];
 	unsigned int		read_result:1;
+	int			timeout;			/* used to set the timeout for data */
 
 	unsigned int		has_sms:1;
 	unsigned int		has_voice:1;
@@ -163,12 +168,11 @@ typedef struct pvt_t
 	int			group;				/* group number for group dialling */
 	int			rxgain;				/* increase the incoming volume */
 	int			txgain;				/* increase the outgoint volume */
+	int			callingpres;			/* calling presentation */
 	unsigned int		auto_delete_sms:1;
 	unsigned int		reset_datacard:1;
+	unsigned int		usecallingpres:1;
 	int			u2diag;
-	int			audio_socket;			/* audio socket descriptor */
-	int			data_socket;			/* data socket descriptor */
-	int			timeout;			/* used to set the timeout for data (may be used in the future) */
 }
 pvt_t;
 
@@ -187,7 +191,7 @@ static inline int		check_unloading ();
 
 static pvt_t*			find_device			(const char*);
 static char*			complete_device			(const char*, const char*, int, int, int);
-static inline int		get_clir_value			(pvt_t*, struct ast_channel*);
+static inline int		get_at_clir_value		(pvt_t*, int);
 
 
 /* Channel Driver */

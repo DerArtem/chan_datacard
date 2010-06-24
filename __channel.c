@@ -322,17 +322,34 @@ static int channel_call (struct ast_channel* channel, char* dest, int timeout)
 
 	ast_debug (1, "[%s] Calling %s on %s\n", pvt->id, dest, channel->name);
 
-	/*
-	 * We can't send ATD directly from here, as we have to set CLIR first.
-	 */
-
-	clir = get_clir_value (pvt, channel);
-	dest_num = ast_strdup (dest_num);
-	if (at_send_clir (pvt, clir) || at_fifo_queue_add_ptr (pvt, CMD_AT_CLIR, RES_OK, dest_num))
+	if (pvt->usecallingpres)
 	{
-		ast_mutex_unlock (&pvt->lock);
-		ast_log (LOG_ERROR, "[%s] Error sending AT+CLIR command\n", pvt->id);
-		return -1;
+		if (pvt->callingpres)
+		{
+			clir = pvt->callingpres;
+		}
+		else
+		{
+			clir = channel->cid.cid_pres;
+		}
+
+		clir = get_at_clir_value (pvt, clir);
+		dest_num = ast_strdup (dest_num);
+		if (at_send_clir (pvt, clir) || at_fifo_queue_add_ptr (pvt, CMD_AT_CLIR, RES_OK, dest_num))
+		{
+			ast_mutex_unlock (&pvt->lock);
+			ast_log (LOG_ERROR, "[%s] Error sending AT+CLIR command\n", pvt->id);
+			return -1;
+		}
+	}
+	else
+	{
+		if (at_send_atd (pvt,  dest_num) || at_fifo_queue_add (pvt, CMD_AT_D,  RES_OK))
+		{
+			ast_mutex_unlock (&pvt->lock);
+			ast_log (LOG_ERROR, "[%s] Error sending ATD command\n", pvt->id);
+			return -1;
+		}
 	}
 
 	pvt->outgoing = 1;

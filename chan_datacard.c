@@ -404,10 +404,11 @@ static pvt_t* load_device (struct ast_config* cfg, const char* cat)
 	pvt->timeout			= 10000;
 	pvt->data_socket		= -1;
 	pvt->audio_socket		= -1;
+	pvt->cusd_use_ucs2_decoding	=  1;
+
 	pvt->reset_datacard		=  1;
 	pvt->u2diag			= -1;
-	pvt->cusd_use_7bit_encoding	=  0;
-	pvt->cusd_use_ucs2_decoding	=  1;
+	pvt->callingpres		= -1;
 
 	/* setup the smoother */
 
@@ -475,7 +476,12 @@ static pvt_t* load_device (struct ast_config* cfg, const char* cat)
 			pvt->callingpres = ast_parse_caller_presentation (v->value);
 			if (pvt->callingpres == -1)
 			{
-				pvt->callingpres = (int) strtol (v->value, (char**) NULL, 10);	/* callingpres is set to 0 if invalid */
+				errno = 0;
+				pvt->callingpres = (int) strtol (v->value, (char**) NULL, 10);	/* callingpres is set to -1 if invalid */
+				if (pvt->callingpres == 0 && errno == EINVAL)
+				{
+					pvt->callingpres = -1;
+				}
 			}
 		}
 	}

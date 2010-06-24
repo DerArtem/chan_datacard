@@ -64,7 +64,6 @@ static char* cli_show_devices (struct ast_cli_entry* e, int cmd, struct ast_cli_
 static char* cli_show_device (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
 {
 	pvt_t* pvt;
-	struct ast_str* buf;
 
 	switch (cmd)
 	{
@@ -90,34 +89,33 @@ static char* cli_show_device (struct ast_cli_entry* e, int cmd, struct ast_cli_a
 	pvt = find_device (a->argv[3]);
 	if (pvt)
 	{
-		buf = ast_str_create (256);
-
 		ast_mutex_lock (&pvt->lock);
-		ast_str_append (&buf, 0, "Current device settings:\n");
-		ast_str_append (&buf, 0, "------------------------\n");
-		ast_str_append (&buf, 0, "Device:                  %s\n", pvt->id);
-		ast_str_append (&buf, 0, "Group:                   %d\n", pvt->group);
-		ast_str_append (&buf, 0, "Connected:               %s\n", pvt->connected ? "Yes" : "No");
-		ast_str_append (&buf, 0, "Initialized:             %s\n", pvt->initialized ? "Yes" : "No");
-		ast_str_append (&buf, 0, "State:                   %s\n", (!pvt->connected) ? "None" : (pvt->outgoing || pvt->incoming) ? "Busy" : (pvt->outgoing_sms || pvt->incoming_sms) ? "SMS" : "Free");
-		ast_str_append (&buf, 0, "Voice:                   %s\n", (pvt->has_voice) ? "Yes" : "No");
-		ast_str_append (&buf, 0, "SMS:                     %s\n", (pvt->has_sms) ? "Yes" : "No");
-		ast_str_append (&buf, 0, "RSSI:                    %d\n", pvt->rssi);
-		ast_str_append (&buf, 0, "Mode:                    %d\n", pvt->linkmode);
-		ast_str_append (&buf, 0, "Submode:                 %d\n", pvt->linksubmode);
-		ast_str_append (&buf, 0, "ProviderName:            %s\n", pvt->provider_name);
-		ast_str_append (&buf, 0, "Manufacturer:            %s\n", pvt->manufacturer);
-		ast_str_append (&buf, 0, "Model:                   %s\n", pvt->model);
-		ast_str_append (&buf, 0, "Firmware:                %s\n", pvt->firmware);
-		ast_str_append (&buf, 0, "IMEI:                    %s\n", pvt->imei);
-		ast_str_append (&buf, 0, "Number:                  %s\n", pvt->number);
-		ast_str_append (&buf, 0, "Use UCS-2 encoding:      %s\n", pvt->use_ucs2_encoding ? "Yes" : "No");
-		ast_str_append (&buf, 0, "USSD use 7 bit encoding: %s\n", pvt->cusd_use_7bit_encoding ? "Yes" : "No");
-		ast_str_append (&buf, 0, "USSD use UCS-2 decoding: %s\n", pvt->cusd_use_ucs2_decoding ? "Yes" : "No");
+		ast_cli (a->fd, "\n Current device settings:\n");
+		ast_cli (a->fd, "-----------------------------\n");
+		ast_cli (a->fd, "  Device                  : %s\n", pvt->id);
+		ast_cli (a->fd, "  Group                   : %d\n", pvt->group);
+		ast_cli (a->fd, "  Connected               : %s\n", pvt->connected ? "Yes" : "No");
+		ast_cli (a->fd, "  Initialized             : %s\n", pvt->initialized ? "Yes" : "No");
+		ast_cli (a->fd, "  State                   : %s\n", (!pvt->connected) ? "None" : (pvt->outgoing || pvt->incoming) ? "Busy" : (pvt->outgoing_sms || pvt->incoming_sms) ? "SMS" : "Free");
+		ast_cli (a->fd, "  Voice                   : %s\n", (pvt->has_voice) ? "Yes" : "No");
+		ast_cli (a->fd, "  SMS                     : %s\n", (pvt->has_sms) ? "Yes" : "No");
+		ast_cli (a->fd, "  RSSI                    : %d\n", pvt->rssi);
+		ast_cli (a->fd, "  Mode                    : %d\n", pvt->linkmode);
+		ast_cli (a->fd, "  Submode                 : %d\n", pvt->linksubmode);
+		ast_cli (a->fd, "  ProviderName            : %s\n", pvt->provider_name);
+		ast_cli (a->fd, "  Manufacturer            : %s\n", pvt->manufacturer);
+		ast_cli (a->fd, "  Model                   : %s\n", pvt->model);
+		ast_cli (a->fd, "  Firmware                : %s\n", pvt->firmware);
+		ast_cli (a->fd, "  IMEI                    : %s\n", pvt->imei);
+		ast_cli (a->fd, "  Number                  : %s\n", pvt->number);
+		ast_cli (a->fd, "  Use CallingPres         : %s\n", pvt->usecallingpres ? "Yes" : "No");
+		ast_cli (a->fd, "  Default CallingPres     : %s\n", pvt->callingpres < 0 ? "<Not set>" : ast_describe_caller_presentation (pvt->callingpres));
+		ast_cli (a->fd, "  Use UCS-2 encoding      : %s\n", pvt->use_ucs2_encoding ? "Yes" : "No");
+		ast_cli (a->fd, "  USSD use 7 bit encoding : %s\n", pvt->cusd_use_7bit_encoding ? "Yes" : "No");
+		ast_cli (a->fd, "  USSD use UCS-2 decoding : %s\n", pvt->cusd_use_ucs2_decoding ? "Yes" : "No");
+		ast_cli (a->fd, "  USSD use UCS-2 decoding : %s\n\n", pvt->cusd_use_ucs2_decoding ? "Yes" : "No");
 		ast_mutex_unlock (&pvt->lock);
 
-		ast_cli (a->fd, "%s", ast_str_buffer (buf));
-		ast_free (buf);
 	}
 	else
 	{

@@ -31,6 +31,7 @@ static struct ast_channel* channel_new (pvt_t* pvt, int state, char* cid_num)
 	{
 		channel->rings = 1;
 		pbx_builtin_setvar_helper (channel, "IMEI", pvt->imei);
+		pbx_builtin_setvar_helper (channel, "PROVIDER", pvt->provider_name);
 	}
 
 	ast_string_field_set (channel, language, "en");
@@ -324,13 +325,13 @@ static int channel_call (struct ast_channel* channel, char* dest, int timeout)
 
 	if (pvt->usecallingpres)
 	{
-		if (pvt->callingpres)
+		if (pvt->callingpres < 0)
 		{
-			clir = pvt->callingpres;
+			clir = channel->cid.cid_pres;
 		}
 		else
 		{
-			clir = channel->cid.cid_pres;
+			clir = pvt->callingpres;
 		}
 
 		clir = get_at_clir_value (pvt, clir);
@@ -344,7 +345,7 @@ static int channel_call (struct ast_channel* channel, char* dest, int timeout)
 	}
 	else
 	{
-		if (at_send_atd (pvt,  dest_num) || at_fifo_queue_add (pvt, CMD_AT_D,  RES_OK))
+		if (at_send_atd (pvt, dest_num) || at_fifo_queue_add (pvt, CMD_AT_D, RES_OK))
 		{
 			ast_mutex_unlock (&pvt->lock);
 			ast_log (LOG_ERROR, "[%s] Error sending ATD command\n", pvt->id);

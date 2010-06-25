@@ -1,7 +1,7 @@
 /*!                             
  * \brief Do response
  * \param pvt -- pvt structure
- * \param iovcnt -- number of elements array pvt->read_iov
+ * \param iovcnt -- number of elements array pvt->d_read_iov
  * \param at_res -- result type
  * \retval  0 success
  * \retval -1 error
@@ -15,26 +15,26 @@ static inline int at_response (pvt_t* pvt, int iovcnt, at_res_t at_res)
 
 	if (iovcnt > 0)
 	{
-		len = pvt->read_iov[0].iov_len + pvt->read_iov[1].iov_len - 1;
+		len = pvt->d_read_iov[0].iov_len + pvt->d_read_iov[1].iov_len - 1;
 
 		if (iovcnt == 2)
 		{
 			ast_debug (5, "[%s] iovcnt == 2\n", pvt->id);
 
-			if (len > sizeof (pvt->parse_buf) - 1)
+			if (len > sizeof (pvt->d_parse_buf) - 1)
 			{
 				ast_debug (1, "[%s] buffer overflow\n", pvt->id);
 				return -1;
 			}
 
-			str = pvt->parse_buf;
-			memmove (str, pvt->read_iov[0].iov_base, pvt->read_iov[0].iov_len);
-			memmove (str + pvt->read_iov[0].iov_len, pvt->read_iov[1].iov_base, pvt->read_iov[1].iov_len);
+			str = pvt->d_parse_buf;
+			memmove (str, pvt->d_read_iov[0].iov_base, pvt->d_read_iov[0].iov_len);
+			memmove (str + pvt->d_read_iov[0].iov_len, pvt->d_read_iov[1].iov_base, pvt->d_read_iov[1].iov_len);
 			str[len] = '\0';
 		}
 		else
 		{
-			str = pvt->read_iov[0].iov_base;
+			str = pvt->d_read_iov[0].iov_base;
 			str[len] = '\0';
 		}
 
@@ -472,6 +472,12 @@ static inline int at_response_ok (pvt_t* pvt)
 					ast_log (LOG_ERROR, "[%s] Error sending AT^DDSETEX\n", pvt->id);
 					goto e_return;
 				}
+
+				if (pvt->a_timer)
+				{
+					ast_timer_set_rate (pvt->a_timer, 50);
+				}
+
 				break;
 
 			case CMD_AT_CLIR:
@@ -492,6 +498,12 @@ static inline int at_response_ok (pvt_t* pvt)
 					ast_log (LOG_ERROR, "[%s] Error sending AT^DDSETEX\n", pvt->id);
 					goto e_return;
 				}
+
+				if (pvt->a_timer)
+				{
+					ast_timer_set_rate (pvt->a_timer, 50);
+				}
+
 				break;
 
 			case CMD_AT_DDSETEX:
@@ -1117,9 +1129,9 @@ static inline int at_response_cmgr (pvt_t* pvt, char* str, size_t len)
 #ifdef __MANAGER__
 		struct ast_channel* channel;
 
-		snprintf (pvt->send_buf, sizeof (pvt->send_buf), "sms@%s", pvt->context);
+		snprintf (pvt->d_send_buf, sizeof (pvt->d_send_buf), "sms@%s", pvt->context);
 
-		if (channel = channel_local_request (pvt, pvt->send_buf, pvt->id, from_number, "en"))
+		if (channel = channel_local_request (pvt, pvt->d_send_buf, pvt->id, from_number, "en"))
 		{
 			pbx_builtin_setvar_helper (channel, "SMS", text);
 
@@ -1245,9 +1257,9 @@ static inline int at_response_cusd (pvt_t* pvt, char* str, size_t len)
 #ifdef __MANAGER__
 	struct ast_channel* channel;
 
-	snprintf (pvt->send_buf, sizeof (pvt->send_buf), "ussd@%s", pvt->context);
+	snprintf (pvt->d_send_buf, sizeof (pvt->d_send_buf), "ussd@%s", pvt->context);
 
-	if (channel = channel_local_request (pvt, pvt->send_buf, pvt->id, "ussd", "en"))
+	if (channel = channel_local_request (pvt, pvt->d_send_buf, pvt->id, "ussd", "en"))
 	{
 		pbx_builtin_setvar_helper (channel, "USSD", cusd);
 

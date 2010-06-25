@@ -11,9 +11,7 @@
 #define CONFIG_FILE		"datacard.conf"
 #define DEF_DISCOVERY_INT	60
 
-#define DEVICE_FRAME_SIZE	320
-#define CHANNEL_FRAME_SIZE	320
-#define DEVICE_FRAME_FORMAT	AST_FORMAT_SLINEAR
+#define FRAME_SIZE		160
 
 typedef enum {
 	CMD_UNKNOWN = 0,
@@ -111,24 +109,29 @@ typedef struct pvt_t
 
 	ast_mutex_t		lock;				/* pvt lock */
 	AST_LIST_HEAD_NOLOCK (at_queue, at_queue_t) at_queue;	/* queue for response we are expecting */
+	pthread_t		monitor_thread;			/* monitor thread handle */
 
 	int			audio_socket;			/* audio socket descriptor */
 	int			data_socket;			/* data  socket descriptor */
 
-	char			io_buf[CHANNEL_FRAME_SIZE + AST_FRIENDLY_OFFSET];
-	pthread_t		monitor_thread;			/* monitor thread handle */
-	struct ast_channel*	owner;				/* Channel we belong to, possibly NULL */
-	struct ast_dsp*		dsp;
-	struct ast_frame	frame;				/* "null" frame */
-	struct ast_smoother*	smoother;			/* our smoother, for making 320 byte frames */
+	struct ast_timer*	a_timer;
+	int			a_timingfd;
 
-	char			send_buf[2*1024];
-	size_t			send_size;
-	char			read_buf[2*1024];
-	char			parse_buf[2*1024];
-	ringbuffer_t		read_rb;
-	struct iovec		read_iov[2];
-	unsigned int		read_result:1;
+	char			a_write_buf[FRAME_SIZE * 2];
+	size_t			a_write_pos;
+	char			a_read_buf[FRAME_SIZE * 2 + AST_FRIENDLY_OFFSET];
+	size_t			a_read_pos;
+	struct ast_frame	a_read_frame;
+	struct ast_dsp*		dsp;
+	struct ast_channel*	owner;				/* Channel we belong to, possibly NULL */
+
+	char			d_send_buf[2*1024];
+	size_t			d_send_size;
+	char			d_read_buf[2*1024];
+	ringbuffer_t		d_read_rb;
+	struct iovec		d_read_iov[2];
+	unsigned int		d_read_result:1;
+	char			d_parse_buf[2*1024];
 	int			timeout;			/* used to set the timeout for data */
 
 	unsigned int		has_sms:1;
@@ -168,11 +171,11 @@ typedef struct pvt_t
 	int			group;				/* group number for group dialling */
 	int			rxgain;				/* increase the incoming volume */
 	int			txgain;				/* increase the outgoint volume */
+	int			u2diag;
 	int			callingpres;			/* calling presentation */
 	unsigned int		auto_delete_sms:1;
 	unsigned int		reset_datacard:1;
 	unsigned int		usecallingpres:1;
-	int			u2diag;
 }
 pvt_t;
 
@@ -203,8 +206,8 @@ static int			channel_hangup			(struct ast_channel*);
 static int			channel_answer			(struct ast_channel*);
 static int			channel_digit_begin		(struct ast_channel*, char);
 static int			channel_digit_end		(struct ast_channel*, char, unsigned int);
-static struct ast_frame*	channel_audio_read		(struct ast_channel*);
-static int			channel_audio_write		(struct ast_channel*, struct ast_frame*);
+static struct ast_frame*	channel_read			(struct ast_channel*);
+static int			channel_write			(struct ast_channel*, struct ast_frame*);
 static int			channel_fixup			(struct ast_channel*, struct ast_channel*);
 static int			channel_devicestate		(void* data);
 static int			channel_indicate		(struct ast_channel*, int, const void* data, size_t);
@@ -226,8 +229,9 @@ static const struct ast_channel_tech channel_tech =
 	.answer			= channel_answer,
 	.send_digit_begin	= channel_digit_begin,
 	.send_digit_end		= channel_digit_end,
-	.read			= channel_audio_read,
-	.write			= channel_audio_write,
+	.read			= channel_read,
+	.write			= channel_write,
+	.exception		= channel_read,
 	.fixup			= channel_fixup,
 	.devicestate		= channel_devicestate,
 	.indicate		= channel_indicate

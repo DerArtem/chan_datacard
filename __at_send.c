@@ -134,8 +134,8 @@ static inline int at_send_chup (pvt_t* pvt)
 
 static inline int at_send_clip (pvt_t* pvt, int status)
 {
-	pvt->send_size = snprintf (pvt->send_buf, sizeof (pvt->send_buf), "AT+CLIP=%d\r", status ? 1 : 0);
-	return at_write_full (pvt, pvt->send_buf, MIN (pvt->send_size, sizeof (pvt->send_buf) - 1));
+	pvt->d_send_size = snprintf (pvt->d_send_buf, sizeof (pvt->d_send_buf), "AT+CLIP=%d\r", status ? 1 : 0);
+	return at_write_full (pvt, pvt->d_send_buf, MIN (pvt->d_send_size, sizeof (pvt->d_send_buf) - 1));
 }
 
 /*!
@@ -146,8 +146,8 @@ static inline int at_send_clip (pvt_t* pvt, int status)
 
 static inline int at_send_clvl (pvt_t* pvt, int level)
 {
-	pvt->send_size = snprintf (pvt->send_buf, sizeof (pvt->send_buf), "AT+CLVL=%d\r", level);
-	return at_write_full (pvt, pvt->send_buf, MIN (pvt->send_size, sizeof (pvt->send_buf) - 1));
+	pvt->d_send_size = snprintf (pvt->d_send_buf, sizeof (pvt->d_send_buf), "AT+CLVL=%d\r", level);
+	return at_write_full (pvt, pvt->d_send_buf, MIN (pvt->d_send_size, sizeof (pvt->d_send_buf) - 1));
 }
 
 /*!
@@ -158,8 +158,8 @@ static inline int at_send_clvl (pvt_t* pvt, int level)
 
 static inline int at_send_cmgd (pvt_t* pvt, int index)
 {
-	pvt->send_size = snprintf (pvt->send_buf, sizeof (pvt->send_buf), "AT+CMGD=%d\r", index);
-	return at_write_full (pvt, pvt->send_buf, MIN (pvt->send_size, sizeof (pvt->send_buf) - 1));
+	pvt->d_send_size = snprintf (pvt->d_send_buf, sizeof (pvt->d_send_buf), "AT+CMGD=%d\r", index);
+	return at_write_full (pvt, pvt->d_send_buf, MIN (pvt->d_send_size, sizeof (pvt->d_send_buf) - 1));
 }
 
 /*!
@@ -170,8 +170,8 @@ static inline int at_send_cmgd (pvt_t* pvt, int index)
 
 static inline int at_send_cmgf (pvt_t* pvt, int mode)
 {
-	pvt->send_size = snprintf (pvt->send_buf, sizeof (pvt->send_buf), "AT+CMGF=%d\r", mode);
-	return at_write_full (pvt, pvt->send_buf, MIN (pvt->send_size, sizeof (pvt->send_buf) - 1));
+	pvt->d_send_size = snprintf (pvt->d_send_buf, sizeof (pvt->d_send_buf), "AT+CMGF=%d\r", mode);
+	return at_write_full (pvt, pvt->d_send_buf, MIN (pvt->d_send_size, sizeof (pvt->d_send_buf) - 1));
 }
 
 /*!
@@ -182,8 +182,8 @@ static inline int at_send_cmgf (pvt_t* pvt, int mode)
 
 static inline int at_send_cmgr (pvt_t* pvt, int index)
 {
-	pvt->send_size = snprintf (pvt->send_buf, sizeof (pvt->send_buf), "AT+CMGR=%d\r", index);
-	return at_write_full (pvt, pvt->send_buf, MIN (pvt->send_size, sizeof (pvt->send_buf) - 1));
+	pvt->d_send_size = snprintf (pvt->d_send_buf, sizeof (pvt->d_send_buf), "AT+CMGR=%d\r", index);
+	return at_write_full (pvt, pvt->d_send_buf, MIN (pvt->d_send_size, sizeof (pvt->d_send_buf) - 1));
 }
 
 /*!
@@ -197,12 +197,12 @@ static inline int at_send_cmgs (pvt_t* pvt, const char* number)		// !!!!!!!!!
 	ssize_t	res;
 	char*	p;
 
-	memmove (pvt->send_buf, "AT+CMGS=\"", 9);
-	p = pvt->send_buf + 9;
+	memmove (pvt->d_send_buf, "AT+CMGS=\"", 9);
+	p = pvt->d_send_buf + 9;
 
 //	if (pvt->use_ucs2_encoding)
 	{
-		res = utf8_to_hexstr_ucs2 (number, strlen (number), p, sizeof (pvt->send_buf) - 9 - 3);
+		res = utf8_to_hexstr_ucs2 (number, strlen (number), p, sizeof (pvt->d_send_buf) - 9 - 3);
 		if (res <= 0)
 		{
 			ast_log (LOG_ERROR, "[%s] Error converting SMS number to UCS-2: %s\n", pvt->id, number);
@@ -213,10 +213,10 @@ static inline int at_send_cmgs (pvt_t* pvt, const char* number)		// !!!!!!!!!
 	}
 //	else
 	{
-//		snprintf (pvt->send_buf, sizeof (pvt->send_buf), "AT+CMGS=\"%s\"\r", number);
+//		snprintf (pvt->d_send_buf, sizeof (pvt->d_send_buf), "AT+CMGS=\"%s\"\r", number);
 	}
 
-	return at_write (pvt, pvt->send_buf);
+	return at_write (pvt, pvt->d_send_buf);
 }
 
 /*!
@@ -231,21 +231,21 @@ static inline int at_send_sms_text (pvt_t* pvt, const char* msg)
 
 	if (pvt->use_ucs2_encoding)
 	{
-		res = utf8_to_hexstr_ucs2 (msg, strlen (msg), pvt->send_buf, 280 + 1);
+		res = utf8_to_hexstr_ucs2 (msg, strlen (msg), pvt->d_send_buf, 280 + 1);
 		if (res < 0)
 		{
 			ast_log (LOG_ERROR, "[%s] Error converting SMS to UCS-2: '%s'\n", pvt->id, msg);
 			res = 0;
 		}
-		pvt->send_buf[res] = 0x1a;
-		pvt->send_size = res + 1;
+		pvt->d_send_buf[res] = 0x1a;
+		pvt->d_send_size = res + 1;
 	}
 	else
 	{
-		pvt->send_size = snprintf (pvt->send_buf, sizeof (pvt->send_buf), "%.160s\x1a", msg);
+		pvt->d_send_size = snprintf (pvt->d_send_buf, sizeof (pvt->d_send_buf), "%.160s\x1a", msg);
 	}
 
-	return at_write_full (pvt, pvt->send_buf, MIN (pvt->send_size, sizeof (pvt->send_buf) - 1));
+	return at_write_full (pvt, pvt->d_send_buf, MIN (pvt->d_send_size, sizeof (pvt->d_send_buf) - 1));
 }
 
 /*!
@@ -285,8 +285,8 @@ static inline int at_send_cops (pvt_t* pvt)
 
 static inline int at_send_cops_init (pvt_t* pvt, int mode, int format)
 {
-	pvt->send_size = snprintf (pvt->send_buf, sizeof (pvt->send_buf), "AT+COPS=%d,%d\r", mode, format);
-	return at_write_full (pvt, pvt->send_buf, MIN (pvt->send_size, sizeof (pvt->send_buf) - 1));
+	pvt->d_send_size = snprintf (pvt->d_send_buf, sizeof (pvt->d_send_buf), "AT+COPS=%d,%d\r", mode, format);
+	return at_write_full (pvt, pvt->d_send_buf, MIN (pvt->d_send_size, sizeof (pvt->d_send_buf) - 1));
 }
 
 /*!
@@ -327,8 +327,8 @@ static inline int at_send_creg (pvt_t* pvt)
 
 static inline int at_send_creg_init (pvt_t* pvt, int level)
 {
-	pvt->send_size = snprintf (pvt->send_buf, sizeof (pvt->send_buf), "AT+CREG=%d\r", level);
-	return at_write_full (pvt, pvt->send_buf, MIN (pvt->send_size, sizeof (pvt->send_buf) - 1));
+	pvt->d_send_size = snprintf (pvt->d_send_buf, sizeof (pvt->d_send_buf), "AT+CREG=%d\r", level);
+	return at_write_full (pvt, pvt->d_send_buf, MIN (pvt->d_send_size, sizeof (pvt->d_send_buf) - 1));
 }
 
 /*!
@@ -339,8 +339,8 @@ static inline int at_send_creg_init (pvt_t* pvt, int level)
 
 static inline int at_send_cscs (pvt_t* pvt, const char* encoding)
 {
-	pvt->send_size = snprintf (pvt->send_buf, sizeof (pvt->send_buf), "AT+CSCS=\"%s\"\r", encoding);
-	return at_write_full (pvt, pvt->send_buf, MIN (pvt->send_size, sizeof (pvt->send_buf) - 1));
+	pvt->d_send_size = snprintf (pvt->d_send_buf, sizeof (pvt->d_send_buf), "AT+CSCS=\"%s\"\r", encoding);
+	return at_write_full (pvt, pvt->d_send_buf, MIN (pvt->d_send_size, sizeof (pvt->d_send_buf) - 1));
 }
 
 /*!
@@ -362,8 +362,8 @@ static inline int at_send_csq (pvt_t* pvt)
 
 static inline int at_send_cssn (pvt_t* pvt, int cssi, int cssu)
 {
-	pvt->send_size = snprintf (pvt->send_buf, sizeof (pvt->send_buf), "AT+CSSN=%d,%d\r", cssi, cssu);
-	return at_write_full (pvt, pvt->send_buf, MIN (pvt->send_size, sizeof (pvt->send_buf) - 1));
+	pvt->d_send_size = snprintf (pvt->d_send_buf, sizeof (pvt->d_send_buf), "AT+CSSN=%d,%d\r", cssi, cssu);
+	return at_write_full (pvt, pvt->d_send_buf, MIN (pvt->d_send_size, sizeof (pvt->d_send_buf) - 1));
 }
 
 /*!
@@ -377,12 +377,12 @@ static inline int at_send_cusd (pvt_t* pvt, const char* code)
 	ssize_t		res;
 	char*		p;
 
-	memmove (pvt->send_buf, "AT+CUSD=1,\"", 11);
-	p = pvt->send_buf + 11;
+	memmove (pvt->d_send_buf, "AT+CUSD=1,\"", 11);
+	p = pvt->d_send_buf + 11;
 
 	if (pvt->cusd_use_7bit_encoding)
 	{
-		res = char_to_hexstr_7bit (code, strlen (code), p, sizeof (pvt->send_buf) - 11 - 6);
+		res = char_to_hexstr_7bit (code, strlen (code), p, sizeof (pvt->d_send_buf) - 11 - 6);
 		if (res <= 0)
 		{
 			ast_log (LOG_ERROR, "[%s] Error converting USSD code to PDU: %s\n", pvt->id, code);
@@ -391,7 +391,7 @@ static inline int at_send_cusd (pvt_t* pvt, const char* code)
 	}
 	else if (pvt->use_ucs2_encoding)
 	{
-		res = utf8_to_hexstr_ucs2 (code, strlen (code), p, sizeof (pvt->send_buf) - 11 - 6);
+		res = utf8_to_hexstr_ucs2 (code, strlen (code), p, sizeof (pvt->d_send_buf) - 11 - 6);
 		if (res <= 0)
 		{
 			ast_log (LOG_ERROR, "[%s] error converting USSD code to UCS-2: %s\n", pvt->id, code);
@@ -400,15 +400,15 @@ static inline int at_send_cusd (pvt_t* pvt, const char* code)
 	}
 	else
 	{
-		res = MIN (strlen (code), sizeof (pvt->send_buf) - 11 - 6);
+		res = MIN (strlen (code), sizeof (pvt->d_send_buf) - 11 - 6);
 		memmove (p, code, res);
 	}
 
 	p += res;
 	memmove (p, "\",15\r", 6);
-	pvt->send_size = p - pvt->send_buf + 6;
+	pvt->d_send_size = p - pvt->d_send_buf + 6;
 
-	return at_write_full (pvt, pvt->send_buf, pvt->send_size);
+	return at_write_full (pvt, pvt->d_send_buf, pvt->d_send_size);
 }
 
 /*!
@@ -428,8 +428,8 @@ static inline int at_send_cvoice_test (pvt_t* pvt)
 
 static inline int at_send_atd (pvt_t* pvt, const char* number)
 {
-	pvt->send_size = snprintf (pvt->send_buf, sizeof (pvt->send_buf), "ATD%s;\r", number);
-	return at_write_full (pvt, pvt->send_buf, MIN (pvt->send_size, sizeof (pvt->send_buf) - 1));
+	pvt->d_send_size = snprintf (pvt->d_send_buf, sizeof (pvt->d_send_buf), "ATD%s;\r", number);
+	return at_write_full (pvt, pvt->d_send_buf, MIN (pvt->d_send_size, sizeof (pvt->d_send_buf) - 1));
 }
 
 /*!
@@ -465,8 +465,8 @@ static inline int at_send_dtmf (pvt_t* pvt, char digit)
 		case '9':
 		case '*':
 		case '#':
-			pvt->send_size = snprintf (pvt->send_buf, sizeof (pvt->send_buf), "AT^DTMF=1,%c\r", digit);
-			return at_write_full (pvt, pvt->send_buf, MIN (pvt->send_size, sizeof (pvt->send_buf) - 1));
+			pvt->d_send_size = snprintf (pvt->d_send_buf, sizeof (pvt->d_send_buf), "AT^DTMF=1,%c\r", digit);
+			return at_write_full (pvt, pvt->d_send_buf, MIN (pvt->d_send_size, sizeof (pvt->d_send_buf) - 1));
 
 		default:
 			return -1;
@@ -491,8 +491,8 @@ static inline int at_send_ate0 (pvt_t* pvt)
 
 static inline int at_send_u2diag (pvt_t* pvt, int mode)
 {
-	pvt->send_size = snprintf (pvt->send_buf, sizeof (pvt->send_buf), "AT^U2DIAG=%d\r", mode);
-	return at_write_full (pvt, pvt->send_buf, MIN (pvt->send_size, sizeof (pvt->send_buf) - 1));
+	pvt->d_send_size = snprintf (pvt->d_send_buf, sizeof (pvt->d_send_buf), "AT^U2DIAG=%d\r", mode);
+	return at_write_full (pvt, pvt->d_send_buf, MIN (pvt->d_send_size, sizeof (pvt->d_send_buf) - 1));
 }
 
 /*!
@@ -513,6 +513,6 @@ static inline int at_send_atz (pvt_t* pvt)
 
 static inline int at_send_clir (pvt_t* pvt, int mode)
 {
-        pvt->send_size = snprintf (pvt->send_buf, sizeof (pvt->send_buf), "AT+CLIR=%d\r", mode);
-        return at_write_full (pvt, pvt->send_buf, MIN (pvt->send_size, sizeof (pvt->send_buf) - 1));
+        pvt->d_send_size = snprintf (pvt->d_send_buf, sizeof (pvt->d_send_buf), "AT+CLIR=%d\r", mode);
+        return at_write_full (pvt, pvt->d_send_buf, MIN (pvt->d_send_size, sizeof (pvt->d_send_buf) - 1));
 }

@@ -10,7 +10,6 @@ static struct ast_channel* channel_new (pvt_t* pvt, int state, char* cid_num)
 
 	pvt->answered = 0;
 
-	ast_smoother_reset (pvt->smoother, DEVICE_FRAME_SIZE);
 	ast_dsp_digitreset (pvt->dsp);
 
 	channel = ast_channel_alloc (1, state, cid_num, pvt->id, 0, 0, pvt->context, 0, "Datacard/%s-%04lx", pvt->id, ast_random () & 0xffff);
@@ -20,18 +19,16 @@ static struct ast_channel* channel_new (pvt_t* pvt, int state, char* cid_num)
 	}
 
 	channel->tech		= &channel_tech;
-	channel->nativeformats	= DEVICE_FRAME_FORMAT;
-	channel->rawreadformat	= DEVICE_FRAME_FORMAT;
-	channel->rawwriteformat	= DEVICE_FRAME_FORMAT;
-	channel->writeformat	= DEVICE_FRAME_FORMAT;
-	channel->readformat	= DEVICE_FRAME_FORMAT;
+	channel->nativeformats	= AST_FORMAT_SLINEAR;
+	channel->writeformat	= AST_FORMAT_SLINEAR;
+	channel->readformat	= AST_FORMAT_SLINEAR;
 	channel->tech_pvt	= pvt;
 
 	if (state == AST_STATE_RING)
 	{
 		channel->rings = 1;
-		pbx_builtin_setvar_helper (channel, "IMEI", pvt->imei);
-		pbx_builtin_setvar_helper (channel, "PROVIDER", pvt->provider_name);
+		pbx_builtin_setvar_helper (channel, "IMEI",	pvt->imei);
+		pbx_builtin_setvar_helper (channel, "PROVIDER",	pvt->provider_name);
 	}
 
 	ast_string_field_set (channel, language, "en");
@@ -39,7 +36,19 @@ static struct ast_channel* channel_new (pvt_t* pvt, int state, char* cid_num)
 
 	if (pvt->audio_socket != -1)
 	{
+		if ((pvt->a_timer = ast_timer_open ()))
+		{
+			pvt->a_timingfd = ast_timer_fd (pvt->a_timer);
+		}
+		else
+		{
+			pvt->a_timingfd = -1;
+		}
+
 		ast_channel_set_fd (channel, 0, pvt->audio_socket);
+		ast_channel_set_fd (channel, 1, pvt->a_timingfd);
+
+		memset (pvt->a_write_buf, 0, sizeof (pvt->a_write_buf));
 	}
 
 	pvt->owner = channel;
@@ -377,6 +386,12 @@ static int channel_hangup (struct ast_channel* channel)
 
 	ast_mutex_lock (&pvt->lock);
 
+	if (pvt->a_timer)
+	{
+		ast_timer_close (pvt->a_timer);
+		pvt->a_timingfd = -1;
+	}
+
 	if (pvt->needchup)
 	{
 		if (at_send_chup (pvt) || at_fifo_queue_add (pvt, CMD_AT_CHUP, RES_OK))
@@ -448,13 +463,12 @@ static int channel_digit_end (struct ast_channel* channel, char digit, unsigned 
 	return 0;
 }
 
-static struct ast_frame* channel_audio_read (struct ast_channel* channel)
+static struct ast_frame* channel_read (struct ast_channel* channel)
 {
 	pvt_t*			pvt = channel->tech_pvt;
 	struct ast_frame*	f = &ast_null_frame;
 	ssize_t			res;
-
-	ast_debug (7, "***\n");
+	size_t			count = 0;
 
 	while (ast_mutex_trylock (&pvt->lock))
 	{
@@ -466,18 +480,33 @@ static struct ast_frame* channel_audio_read (struct ast_channel* channel)
 		goto e_return;
 	}
 
-	memset (&pvt->frame, 0, sizeof (struct ast_frame));
+	if (pvt->a_timer && channel->fdno == 1)
+	{
+		ast_debug (7, "[%s] *** timing\n", pvt->id);
 
-//	pvt->frame.src			= "Datacard";
-	pvt->frame.frametype		= AST_FRAME_VOICE;
-	pvt->frame.subclass		= DEVICE_FRAME_FORMAT;
-	pvt->frame.offset		= AST_FRIENDLY_OFFSET;
-	pvt->frame.mallocd		= 0;
-	pvt->frame.delivery.tv_sec	= 0;
-	pvt->frame.delivery.tv_usec	= 0;
-	pvt->frame.data.ptr		= pvt->io_buf + AST_FRIENDLY_OFFSET;
+		ast_timer_ack (pvt->a_timer, 1);
 
-	if ((res = read (pvt->audio_socket, pvt->frame.data.ptr, DEVICE_FRAME_SIZE)) == -1)
+		while ((res = write (pvt->audio_socket, pvt->a_write_buf, sizeof (pvt->a_write_buf))) < 0 && (errno == EINTR || errno == EAGAIN))
+		{
+			if (count++ > 10)
+			{
+				ast_debug (1, "Deadlock avoided for write to channel '%s'\n", channel->name);
+				goto e_return;
+			}
+			usleep (1);
+		}
+		if (res < 0)
+		{
+			ast_debug (1, "[%s] Write error!\n", pvt->id);
+		}
+
+		memset (pvt->a_write_buf, 0, sizeof (pvt->a_write_buf));
+
+		goto e_return;
+	}
+
+	res = read (pvt->audio_socket, pvt->a_read_buf + pvt->a_read_pos, sizeof (pvt->a_read_buf) - pvt->a_read_pos);
+	if (res < 0)
 	{
 		if (errno != EAGAIN && errno != EINTR)
 		{
@@ -487,10 +516,25 @@ static struct ast_frame* channel_audio_read (struct ast_channel* channel)
 		goto e_return;
 	}
 
-	pvt->frame.datalen = res;
-	pvt->frame.samples = res / 2;
+	pvt->a_read_pos += res;
 
-	f = ast_dsp_process (channel, pvt->dsp, &pvt->frame);
+	if (pvt->a_read_pos < sizeof (pvt->a_read_buf))		/* not enough samples */
+	{
+		goto e_return;
+	}
+
+	pvt->a_read_pos = AST_FRIENDLY_OFFSET;			/* reset read pointer for next frame */
+
+	memset (&pvt->a_read_frame, 0, sizeof (struct ast_frame));
+
+	pvt->a_read_frame.frametype	= AST_FRAME_VOICE;
+	pvt->a_read_frame.subclass	= AST_FORMAT_SLINEAR;
+	pvt->a_read_frame.samples	= FRAME_SIZE;
+	pvt->a_read_frame.datalen	= FRAME_SIZE * 2;
+	pvt->a_read_frame.data.ptr	= pvt->a_read_buf + AST_FRIENDLY_OFFSET;
+	pvt->a_read_frame.offset	= AST_FRIENDLY_OFFSET;
+
+	f = ast_dsp_process (channel, pvt->dsp, &pvt->a_read_frame);
 
 	if (pvt->rxgain != 0)
 	{
@@ -506,15 +550,15 @@ e_return:
 	return f;
 }
 
-static int channel_audio_write (struct ast_channel* channel, struct ast_frame* frame)
+static int channel_write (struct ast_channel* channel, struct ast_frame* f)
 {
-	pvt_t*			pvt = channel->tech_pvt;
-	struct ast_frame*	f;
-	ssize_t			res;
+	pvt_t*	pvt = channel->tech_pvt;
+	size_t	src;
+	size_t	len;
+	ssize_t	res;
+	size_t	count = 0;
 
-	ast_debug (7, "***\n");
-
-	if (frame->frametype != AST_FRAME_VOICE)
+	if (f->frametype != AST_FRAME_VOICE)
 	{
 		return 0;
 	}
@@ -524,9 +568,11 @@ static int channel_audio_write (struct ast_channel* channel, struct ast_frame* f
 		CHANNEL_DEADLOCK_AVOIDANCE (channel);
 	}
 
-	ast_smoother_feed (pvt->smoother, frame);
-
-	while ((f = ast_smoother_read (pvt->smoother)))
+	if (pvt->audio_socket == -1)
+	{
+		ast_debug (1, "[%s] audio_socket not ready\n", pvt->id);
+	}
+	else
 	{
 		if (pvt->txgain != 0)
 		{
@@ -536,24 +582,33 @@ static int channel_audio_write (struct ast_channel* channel, struct ast_frame* f
 			}
 		}
 
-		if (pvt->audio_socket == -1)
+//		if (f->datalen != 320)
 		{
-			ast_debug (1, "[%s] audio_socket not ready\n", pvt->id);
-		}
-		else
-		{
-			if ((res = write (pvt->audio_socket, f->data.ptr, (size_t) f->datalen)) == -1)
-			{
-				ast_debug (1, "[%s] Write error (%d)\n", pvt->id, errno);
-			}
+			ast_debug (7, "[%s] Frame data lenght = %d byte\n", pvt->id, f->datalen);
 		}
 
-		if (f != frame)
+		memset (pvt->a_write_buf, 0, sizeof (pvt->a_write_buf));
+		memmove (pvt->a_write_buf, f->data.ptr, MIN (sizeof (pvt->a_write_buf), (size_t) f->datalen));
+
+		if (!pvt->a_timer)
 		{
-			ast_frfree (f);
+			while ((res = write (pvt->audio_socket, pvt->a_write_buf, sizeof (pvt->a_write_buf))) < 0 && (errno == EINTR || errno == EAGAIN))
+			{
+				if (count++ > 10)
+				{
+					ast_debug (1, "Deadlock avoided for write to channel '%s'\n", channel->name);
+					goto e_return;
+				}
+				usleep (1);
+			}
+			if (res < 0)
+			{
+				ast_debug (1, "[%s] Write error!\n", pvt->id);
+			}
 		}
 	}
 
+e_return:
 	ast_mutex_unlock (&pvt->lock);
 
 	return 0;
@@ -764,7 +819,8 @@ static struct ast_channel* channel_local_request (pvt_t* pvt, void* data, const 
 	}
 
 	ast_set_callerid (channel, cid_num, cid_name, cid_num);
-	pbx_builtin_setvar_helper (channel, "IMEI", pvt->imei);
+	pbx_builtin_setvar_helper (channel, "IMEI",	pvt->imei);
+	pbx_builtin_setvar_helper (channel, "PROVIDER",	pvt->provider_name);
 	ast_string_field_set (channel, language, language);
 
 	return channel;

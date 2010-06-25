@@ -64,6 +64,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Rev$")
 #include <asterisk/musiconhold.h>
 #include <asterisk/options.h>
 #include <asterisk/pbx.h>
+#include <asterisk/timing.h>
 #include <asterisk/utils.h>
 
 #include "__ringbuffer.h"
@@ -271,10 +272,10 @@ static int disconnect_datacard (pvt_t* pvt)
 	pvt->firmware[0]	= '\0';
 	pvt->imei[0]		= '\0';
 
-	ast_copy_string (pvt->provider_name, "NONE", sizeof (pvt->provider_name));
-	ast_copy_string (pvt->number, "Unknown", sizeof (pvt->number));
+	ast_copy_string (pvt->provider_name,	"NONE",		sizeof (pvt->provider_name));
+	ast_copy_string (pvt->number,		"Unknown",	sizeof (pvt->number));
 
-	rb_init (&pvt->read_rb, pvt->read_buf, sizeof (pvt->read_buf));
+	rb_init (&pvt->d_read_rb, pvt->d_read_buf, sizeof (pvt->d_read_buf));
 
 	at_fifo_queue_flush (pvt);
 
@@ -357,9 +358,9 @@ static void* do_discovery (void* data)
 static pvt_t* load_device (struct ast_config* cfg, const char* cat)
 {
 	pvt_t*			pvt;
-	struct ast_variable*	v;
 	const char*		audio_tty;
 	const char*		data_tty;
+	struct ast_variable*	v;
 
 	ast_debug (1, "Reading configuration for device %s\n", cat);
 
@@ -369,7 +370,7 @@ static pvt_t* load_device (struct ast_config* cfg, const char* cat)
 	if (ast_strlen_zero (audio_tty) || ast_strlen_zero (data_tty))
 	{
 		ast_log (LOG_ERROR, "Skipping device %s. Missing required audio_tty or data_tty setting\n", cat);
-		goto e_return;
+		return NULL;
 	}
 
 	/* create and initialize our pvt structure */
@@ -378,21 +379,15 @@ static pvt_t* load_device (struct ast_config* cfg, const char* cat)
 	if (!pvt)
 	{
 		ast_log (LOG_ERROR, "Skipping device %s. Error allocating memory\n", cat);
-		goto e_return;
+		return NULL;
 	}
 
 	ast_mutex_init (&pvt->lock);
 
 	AST_LIST_HEAD_INIT_NOLOCK (&pvt->at_queue);
 
-	rb_init (&pvt->read_rb, pvt->read_buf, sizeof (pvt->read_buf));
+	rb_init (&pvt->d_read_rb, pvt->d_read_buf, sizeof (pvt->d_read_buf));
 
-
-	/* set some defaults */
-
-	ast_copy_string (pvt->context,		"default",	sizeof (pvt->context));
-	ast_copy_string (pvt->provider_name,	"NONE",		sizeof (pvt->provider_name));
-	ast_copy_string (pvt->number,		"Unknown",	sizeof (pvt->number));
 
 	/* populate the pvt structure */
 
@@ -400,24 +395,24 @@ static pvt_t* load_device (struct ast_config* cfg, const char* cat)
 	ast_copy_string (pvt->data_tty,		data_tty,	sizeof (pvt->data_tty));
 	ast_copy_string (pvt->audio_tty,	audio_tty,	sizeof (pvt->audio_tty));
 
+	/* set some defaults */
+
 	pvt->monitor_thread		= AST_PTHREADT_NULL;
-	pvt->timeout			= 10000;
-	pvt->data_socket		= -1;
 	pvt->audio_socket		= -1;
+	pvt->data_socket		= -1;
+	pvt->a_timingfd			= -1;
+	pvt->a_read_pos			= AST_FRIENDLY_OFFSET;	/* start here on reads */
+	pvt->timeout			= 10000;
 	pvt->cusd_use_ucs2_decoding	=  1;
+
+	ast_copy_string (pvt->provider_name,	"NONE",		sizeof (pvt->provider_name));
+	ast_copy_string (pvt->number,		"Unknown",	sizeof (pvt->number));
+	ast_copy_string (pvt->context,		"default",	sizeof (pvt->context));
 
 	pvt->reset_datacard		=  1;
 	pvt->u2diag			= -1;
 	pvt->callingpres		= -1;
 
-	/* setup the smoother */
-
-	pvt->smoother = ast_smoother_new (DEVICE_FRAME_SIZE);
-	if (!pvt->smoother)
-	{
-		ast_log (LOG_ERROR, "Skipping device %s. Error setting up frame smoother\n", cat);
-		goto e_free_pvt;
-	}
 
 	/* setup the dsp */
 
@@ -425,7 +420,8 @@ static pvt_t* load_device (struct ast_config* cfg, const char* cat)
 	if (!pvt->dsp)
 	{
 		ast_log(LOG_ERROR, "Skipping device %s. Error setting up dsp for dtmf detection\n", cat);
-		goto e_free_smoother;
+		ast_free (pvt);
+		return NULL;
 	}
 
 	ast_dsp_set_features (pvt->dsp, DSP_FEATURE_DIGIT_DETECT);
@@ -494,15 +490,6 @@ static pvt_t* load_device (struct ast_config* cfg, const char* cat)
 	AST_RWLIST_UNLOCK (&devices);
 
 	return pvt;
-
-e_free_smoother:
-	ast_smoother_free (pvt->smoother);
-
-e_free_pvt:
-	ast_free (pvt);
-
-e_return:
-	return NULL;
 }
 
 static int load_config ()
@@ -618,7 +605,6 @@ static int unload_module ()
 
 		at_fifo_queue_flush (pvt);
 
-		ast_smoother_free (pvt->smoother);
 		ast_dsp_free (pvt->dsp);
 		ast_free (pvt);
 	}

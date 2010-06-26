@@ -43,7 +43,7 @@ static int at_write_full (pvt_t* pvt, char* buf, size_t count)
 
 	while (count > 0)
 	{
-		if ((out_count = write (pvt->data_socket, p, count)) == -1)
+		if ((out_count = write (pvt->data_fd, p, count)) == -1)
 		{
 			ast_debug (1, "[%s] write() error: %d\n", pvt->id, errno);
 			return -1;

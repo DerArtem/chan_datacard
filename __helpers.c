@@ -47,7 +47,6 @@ static inline int get_at_clir_value (pvt_t* pvt, int clir)
 		case AST_PRES_ALLOWED_USER_NUMBER_NOT_SCREENED:
 		case AST_PRES_ALLOWED_USER_NUMBER_PASSED_SCREEN:
 		case AST_PRES_NUMBER_NOT_AVAILABLE:
-
 			ast_debug (2, "[%s] callingpres: %s\n", pvt->id, ast_describe_caller_presentation (clir));
 			res = 2;
 			break;
@@ -56,7 +55,6 @@ static inline int get_at_clir_value (pvt_t* pvt, int clir)
 		case AST_PRES_PROHIB_USER_NUMBER_FAILED_SCREEN:
 		case AST_PRES_PROHIB_USER_NUMBER_NOT_SCREENED:
 		case AST_PRES_PROHIB_USER_NUMBER_PASSED_SCREEN:
-
 			ast_debug (2, "[%s] callingpres: %s\n", pvt->id, ast_describe_caller_presentation (clir));
 			res = 1;
 			break;

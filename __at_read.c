@@ -10,7 +10,7 @@ static inline int at_wait (pvt_t* pvt, int* ms)
 {
 	int exception, outfd;
 
-	outfd = ast_waitfor_n_fd (&pvt->data_socket, 1, ms, &exception);
+	outfd = ast_waitfor_n_fd (&pvt->data_fd, 1, ms, &exception);
 
 	if (outfd < 0)
 	{
@@ -29,7 +29,7 @@ static inline int at_read (pvt_t* pvt)
 
 	if (iovcnt > 0)
 	{
-		n = readv (pvt->data_socket, pvt->d_read_iov, iovcnt);
+		n = readv (pvt->data_fd, pvt->d_read_iov, iovcnt);
 
 		if (n < 0)
 		{
@@ -49,7 +49,8 @@ static inline int at_read (pvt_t* pvt)
 		rb_write_upd (&pvt->d_read_rb, n);
 
 
-//		ast_debug (5, "[%s] receive %zu byte, free %zu\n", pvt->id, n, rb_free (&pvt->d_read_rb));
+		ast_debug (5, "[%s] receive %zu byte, used %zu, free %zu, read %zu, write %zu\n", pvt->id, n,
+			rb_used (&pvt->d_read_rb), rb_free (&pvt->d_read_rb), pvt->d_read_rb.read, pvt->d_read_rb.write);
 
 		iovcnt = rb_read_all_iov (&pvt->d_read_rb, pvt->d_read_iov);
 

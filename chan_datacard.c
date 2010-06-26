@@ -175,12 +175,14 @@ static void* do_monitor_phone (void* data)
 	while (!check_unloading ())
 	{
 		ast_mutex_lock (&pvt->lock);
-		if (device_status (pvt->data_socket) || device_status (pvt->audio_socket))
+
+		if (device_status (pvt->data_fd) || device_status (pvt->audio_fd))
 		{
 			ast_log (LOG_ERROR, "Lost connection to Datacard %s\n", pvt->id);
 			goto e_cleanup;
 		}
 		t = pvt->timeout;
+
 		ast_mutex_unlock (&pvt->lock);
 
 
@@ -213,6 +215,7 @@ static void* do_monitor_phone (void* data)
 
 
 		ast_mutex_lock (&pvt->lock);
+
 		if (at_read (pvt))
 		{
 			goto e_cleanup;
@@ -253,11 +256,11 @@ static int disconnect_datacard (pvt_t* pvt)
 		channel_queue_hangup (pvt, 0);
 	}
 
-	close (pvt->data_socket);
-	close (pvt->audio_socket);
+	close (pvt->data_fd);
+	close (pvt->audio_fd);
 
-	pvt->data_socket	= -1;
-	pvt->audio_socket	= -1;
+	pvt->data_fd		= -1;
+	pvt->audio_fd		= -1;
 
 	pvt->connected		= 0;
 	pvt->initialized	= 0;
@@ -314,9 +317,9 @@ static void* do_discovery (void* data)
 			{
 				ast_verb (3, "Datacard %s trying to connect on %s...\n", pvt->id, pvt->data_tty);
 
-				if ((pvt->data_socket = opentty (pvt->data_tty)) > -1)
+				if ((pvt->data_fd = opentty (pvt->data_tty)) > -1)
 				{
-					if ((pvt->audio_socket = opentty (pvt->audio_tty)) > -1)
+					if ((pvt->audio_fd = opentty (pvt->audio_tty)) > -1)
 					{
 						if (start_monitor (pvt))
 						{
@@ -398,10 +401,8 @@ static pvt_t* load_device (struct ast_config* cfg, const char* cat)
 	/* set some defaults */
 
 	pvt->monitor_thread		= AST_PTHREADT_NULL;
-	pvt->audio_socket		= -1;
-	pvt->data_socket		= -1;
-	pvt->a_timingfd			= -1;
-	pvt->a_read_pos			= AST_FRIENDLY_OFFSET;	/* start here on reads */
+	pvt->audio_fd			= -1;
+	pvt->data_fd			= -1;
 	pvt->timeout			= 10000;
 	pvt->cusd_use_ucs2_decoding	=  1;
 
@@ -508,7 +509,7 @@ static int load_config ()
 	for (v = ast_variable_browse (cfg, "general"); v; v = v->next)
 	{
 		/* handle jb conf */
-		if (!ast_jb_read_conf (&jbconf, v->name, v->value))
+		if (!ast_jb_read_conf (&jbconf_global, v->name, v->value))
 		{
 			continue;
 		}
@@ -600,8 +601,8 @@ static int unload_module ()
 			pthread_join (pvt->monitor_thread, NULL);
 		}
 
-		close (pvt->audio_socket);
-		close (pvt->data_socket);
+		close (pvt->audio_fd);
+		close (pvt->data_fd);
 
 		at_fifo_queue_flush (pvt);
 
@@ -615,8 +616,10 @@ static int unload_module ()
 
 static int load_module ()
 {
-	/* Copy the default jb config over jbconf */
-	memmove (&jbconf, &jbconf_default, sizeof (struct ast_jb_conf));
+	/* Copy the default jb config over global jbconf */
+	memmove (&jbconf_global, &jbconf_default, sizeof (jbconf_global));
+
+	memset (silence_frame, 0, sizeof (silence_frame));
 
 	if (load_config ())
 	{
@@ -674,7 +677,4 @@ static int load_module ()
 	return AST_MODULE_LOAD_SUCCESS;
 }
 
-AST_MODULE_INFO (ASTERISK_GPL_KEY, AST_MODFLAG_DEFAULT, "Datacard Channel Driver",
-	.load = load_module,
-	.unload = unload_module,
-);
+AST_MODULE_INFO_STANDARD (ASTERISK_GPL_KEY, "Datacard Channel Driver");

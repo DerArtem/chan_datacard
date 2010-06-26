@@ -11,6 +11,7 @@
 typedef struct ringbuffer_t {
 	void*	buffer;
 	size_t	size;
+	size_t	used;
 	size_t	read;
 	size_t	write;
 } ringbuffer_t;

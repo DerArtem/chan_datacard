@@ -11,7 +11,7 @@
 #define CONFIG_FILE		"datacard.conf"
 #define DEF_DISCOVERY_INT	60
 
-#define FRAME_SIZE		160
+#define FRAME_SIZE		320
 
 typedef enum {
 	CMD_UNKNOWN = 0,
@@ -111,19 +111,17 @@ typedef struct pvt_t
 	AST_LIST_HEAD_NOLOCK (at_queue, at_queue_t) at_queue;	/* queue for response we are expecting */
 	pthread_t		monitor_thread;			/* monitor thread handle */
 
-	int			audio_socket;			/* audio socket descriptor */
-	int			data_socket;			/* data  socket descriptor */
+	int			audio_fd;			/* audio descriptor */
+	int			data_fd;			/* data  descriptor */
 
-	struct ast_timer*	a_timer;
-	int			a_timingfd;
-
-	char			a_write_buf[FRAME_SIZE * 2];
-	size_t			a_write_pos;
-	char			a_read_buf[FRAME_SIZE * 2 + AST_FRIENDLY_OFFSET];
-	size_t			a_read_pos;
-	struct ast_frame	a_read_frame;
-	struct ast_dsp*		dsp;
 	struct ast_channel*	owner;				/* Channel we belong to, possibly NULL */
+	struct ast_dsp*		dsp;
+	struct ast_timer*	a_timer;
+
+	char			a_write_buf[FRAME_SIZE * 3];
+	ringbuffer_t		a_write_rb;
+	char			a_read_buf[FRAME_SIZE + AST_FRIENDLY_OFFSET];
+	struct ast_frame	a_read_frame;
 
 	char			d_send_buf[2*1024];
 	size_t			d_send_size;
@@ -131,7 +129,7 @@ typedef struct pvt_t
 	ringbuffer_t		d_read_rb;
 	struct iovec		d_read_iov[2];
 	unsigned int		d_read_result:1;
-	char			d_parse_buf[2*1024];
+	char			d_parse_buf[1024];
 	int			timeout;			/* used to set the timeout for data */
 
 	unsigned int		has_sms:1;
@@ -207,6 +205,7 @@ static int			channel_answer			(struct ast_channel*);
 static int			channel_digit_begin		(struct ast_channel*, char);
 static int			channel_digit_end		(struct ast_channel*, char, unsigned int);
 static struct ast_frame*	channel_read			(struct ast_channel*);
+static inline void		channel_timimg_write		(pvt_t*);
 static int			channel_write			(struct ast_channel*, struct ast_frame*);
 static int			channel_fixup			(struct ast_channel*, struct ast_channel*);
 static int			channel_devicestate		(void* data);
@@ -246,10 +245,11 @@ static struct ast_jb_conf jbconf_default = {
 	.target_extra		= -1,
 };
 
-static struct ast_jb_conf jbconf;
+static struct ast_jb_conf jbconf_global;
 
 AST_MUTEX_DEFINE_STATIC (round_robin_mtx);
-static pvt_t* round_robin[256];
+static pvt_t*	round_robin[256];
+static char	silence_frame[FRAME_SIZE];
 
 
 static int			opentty			(char*);

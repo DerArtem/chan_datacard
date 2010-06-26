@@ -6,26 +6,26 @@ static inline void rb_init (ringbuffer_t* rb, char* buf, size_t size)
 {
 	rb->buffer = buf;
 	rb->size   = size;
+	rb->used   = 0;
 	rb->read   = 0;
 	rb->write  = 0;
 }
 
 static inline size_t rb_used (ringbuffer_t* rb)
 {
-	return (rb->write - rb->read) & (rb->size - 1);
+	return rb->used;
 }
 
 static inline size_t rb_free (ringbuffer_t* rb)
 {
-	return rb->size - rb_used (rb) - 1;
+	return rb->size - rb->used;
 }
 
 static int rb_memcmp (ringbuffer_t* rb, const char* mem, size_t len)
 {
 	size_t tmp;
 
-	tmp = rb_used (rb);
-	if (tmp > 0 && len > 0 && tmp >= len)
+	if (rb->used > 0 && len > 0 && rb->used >= len)
 	{
 		if ((rb->read + len) > rb->size)
 		{
@@ -59,23 +59,20 @@ static int rb_memcmp (ringbuffer_t* rb, const char* mem, size_t len)
 
 static int rb_read_all_iov (ringbuffer_t* rb, struct iovec* iov)
 {
-	size_t used;
-
-	used = rb_used (rb);
-	if (used > 0)
+	if (rb->used > 0)
 	{
-		if ((rb->read + used) > rb->size)
+		if ((rb->read + rb->used) > rb->size)
 		{
 			iov[0].iov_base = rb->buffer + rb->read;
 			iov[0].iov_len  = rb->size - rb->read;
 			iov[1].iov_base = rb->buffer;
-			iov[1].iov_len  = used - iov[0].iov_len;
+			iov[1].iov_len  = rb->used - iov[0].iov_len;
 			return 2;
 		}
 		else
 		{
 			iov[0].iov_base = rb->buffer + rb->read;
-			iov[0].iov_len  = used;
+			iov[0].iov_len  = rb->used;
 			iov[1].iov_len  = 0;
 			return 1;
 		}
@@ -86,10 +83,7 @@ static int rb_read_all_iov (ringbuffer_t* rb, struct iovec* iov)
 
 static int rb_read_n_iov (ringbuffer_t* rb, struct iovec* iov, size_t len)
 {
-	size_t used;
-
-	used = rb_used (rb);
-	if (used < len)
+	if (rb->used < len)
 	{
 		return 0;
 	}
@@ -118,13 +112,11 @@ static int rb_read_n_iov (ringbuffer_t* rb, struct iovec* iov, size_t len)
 
 static int rb_read_until_char_iov (ringbuffer_t* rb, struct iovec* iov, char c)
 {
-	size_t	used;
-	void*	p;
+	void* p;
 
-	used = rb_used (rb);
-	if (used > 0)
+	if (rb->used > 0)
 	{
-		if ((rb->read + used) > rb->size)
+		if ((rb->read + rb->used) > rb->size)
 		{
 			iov[0].iov_base = rb->buffer + rb->read;
 			iov[0].iov_len  = rb->size - rb->read;
@@ -135,7 +127,7 @@ static int rb_read_until_char_iov (ringbuffer_t* rb, struct iovec* iov, char c)
 				return 1;
 			}
 		
-			if ((p = memchr (rb->buffer, c, used - iov[0].iov_len)) != NULL)
+			if ((p = memchr (rb->buffer, c, rb->used - iov[0].iov_len)) != NULL)
 			{
 				iov[1].iov_base = rb->buffer;
 				iov[1].iov_len = p - rb->buffer;
@@ -145,7 +137,7 @@ static int rb_read_until_char_iov (ringbuffer_t* rb, struct iovec* iov, char c)
 		else 
 		{
 			iov[0].iov_base = rb->buffer + rb->read;
-			iov[0].iov_len  = used;
+			iov[0].iov_len  = rb->used;
 			if ((p = memchr (iov[0].iov_base, c, iov[0].iov_len)) != NULL)
 			{
 				iov[0].iov_len = p - iov[0].iov_base;
@@ -160,7 +152,6 @@ static int rb_read_until_char_iov (ringbuffer_t* rb, struct iovec* iov, char c)
 
 static int rb_read_until_mem_iov (ringbuffer_t* rb, struct iovec* iov, const void* mem, size_t len)
 {
-	size_t	used;
 	size_t	i;
 	void*	p;
 
@@ -169,10 +160,9 @@ static int rb_read_until_mem_iov (ringbuffer_t* rb, struct iovec* iov, const voi
 		return rb_read_until_char_iov (rb, iov, *((char*) mem));
 	}
 
-	used = rb_used (rb);
-	if (used > 0 && len > 0 && used >= len)
+	if (rb->used > 0 && len > 0 && rb->used >= len)
 	{
-		if ((rb->read + used) > rb->size)
+		if ((rb->read + rb->used) > rb->size)
 		{
 			iov[0].iov_base = rb->buffer + rb->read;
 			iov[0].iov_len  = rb->size - rb->read;
@@ -204,7 +194,7 @@ static int rb_read_until_mem_iov (ringbuffer_t* rb, struct iovec* iov, const voi
 					return 1;
 				}
 
-				if (used == iov[0].iov_len + i)
+				if (rb->used == iov[0].iov_len + i)
 				{
 					return 0;
 				}
@@ -213,9 +203,9 @@ static int rb_read_until_mem_iov (ringbuffer_t* rb, struct iovec* iov, const voi
 				i++;
 			}
 
-			if (used >= iov[0].iov_len + len)
+			if (rb->used >= iov[0].iov_len + len)
 			{
-				if ((p = memmem (rb->buffer, used - iov[0].iov_len, mem, len)) != NULL)
+				if ((p = memmem (rb->buffer, rb->used - iov[0].iov_len, mem, len)) != NULL)
 				{
 					if (p == rb->buffer)
 					{
@@ -232,7 +222,7 @@ static int rb_read_until_mem_iov (ringbuffer_t* rb, struct iovec* iov, const voi
 		else 
 		{
 			iov[0].iov_base = rb->buffer + rb->read;
-			iov[0].iov_len  = used;
+			iov[0].iov_len  = rb->used;
 			if ((p = memmem (iov[0].iov_base, iov[0].iov_len, mem, len)) != NULL)
 			{
 				iov[0].iov_len = p - iov[0].iov_base;
@@ -248,25 +238,34 @@ static int rb_read_until_mem_iov (ringbuffer_t* rb, struct iovec* iov, const voi
 
 static size_t rb_read_upd (ringbuffer_t* rb, size_t len)
 {
-	size_t	used;
-	size_t	s;
+	size_t s;
 
-	used = rb_used (rb);
-	if (used < len)
+	if (rb->used < len)
 	{
-		len = used;
+		len = rb->used;
 	}
 
 	if (len > 0)
 	{
-		s = rb->read + len;
-		if (s >= rb->size)
+		rb->used -= len;
+
+		if (rb->used == 0)
 		{
-			rb->read = s - rb->size;
+			rb->read  = 0;
+			rb->write = 0;
 		}
 		else
 		{
-			rb->read = s;
+			s = rb->read + len;
+
+			if (s >= rb->size)
+			{
+				rb->read = s - rb->size;
+			}
+			else
+			{
+				rb->read = s;
+			}
 		}
 	}
 
@@ -275,13 +274,11 @@ static size_t rb_read_upd (ringbuffer_t* rb, size_t len)
 
 static size_t rb_read (ringbuffer_t* rb, char* buf, size_t len)
 {
-	size_t	used;
-	size_t	s;
+	size_t s;
 
-	used = rb_used (rb);
-	if (used < len)
+	if (rb->used < len)
 	{
-		len = used;
+		len = rb->used;
 	}
 
 	if (len > 0)
@@ -305,6 +302,14 @@ static size_t rb_read (ringbuffer_t* rb, char* buf, size_t len)
 				rb->read = s;
 			}
 		}
+
+		rb->used -= len;
+
+		if (rb->used == 0)
+		{
+			rb->read  = 0;
+			rb->write = 0;
+		}
 	}
 
 	return len;
@@ -314,7 +319,7 @@ static size_t rb_read (ringbuffer_t* rb, char* buf, size_t len)
 
 static int rb_write_iov (ringbuffer_t* rb, struct iovec* iov)
 {
-	size_t	free;
+	size_t free;
 
 	free = rb_free (rb);
 	if (free > 0)
@@ -342,8 +347,8 @@ static int rb_write_iov (ringbuffer_t* rb, struct iovec* iov)
 
 static size_t rb_write_upd (ringbuffer_t* rb, size_t len)
 {
-	size_t	free;
-	size_t	s;
+	size_t free;
+	size_t s;
 
 	free = rb_free (rb);
 	if (free < len)
@@ -354,6 +359,7 @@ static size_t rb_write_upd (ringbuffer_t* rb, size_t len)
 	if (len > 0)
 	{
 		s = rb->write + len;
+
 		if (s > rb->size)
 		{
 			rb->write = s - rb->size;
@@ -362,6 +368,8 @@ static size_t rb_write_upd (ringbuffer_t* rb, size_t len)
 		{
 			rb->write = s;
 		}
+
+		rb->used += len;
 	}
 
 	return len;
@@ -381,6 +389,7 @@ static size_t rb_write (ringbuffer_t* rb, char* buf, size_t len)
 	if (len > 0)
 	{
 		s = rb->write + len;
+
 		if (s > rb->size)
 		{
 			memmove (rb->buffer + rb->write, buf, rb->size - rb->write);
@@ -399,6 +408,8 @@ static size_t rb_write (ringbuffer_t* rb, char* buf, size_t len)
 				rb->write = s;
 			}
 		}
+
+		rb->used += len;
 	}
 
 	return len;

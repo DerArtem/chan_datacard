@@ -36,13 +36,13 @@ static struct ast_channel* channel_new (pvt_t* pvt, int state, char* cid_num)
 
 	if (pvt->audio_fd != -1)
 	{
+		ast_channel_set_fd (channel, 0, pvt->audio_fd);
+
 		if ((pvt->a_timer = ast_timer_open ()))
 		{
 			ast_channel_set_fd (channel, 1, ast_timer_fd (pvt->a_timer));
 			rb_init (&pvt->a_write_rb, pvt->a_write_buf, sizeof (pvt->a_write_buf));
 		}
-
-		ast_channel_set_fd (channel, 0, pvt->audio_fd);
 	}
 
 	pvt->owner = channel;

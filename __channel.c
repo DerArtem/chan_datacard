@@ -483,7 +483,7 @@ static struct ast_frame* channel_read (struct ast_channel* channel)
 	{
 		ast_debug (7, "[%s] *** timing ***\n", pvt->id);
 		ast_timer_ack (pvt->a_timer, 1);
-		channel_timimg_write (pvt);
+		channel_timing_write (pvt);
 		goto e_return;
 	}
 
@@ -524,13 +524,13 @@ e_return:
 	return f;
 }
 
-static inline void channel_timimg_write (pvt_t* pvt)
+static inline void channel_timing_write (pvt_t* pvt)
 {
 	size_t		used;
 	int		iovcnt;
 	struct iovec	iov[3];
 	ssize_t		res;
-	size_t		count = 0;
+	size_t		count;
 
 	used = rb_used (&pvt->a_write_rb);
 
@@ -559,6 +559,7 @@ static inline void channel_timimg_write (pvt_t* pvt)
 		iovcnt			= 1;
 	}
 
+	count = 0;
 	while ((res = writev (pvt->audio_fd, iov, iovcnt)) < 0 && (errno == EINTR || errno == EAGAIN))
 	{
 		if (count++ > 10)
@@ -578,10 +579,8 @@ static inline void channel_timimg_write (pvt_t* pvt)
 static int channel_write (struct ast_channel* channel, struct ast_frame* f)
 {
 	pvt_t*	pvt = channel->tech_pvt;
-	size_t	src;
-	size_t	len;
 	ssize_t	res;
-	size_t	count = 0;
+	size_t	count;
 
 	if (f->frametype != AST_FRAME_VOICE)
 	{
@@ -614,14 +613,37 @@ static int channel_write (struct ast_channel* channel, struct ast_frame* f)
 
 		if (pvt->a_timer)
 		{
-			rb_write (&pvt->a_write_rb, f->data.ptr, (size_t) f->datalen);
+			count = rb_free (&pvt->a_write_rb);
+
+			if (count < (size_t) f->datalen)
+			{
+				rb_read_upd (&pvt->a_write_rb, f->datalen - count);
+			}
+
+			rb_write (&pvt->a_write_rb, f->data.ptr, f->datalen);
 		}
 		else
 		{
+			int		iovcnt;
+			struct iovec	iov[2];
+
 			memset  (pvt->a_write_buf, 0, FRAME_SIZE);
 			memmove (pvt->a_write_buf, f->data.ptr, MIN (FRAME_SIZE, f->datalen));
 
-			while ((res = write (pvt->audio_fd, pvt->a_write_buf, FRAME_SIZE)) < 0 && (errno == EINTR || errno == EAGAIN))
+			iov[0].iov_base		= f->data.ptr;
+			iov[0].iov_len		= FRAME_SIZE;
+			iovcnt			= 1;
+
+			if (f->datalen < FRAME_SIZE)
+			{
+				iov[0].iov_len	= f->datalen;
+				iov[1].iov_base	= silence_frame;
+				iov[1].iov_len	= FRAME_SIZE - f->datalen;
+				iovcnt		= 2;
+			}
+
+			count = 0;
+			while ((res = writev (pvt->audio_fd, iov, iovcnt)) < 0 && (errno == EINTR || errno == EAGAIN))
 			{
 				if (count++ > 10)
 				{
@@ -630,7 +652,8 @@ static int channel_write (struct ast_channel* channel, struct ast_frame* f)
 				}
 				usleep (1);
 			}
-			if (res < 0)
+
+			if (res < 0 || res != FRAME_SIZE)
 			{
 				ast_debug (1, "[%s] Write error!\n", pvt->id);
 			}

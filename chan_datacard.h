@@ -205,7 +205,7 @@ static int			channel_answer			(struct ast_channel*);
 static int			channel_digit_begin		(struct ast_channel*, char);
 static int			channel_digit_end		(struct ast_channel*, char, unsigned int);
 static struct ast_frame*	channel_read			(struct ast_channel*);
-static inline void		channel_timimg_write		(pvt_t*);
+static inline void		channel_timing_write		(pvt_t*);
 static int			channel_write			(struct ast_channel*, struct ast_frame*);
 static int			channel_fixup			(struct ast_channel*, struct ast_channel*);
 static int			channel_devicestate		(void* data);

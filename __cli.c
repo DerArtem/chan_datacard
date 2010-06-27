@@ -115,7 +115,6 @@ static char* cli_show_device (struct ast_cli_entry* e, int cmd, struct ast_cli_a
 		ast_cli (a->fd, "  USSD use UCS-2 decoding : %s\n", pvt->cusd_use_ucs2_decoding ? "Yes" : "No");
 		ast_cli (a->fd, "  USSD use UCS-2 decoding : %s\n\n", pvt->cusd_use_ucs2_decoding ? "Yes" : "No");
 		ast_mutex_unlock (&pvt->lock);
-
 	}
 	else
 	{

@@ -627,9 +627,6 @@ static int channel_write (struct ast_channel* channel, struct ast_frame* f)
 			int		iovcnt;
 			struct iovec	iov[2];
 
-			memset  (pvt->a_write_buf, 0, FRAME_SIZE);
-			memmove (pvt->a_write_buf, f->data.ptr, MIN (FRAME_SIZE, f->datalen));
-
 			iov[0].iov_base		= f->data.ptr;
 			iov[0].iov_len		= FRAME_SIZE;
 			iovcnt			= 1;

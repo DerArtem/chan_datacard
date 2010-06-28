@@ -39,11 +39,11 @@ Here is an example for the dialplan:
 
 [datacard-incoming]
 exten => sms,1,Verbose(Incoming SMS from ${CALLEID(num)} ${SMS})
-exten => sms,n,System(echo '${STRFTIME(${EPOCH},,%Y-%m-%d %H:%M:%S)} - ${CHANNEL} - ${CALLEID(num)}: ${SMS}' >> /var/log/asterisk/sms.txt)
+exten => sms,n,System(echo '${STRFTIME(${EPOCH},,%Y-%m-%d %H:%M:%S)} - ${DATACARD} - ${CALLEID(num)}: ${SMS}' >> /var/log/asterisk/sms.txt)
 exten => sms,n,Hangup()
 
 exten => ussd,1,Verbose(Incoming USSD: ${USSD})
-exten => ussd,n,System(echo '${STRFTIME(${EPOCH},,%Y-%m-%d %H:%M:%S)} - ${CHANNEL}: ${USSD}' >> /var/log/asterisk/ussd.txt)
+exten => ussd,n,System(echo '${STRFTIME(${EPOCH},,%Y-%m-%d %H:%M:%S)} - ${DATACARD}: ${USSD}' >> /var/log/asterisk/ussd.txt)
 exten => ussd,n,Hangup()
 
 exten => s,1,Dial(SIP/2001@othersipserver)

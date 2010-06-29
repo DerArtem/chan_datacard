@@ -38,8 +38,8 @@ AT^U2DIAG=0
 Here is an example for the dialplan:
 
 [datacard-incoming]
-exten => sms,1,Verbose(Incoming SMS from ${CALLEID(num)} ${SMS})
-exten => sms,n,System(echo '${STRFTIME(${EPOCH},,%Y-%m-%d %H:%M:%S)} - ${DATACARD} - ${CALLEID(num)}: ${SMS}' >> /var/log/asterisk/sms.txt)
+exten => sms,1,Verbose(Incoming SMS from ${CALLERID(num)} ${SMS})
+exten => sms,n,System(echo '${STRFTIME(${EPOCH},,%Y-%m-%d %H:%M:%S)} - ${DATACARD} - ${CALLERID(num)}: ${SMS}' >> /var/log/asterisk/sms.txt)
 exten => sms,n,Hangup()
 
 exten => ussd,1,Verbose(Incoming USSD: ${USSD})

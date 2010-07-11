@@ -230,7 +230,7 @@ static inline at_res_t at_read_result_classification (pvt_t* pvt, int iovcnt)
 		{
 			at_res = RES_COPS;
 		}
-		else if (rb_memcmp (&pvt->d_read_rb, "^SRVST:", 7) == 0)		// 35
+		else if (rb_memcmp (&pvt->d_read_rb, "^SRVST:", 7) == 0)	// 35
 		{
 			at_res = RES_SRVST;
 		}
@@ -254,7 +254,7 @@ static inline at_res_t at_read_result_classification (pvt_t* pvt, int iovcnt)
 		}
 
 
-		else if (rb_memcmp (&pvt->d_read_rb, "ERROR\r", 6) == 0)		// 12
+		else if (rb_memcmp (&pvt->d_read_rb, "ERROR\r", 6) == 0)	// 12
 		{
 			at_res = RES_ERROR;
 		}

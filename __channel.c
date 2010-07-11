@@ -116,7 +116,7 @@ static struct ast_channel* channel_request (const char* type, int format, void* 
 			AST_RWLIST_TRAVERSE (&devices, pvt, entry)
 			{
 				ast_mutex_lock (&pvt->lock);
-				if (pvt->group == group && pvt->connected && pvt->initialized && !pvt->incoming && !pvt->outgoing && !pvt->owner)
+				if (pvt->group == group && pvt->connected && pvt->initialized && pvt->has_voice && pvt->gsm_registered && !pvt->incoming && !pvt->outgoing && !pvt->owner)
 				{
 					break;
 				}
@@ -171,7 +171,7 @@ static struct ast_channel* channel_request (const char* type, int format, void* 
 				pvt = round_robin[c2];
 
 				ast_mutex_lock (&pvt->lock);
-				if (pvt->connected && pvt->initialized && !pvt->incoming && !pvt->outgoing && !pvt->owner)
+				if (pvt->connected && pvt->initialized && pvt->has_voice && pvt->gsm_registered && !pvt->incoming && !pvt->outgoing && !pvt->owner)
 				{
 					pvt->group_last_used = 1;
 					break;
@@ -225,7 +225,7 @@ static struct ast_channel* channel_request (const char* type, int format, void* 
 			pvt = round_robin[c2];
 
 			ast_mutex_lock (&pvt->lock);
-			if (pvt->connected && pvt->initialized && !pvt->incoming && !pvt->outgoing && !pvt->owner)
+			if (pvt->connected && pvt->initialized && pvt->has_voice && pvt->gsm_registered && !pvt->incoming && !pvt->outgoing && !pvt->owner)
 			{
 				pvt->prov_last_used = 1;
 				break;
@@ -262,14 +262,14 @@ static struct ast_channel* channel_request (const char* type, int format, void* 
 
 	AST_RWLIST_UNLOCK (&devices);
 
-	if (!pvt || !pvt->has_voice || !pvt->connected || !pvt->initialized || pvt->incoming || pvt->outgoing || pvt->owner)
+	if (!pvt || !pvt->connected || !pvt->initialized || !pvt->has_voice || !pvt->gsm_registered || pvt->incoming || pvt->outgoing || pvt->owner)
 	{
 		if (pvt)
 		{
 			ast_mutex_unlock (&pvt->lock);
 		}
 	
-		ast_log (LOG_WARNING, "Request to call on device '%s' which is not connected / not initialized / not support voice / already in use\n", dest_dev);
+		ast_log (LOG_WARNING, "Request to call on device '%s' which can not make call at this moment\n", dest_dev);
 		*cause = AST_CAUSE_REQUESTED_CHAN_UNAVAIL;
 
 		return NULL;

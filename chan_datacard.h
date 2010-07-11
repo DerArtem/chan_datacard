@@ -146,10 +146,13 @@ typedef struct pvt_t
 	char			firmware[32];
 	char			imei[17];
 	char			number[128];
+	char			location_area_code[8];
+	char			cell_id[8];
 
 	/* flags */
-	unsigned int		connected:1;			/* do we have an rfcomm connection to a device */
+	unsigned int		connected:1;			/* do we have an connection to a device */
 	unsigned int		initialized:1;			/* whether a service level connection exists or not */
+	unsigned int		gsm_registered:1;		/* do we have an registration to a GSM */
 	unsigned int		outgoing:1;			/* outgoing call */
 	unsigned int		incoming:1;			/* incoming call */
 	unsigned int		outgoing_sms:1;			/* outgoing sms */
@@ -277,7 +280,7 @@ static inline int		at_response_cnum	(pvt_t*, char*, size_t);
 static inline int		at_response_conn	(pvt_t*);
 static inline int		at_response_cops	(pvt_t*, char*, size_t);
 static inline int		at_response_cpin	(pvt_t*, char*, size_t);
-static inline int		at_response_creg	(pvt_t*);
+static inline int		at_response_creg	(pvt_t*, char*, size_t);
 static inline int		at_response_csq		(pvt_t*, char*, size_t);
 static inline int		at_response_cusd	(pvt_t*, char*, size_t);
 static inline int		at_response_error	(pvt_t*);
@@ -301,6 +304,7 @@ static int			at_parse_cmti		(pvt_t*, char*, size_t);
 
 static inline char*		at_parse_cnum		(pvt_t*, char*, size_t);
 static inline char*		at_parse_cops		(pvt_t*, char*, size_t);
+static inline int		at_parse_creg		(pvt_t*, char*, size_t, int*, char**, char**);
 static inline int		at_parse_cpin		(pvt_t*, char*, size_t);
 static inline int		at_parse_csq		(pvt_t*, char*, size_t, int*);
 static inline int		at_parse_cusd		(pvt_t*, char*, size_t, char**, unsigned char*);

@@ -28,8 +28,8 @@ static inline int at_response (pvt_t* pvt, int iovcnt, at_res_t at_res)
 			}
 
 			str = pvt->d_parse_buf;
-			memmove (str, pvt->d_read_iov[0].iov_base, pvt->d_read_iov[0].iov_len);
-			memmove (str + pvt->d_read_iov[0].iov_len, pvt->d_read_iov[1].iov_base, pvt->d_read_iov[1].iov_len);
+			memmove (str,					pvt->d_read_iov[0].iov_base, pvt->d_read_iov[0].iov_len);
+			memmove (str + pvt->d_read_iov[0].iov_len,	pvt->d_read_iov[1].iov_base, pvt->d_read_iov[1].iov_len);
 			str[len] = '\0';
 		}
 		else
@@ -71,7 +71,7 @@ static inline int at_response (pvt_t* pvt, int iovcnt, at_res_t at_res)
 
 			case RES_CREG:
 				/* An error here is not fatal. Just keep going. */
-				at_response_creg (pvt);
+				at_response_creg (pvt, str, len);
 				return 0;
 
 			case RES_COPS:
@@ -1420,11 +1420,40 @@ static inline int at_response_cops (pvt_t* pvt, char* str, size_t len)
  * \retval -1 error
  */
 
-static inline int at_response_creg (pvt_t* pvt)
+static inline int at_response_creg (pvt_t* pvt, char* str, size_t len)
 {
+	int	reg;
+	char*	lac;
+	char*	ci;
+
 	if (at_send_cops (pvt) || at_fifo_queue_add (pvt, CMD_AT_COPS, RES_OK))
 	{
 		ast_log (LOG_ERROR, "[%s] Error sending query for provider name\n", pvt->id);
+	}
+
+	if (at_parse_creg (pvt, str, len, &reg, &lac, &ci))
+	{
+		ast_verb (1, "[%s] Error parsing CREG: '%.*s'\n", pvt->id, (int) len, str);
+		return 0;
+	}
+
+	if (reg)
+	{
+		pvt->gsm_registered = 1;
+	}
+	else
+	{
+		pvt->gsm_registered = 0;
+	}
+
+	if (lac)
+	{
+		ast_copy_string (pvt->location_area_code, lac, sizeof (pvt->location_area_code));
+	}
+
+	if (ci)
+	{
+		ast_copy_string (pvt->cell_id, ci, sizeof (pvt->cell_id));
 	}
 
 	return 0;

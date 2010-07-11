@@ -25,9 +25,13 @@ static int manager_show_devices (struct mansession* s, const struct message* m)
 		astman_append (s, "Event: DatacardDeviceEntry\r\n%s", idtext);
 		astman_append (s, "Device: %s\r\n", pvt->id);
 		astman_append (s, "Group: %d\r\n", pvt->group);
-		astman_append (s, "Connected: %s\r\n", pvt->connected ? "Yes" : "No");
-		astman_append (s, "Initialized: %s\r\n", pvt->initialized ? "Yes" : "No");
-		astman_append (s, "State: %s\r\n", (!pvt->connected) ? "None" : (pvt->outgoing || pvt->incoming) ? "Busy" : (pvt->outgoing_sms || pvt->incoming_sms) ? "SMS" : "Free");
+		astman_append (s, "State: %s\r\n", 
+			(!pvt->connected) ? "Not connected" :
+			(!pvt->initialized) ? "Not initialized" :
+			(!pvt->gsm_registered) ? "GSM not registered" :
+			(pvt->outgoing || pvt->incoming) ? "Busy" :
+			(pvt->outgoing_sms || pvt->incoming_sms) ? "SMS" : "Free"
+		);
 		astman_append (s, "Voice: %s\r\n", (pvt->has_voice) ? "Yes" : "No");
 		astman_append (s, "SMS: %s\r\n", (pvt->has_sms) ? "Yes" : "No");
 		astman_append (s, "RSSI: %d\r\n", pvt->rssi);
@@ -87,7 +91,7 @@ static int manager_send_ussd (struct mansession* s, const struct message* m)
 	if (pvt)
 	{
 		ast_mutex_lock (&pvt->lock);
-		if (pvt->connected && pvt->initialized)
+		if (pvt->connected && pvt->initialized && pvt->gsm_registered)
 		{
 			if (at_send_cusd (pvt, ussd) || at_fifo_queue_add (pvt, CMD_AT_CUSD, RES_OK))
 			{
@@ -100,7 +104,7 @@ static int manager_send_ussd (struct mansession* s, const struct message* m)
 		}
 		else
 		{
-			snprintf (buf, sizeof (buf), "Device %s not connected / initialized.", device);
+			snprintf (buf, sizeof (buf), "Device %s not connected / initialized./ registered", device);
 			astman_send_error (s, m, buf);
 		}
 		ast_mutex_unlock (&pvt->lock);
@@ -153,7 +157,7 @@ static int manager_send_sms (struct mansession* s, const struct message* m)
 	if (pvt)
 	{
 		ast_mutex_lock (&pvt->lock);
-		if (pvt->connected && pvt->initialized)
+		if (pvt->connected && pvt->initialized && pvt->gsm_registered)
 		{
 			if (pvt->has_sms)
 			{
@@ -177,7 +181,7 @@ static int manager_send_sms (struct mansession* s, const struct message* m)
 		}
 		else
 		{
-			snprintf (buf, sizeof (buf), "Device %s not connected / initialized -- SMS will not be sent", device);
+			snprintf (buf, sizeof (buf), "Device %s not connected / initialized / registered -- SMS will not be sent", device);
 			astman_send_error (s, m, buf);
 		}
 		ast_mutex_unlock (&pvt->lock);

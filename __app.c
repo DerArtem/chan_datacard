@@ -102,7 +102,7 @@ static int app_send_sms_exec (struct ast_channel* channel, void* data)
 	if (pvt)
 	{
 		ast_mutex_lock (&pvt->lock);
-		if (pvt->connected && pvt->initialized)
+		if (pvt->connected && pvt->initialized && pvt->gsm_registered)
 		{
 			if (pvt->has_sms)
 			{
@@ -123,7 +123,7 @@ static int app_send_sms_exec (struct ast_channel* channel, void* data)
 		}
 		else
 		{
-			ast_log (LOG_ERROR, "Datacard %s wasn't connected / initialized -- SMS will not be sent\n", args.device);
+			ast_log (LOG_ERROR, "Datacard %s wasn't connected / initialized / registered -- SMS will not be sent\n", args.device);
 		}
 		ast_mutex_unlock (&pvt->lock);
 

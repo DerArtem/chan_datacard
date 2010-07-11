@@ -399,6 +399,134 @@ static inline char* at_parse_cops (pvt_t* pvt, char* str, size_t len)
 }
 
 /*!
+ * \brief Parse a CREG response
+ * \param pvt -- pvt structure
+ * \param str -- string to parse (null terminated)
+ * \param len -- string lenght
+ * \param reg -- a pointer to a int
+ * \param lac -- a pointer to a char pointer which will store the location area code in hex format
+ * \param ci  -- a pointer to a char pointer which will store the cell id in hex format
+ * @note str will be modified when the CREG message is parsed
+ * \retval  0 success
+ * \retval -1 parse error
+ */
+
+static inline int at_parse_creg (pvt_t* pvt, char* str, size_t len, int* reg, char** lac, char** ci)
+{
+	size_t	i;
+	int	state;
+	int	gsm_state = 0;
+	char*	p1 = NULL;
+	char*	p2 = NULL;
+	char*	p3 = NULL;
+	char*	p4 = NULL;
+
+	*reg = 0;
+	*lac = NULL;
+	*ci  = NULL;
+
+	/*
+	 * parse CREG response in the following format:
+	 * +CREG: <p1>[,<p2>[,<p3>,<p4>]]
+	 */
+
+	for (i = 0, state = 0; i < len && state < 8; i++)
+	{
+		switch (state)
+		{
+			case 0:
+				if (str[i] == ':')
+				{
+					state++;
+				}
+				break;
+
+			case 1:
+				p1 = &str[i];
+				state++;
+				/* fall through */
+
+			case 2:
+				if (str[i] == ',')
+				{
+					str[i] = '\0';
+					state++;
+				}
+				break;
+
+			case 3:
+				p2 = &str[i];
+				state++;
+				/* fall through */
+
+			case 4:
+				if (str[i] == ',')
+				{
+					str[i] = '\0';
+					state++;
+				}
+				break;
+
+			case 5:
+				p3 = &str[i];
+				state++;
+				/* fall through */
+
+			case 6:
+				if (str[i] == ',')
+				{
+					str[i] = '\0';
+					state++;
+				}
+				break;
+
+			case 7:
+				p4 = &str[i];
+				state++;
+				break;
+		}
+	}
+
+	if (state < 2)
+	{
+		return -1;
+	}
+
+	if ((!p3 && !p4) || (p3 && p4))
+	{
+		p1 = p2;
+	}
+
+	if (p1)
+	{
+		errno = 0;
+		gsm_state = (int) strtol (p1, (char**) NULL, 10);
+		if (errno == EINVAL)
+		{
+			return -1;
+		}
+
+		if (gsm_state == 1 || gsm_state == 5)
+		{
+			*reg = 1;
+		}
+	}
+
+	if (p2 && p3 && !p4)
+	{
+		*lac = p2;
+		*ci  = p3;
+	}
+	else if (p3 && p4)
+	{
+		*lac = p3;
+		*ci  = p4;
+	}
+
+	return 0;
+}
+
+/*!
  * \brief Parse a CMTI notification
  * \param pvt -- pvt structure
  * \param str -- string to parse (null terminated)

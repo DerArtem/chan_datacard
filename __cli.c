@@ -8,8 +8,8 @@ static char* cli_show_devices (struct ast_cli_entry* e, int cmd, struct ast_cli_
 {
 	pvt_t* pvt;
 
-#define FORMAT1 "%-12.12s %-5.5s %-9.9s %-11.11s %-5.5s %-5.5s %-3.3s %-4.4s %-4.4s %-7.7s %-14.14s %-10.10s %-17.17s %-17.17s %-14.14s\n"
-#define FORMAT2 "%-12.12s %-5d %-9.9s %-11.11s %-5.5s %-5.5s %-3.3s %-4d %-4d %-7d %-14.14s %-10.10s %-17.17s %-17.17s %-14.14s\n"
+#define FORMAT1 "%-12.12s %-5.5s %-10.10s %-5.5s %-3.3s %-4.4s %-4.4s %-7.7s %-14.14s %-10.10s %-17.17s %-17.17s %-14.14s\n"
+#define FORMAT2 "%-12.12s %-5d %-10.10s %-5.5s %-3.3s %-4d %-4d %-7d %-14.14s %-10.10s %-17.17s %-17.17s %-14.14s\n"
 
 	switch (cmd)
 	{
@@ -28,7 +28,7 @@ static char* cli_show_devices (struct ast_cli_entry* e, int cmd, struct ast_cli_
 		return CLI_SHOWUSAGE;
 	}
 
-	ast_cli (a->fd, FORMAT1, "ID", "Group", "Connected", "Initialized", "State", "Voice", "SMS", "RSSI", "Mode", "Submode", "Provider Name", "Model", "Firmware", "IMEI", "Number");
+	ast_cli (a->fd, FORMAT1, "ID", "Group", "State", "Voice", "SMS", "RSSI", "Mode", "Submode", "Provider Name", "Model", "Firmware", "IMEI", "Number");
 
 	AST_RWLIST_RDLOCK (&devices);
 	AST_RWLIST_TRAVERSE (&devices, pvt, entry)
@@ -37,9 +37,13 @@ static char* cli_show_devices (struct ast_cli_entry* e, int cmd, struct ast_cli_
 		ast_cli (a->fd, FORMAT2,
 			pvt->id,
 			pvt->group,
-			pvt->connected ? "Yes" : "No",
-			pvt->initialized ? "Yes" : "No",
-			(!pvt->connected) ? "None" : (pvt->outgoing || pvt->incoming) ? "Busy" : (pvt->outgoing_sms || pvt->incoming_sms) ? "SMS" : "Free",
+
+			(!pvt->connected) ? "Not connected" :
+			(!pvt->initialized) ? "Not initialized" :
+			(!pvt->gsm_registered) ? "GSM not registered" :
+			(pvt->outgoing || pvt->incoming) ? "Busy" :
+			(pvt->outgoing_sms || pvt->incoming_sms) ? "SMS" : "Free",
+
 			(pvt->has_voice) ? "Yes" : "No",
 			(pvt->has_sms) ? "Yes" : "No",
 			pvt->rssi,
@@ -91,12 +95,16 @@ static char* cli_show_device (struct ast_cli_entry* e, int cmd, struct ast_cli_a
 	{
 		ast_mutex_lock (&pvt->lock);
 		ast_cli (a->fd, "\n Current device settings:\n");
-		ast_cli (a->fd, "-----------------------------\n");
+		ast_cli (a->fd, "------------------------------------\n");
 		ast_cli (a->fd, "  Device                  : %s\n", pvt->id);
 		ast_cli (a->fd, "  Group                   : %d\n", pvt->group);
-		ast_cli (a->fd, "  Connected               : %s\n", pvt->connected ? "Yes" : "No");
-		ast_cli (a->fd, "  Initialized             : %s\n", pvt->initialized ? "Yes" : "No");
-		ast_cli (a->fd, "  State                   : %s\n", (!pvt->connected) ? "None" : (pvt->outgoing || pvt->incoming) ? "Busy" : (pvt->outgoing_sms || pvt->incoming_sms) ? "SMS" : "Free");
+		ast_cli (a->fd, "  State                   : %s\n",
+			(!pvt->connected) ? "Not connected" :
+			(!pvt->initialized) ? "Not initialized" :
+			(!pvt->gsm_registered) ? "GSM not registered" :
+			(pvt->outgoing || pvt->incoming) ? "Busy" :
+			(pvt->outgoing_sms || pvt->incoming_sms) ? "SMS" : "Free"
+		);
 		ast_cli (a->fd, "  Voice                   : %s\n", (pvt->has_voice) ? "Yes" : "No");
 		ast_cli (a->fd, "  SMS                     : %s\n", (pvt->has_sms) ? "Yes" : "No");
 		ast_cli (a->fd, "  RSSI                    : %d\n", pvt->rssi);
@@ -113,7 +121,9 @@ static char* cli_show_device (struct ast_cli_entry* e, int cmd, struct ast_cli_a
 		ast_cli (a->fd, "  Use UCS-2 encoding      : %s\n", pvt->use_ucs2_encoding ? "Yes" : "No");
 		ast_cli (a->fd, "  USSD use 7 bit encoding : %s\n", pvt->cusd_use_7bit_encoding ? "Yes" : "No");
 		ast_cli (a->fd, "  USSD use UCS-2 decoding : %s\n", pvt->cusd_use_ucs2_decoding ? "Yes" : "No");
-		ast_cli (a->fd, "  USSD use UCS-2 decoding : %s\n\n", pvt->cusd_use_ucs2_decoding ? "Yes" : "No");
+		ast_cli (a->fd, "  USSD use UCS-2 decoding : %s\n", pvt->cusd_use_ucs2_decoding ? "Yes" : "No");
+		ast_cli (a->fd, "  Location area code      : %s\n", pvt->location_area_code);
+		ast_cli (a->fd, "  Cell ID                 : %s\n\n", pvt->cell_id);
 		ast_mutex_unlock (&pvt->lock);
 	}
 	else
@@ -208,7 +218,7 @@ static char* cli_ussd (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
 	if (pvt)
 	{
 		ast_mutex_lock (&pvt->lock);
-		if (pvt->connected && pvt->initialized)
+		if (pvt->connected && pvt->initialized && pvt->gsm_registered)
 		{
 			if (at_send_cusd (pvt, a->argv[3]) || at_fifo_queue_add (pvt, CMD_AT_CUSD, RES_OK))
 			{
@@ -217,7 +227,7 @@ static char* cli_ussd (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
 		}
 		else
 		{
-			ast_cli (a->fd, "Device %s not connected / initialized\n", a->argv[2]);
+			ast_cli (a->fd, "Device %s not connected / initialized / registered\n", a->argv[2]);
 		}
 		ast_mutex_unlock (&pvt->lock);
 	}
@@ -262,7 +272,7 @@ static char* cli_sms (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
 	if (pvt)
 	{
 		ast_mutex_lock (&pvt->lock);
-		if (pvt->connected && pvt->initialized)
+		if (pvt->connected && pvt->initialized && pvt->gsm_registered)
 		{
 			if (pvt->has_sms)
 			{
@@ -301,7 +311,7 @@ static char* cli_sms (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
 		}
 		else
 		{
-			ast_cli (a->fd, "Device %s not connected / initialized -- SMS will not be sent\n", pvt->id);
+			ast_cli (a->fd, "Device %s not connected / initialized / registered -- SMS will not be sent\n", pvt->id);
 		}
 		ast_mutex_unlock (&pvt->lock);
 	}

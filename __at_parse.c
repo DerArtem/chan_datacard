@@ -427,7 +427,7 @@ static inline int at_parse_creg (pvt_t* pvt, char* str, size_t len, int* reg, ch
 
 	/*
 	 * parse CREG response in the following format:
-	 * +CREG: <p1>[,<p2>[,<p3>,<p4>]]
+	 * +CREG: [<p1>,]<p2>[,<p3>,<p4>]
 	 */
 
 	for (i = 0, state = 0; i < len && state < 8; i++)

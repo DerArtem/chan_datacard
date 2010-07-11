@@ -8,8 +8,8 @@ static char* cli_show_devices (struct ast_cli_entry* e, int cmd, struct ast_cli_
 {
 	pvt_t* pvt;
 
-#define FORMAT1 "%-12.12s %-5.5s %-10.10s %-5.5s %-3.3s %-4.4s %-4.4s %-7.7s %-14.14s %-10.10s %-17.17s %-17.17s %-14.14s\n"
-#define FORMAT2 "%-12.12s %-5d %-10.10s %-5.5s %-3.3s %-4d %-4d %-7d %-14.14s %-10.10s %-17.17s %-17.17s %-14.14s\n"
+#define FORMAT1 "%-12.12s %-5.5s %-10.10s %-4.4s %-4.4s %-7.7s %-14.14s %-10.10s %-17.17s %-17.17s %-14.14s\n"
+#define FORMAT2 "%-12.12s %-5d %-10.10s %-4d %-4d %-7d %-14.14s %-10.10s %-17.17s %-17.17s %-14.14s\n"
 
 	switch (cmd)
 	{
@@ -28,7 +28,7 @@ static char* cli_show_devices (struct ast_cli_entry* e, int cmd, struct ast_cli_
 		return CLI_SHOWUSAGE;
 	}
 
-	ast_cli (a->fd, FORMAT1, "ID", "Group", "State", "Voice", "SMS", "RSSI", "Mode", "Submode", "Provider Name", "Model", "Firmware", "IMEI", "Number");
+	ast_cli (a->fd, FORMAT1, "ID", "Group", "State", "RSSI", "Mode", "Submode", "Provider Name", "Model", "Firmware", "IMEI", "Number");
 
 	AST_RWLIST_RDLOCK (&devices);
 	AST_RWLIST_TRAVERSE (&devices, pvt, entry)
@@ -44,8 +44,6 @@ static char* cli_show_devices (struct ast_cli_entry* e, int cmd, struct ast_cli_
 			(pvt->outgoing || pvt->incoming) ? "Busy" :
 			(pvt->outgoing_sms || pvt->incoming_sms) ? "SMS" : "Free",
 
-			(pvt->has_voice) ? "Yes" : "No",
-			(pvt->has_sms) ? "Yes" : "No",
 			pvt->rssi,
 			pvt->linkmode,
 			pvt->linksubmode,

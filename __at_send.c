@@ -526,3 +526,14 @@ static inline int at_send_ccwa_disable (pvt_t* pvt)
 {
 	return at_write_full (pvt, "AT+CCWA=0,0,1\r", 14);
 }
+
+/*!
+ * \brief Send the AT+CFUN command (Operation Mode Setting)
+ * \param pvt -- pvt structure
+ */
+
+static inline int at_send_cfun (pvt_t* pvt, int fun, int rst)
+{
+	pvt->d_send_size = snprintf (pvt->d_send_buf, sizeof (pvt->d_send_buf), "AT+CFUN=%d,%d\r", fun, rst);
+	return at_write_full (pvt, pvt->d_send_buf, MIN (pvt->d_send_size, sizeof (pvt->d_send_buf) - 1));
+}

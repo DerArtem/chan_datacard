@@ -51,6 +51,7 @@ typedef enum {
 	CMD_AT_U2DIAG,
 	CMD_AT_Z,
 	CMD_AT_CCWA,
+	CMD_AT_CFUN,
 } at_cmd_t;
 
 typedef enum {
@@ -353,6 +354,7 @@ static inline int		at_send_dtmf		(pvt_t*, char digit);
 static inline int		at_send_sms_text	(pvt_t*, const char* message);
 static inline int		at_send_u2diag		(pvt_t*, int mode);
 static inline int		at_send_ccwa_disable(pvt_t*);
+static inline int		at_send_cfun		(pvt_t*, int, int);
 
 
 static inline int		at_fifo_queue_add	(pvt_t*, at_cmd_t, at_res_t);
@@ -372,6 +374,7 @@ static char*			cli_cmd			(struct ast_cli_entry*, int, struct ast_cli_args*);
 static char*			cli_ussd		(struct ast_cli_entry*, int, struct ast_cli_args*);
 static char*			cli_sms			(struct ast_cli_entry*, int, struct ast_cli_args*);
 static char*			cli_ccwa		(struct ast_cli_entry*, int, struct ast_cli_args*);
+static char*			cli_reset		(struct ast_cli_entry*, int, struct ast_cli_args*);
 
 static struct ast_cli_entry cli[] = {
 	AST_CLI_DEFINE (cli_show_devices,	"Show Datacard devices state"),
@@ -380,6 +383,7 @@ static struct ast_cli_entry cli[] = {
 	AST_CLI_DEFINE (cli_ussd,		"Send USSD commands to the datacard"),
 	AST_CLI_DEFINE (cli_sms,		"Send SMS from the datacard"),
 	AST_CLI_DEFINE (cli_ccwa,		"Disable callwaiting on the datacard"),
+	AST_CLI_DEFINE (cli_reset,		"Reset datacard"),
 };
 
 
@@ -393,6 +397,7 @@ static int			manager_send_sms	(struct mansession*, const struct message*);
 static void			manager_event_new_ussd	(pvt_t*, char*);
 static void			manager_event_new_sms	(pvt_t*, char*, char*);
 static int			manager_ccwa_disable (struct mansession* s, const struct message* m);
+static int			manager_reset (struct mansession* s, const struct message* m);
 
 static char* manager_show_devices_desc =
 	"Description: Lists Datacard devices in text format with details on current status.\n\n"
@@ -420,6 +425,12 @@ static char* manager_ccwa_disable_desc =
 	"Variables: (Names marked with * are required)\n"
 	"	ActionID: <id>		Action ID for this transaction. Will be returned.\n"
 	"	*Device:  <device>	The datacard to which the sms be send.\n";
+
+static char* manager_reset_desc =
+	"Description: Reset a datacard.\n\n"
+	"Variables: (Names marked with * are required)\n"
+	"	ActionID: <id>		Action ID for this transaction. Will be returned.\n"
+	"	*Device:  <device>	The datacard which should be reseted.\n";
 
 #endif /* __MANAGER__ */
 

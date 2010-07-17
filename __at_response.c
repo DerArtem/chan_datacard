@@ -548,6 +548,10 @@ static inline int at_response_ok (pvt_t* pvt)
 			case CMD_AT_CCWA:
 				ast_log (LOG_NOTICE, "Call-Waiting disabled on device %s.\n", pvt->id);
 				break;
+			
+			case CMD_AT_CFUN:
+				ast_debug (1, "[%s] CFUN sent successfully\n", pvt->id);
+				break;
 
 			case CMD_AT_CLVL:
 				if (pvt->volume_synchronized == 0)

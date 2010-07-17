@@ -379,3 +379,54 @@ static char* cli_ccwa (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
 
 	return CLI_SUCCESS;
 }
+
+static char* cli_reset (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
+{
+	pvt_t* pvt = NULL;
+
+	switch (cmd)
+	{
+		case CLI_INIT:
+			e->command = "datacard reset";
+			e->usage =
+				"Usage: datacard reset <device>\n"
+				"       Reset datacard <device>.\n";
+			return NULL;
+
+		case CLI_GENERATE:
+			if (a->pos == 2)
+			{
+				return complete_device (a->line, a->word, a->pos, a->n, 0);
+			}
+			return NULL;
+	}
+
+	if (a->argc < 3)
+	{
+		return CLI_SHOWUSAGE;
+	}
+
+	pvt = find_device (a->argv[2]);
+	if (pvt)
+	{
+		ast_mutex_lock (&pvt->lock);
+		if (pvt->connected)
+		{
+			if (at_send_cfun (pvt,1,1) || at_fifo_queue_add (pvt, CMD_AT_CFUN, RES_OK))
+			{
+				ast_log (LOG_ERROR, "[%s] Error sending reset command\n", pvt->id);
+			}
+		}
+		else
+		{
+			ast_cli (a->fd, "Device %s not connected\n", a->argv[2]);
+		}
+		ast_mutex_unlock (&pvt->lock);
+	}
+	else
+	{
+		ast_cli (a->fd, "Device %s not found\n", a->argv[2]);
+	}
+
+	return CLI_SUCCESS;
+}

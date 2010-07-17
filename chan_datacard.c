@@ -688,6 +688,14 @@ static int load_module ()
 		"Disabled Call-Waiting on a datacard.",
 		manager_ccwa_disable_desc
 	);
+	
+	ast_manager_register2 (
+		"DatacardReset",
+		EVENT_FLAG_SYSTEM | EVENT_FLAG_CONFIG | EVENT_FLAG_REPORTING,
+		manager_reset,
+		"Reset a datacard.",
+		manager_reset_desc
+	);
 #endif
 
 	return AST_MODULE_LOAD_SUCCESS;

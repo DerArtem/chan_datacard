@@ -329,3 +329,54 @@ static int manager_ccwa_disable (struct mansession* s, const struct message* m)
 
 	return 0;
 }
+
+static int manager_reset (struct mansession* s, const struct message* m)
+{
+	const char*	device	= astman_get_header (m, "Device");
+	const char*	id	= astman_get_header (m, "ActionID");
+
+	char		idtext[256] = "";
+	pvt_t*		pvt = NULL;
+	char		buf[256];
+
+	if (ast_strlen_zero (device))
+	{
+		astman_send_error (s, m, "Device not specified");
+		return 0;
+	}
+
+	if (!ast_strlen_zero (id))
+	{
+		snprintf (idtext, sizeof (idtext), "ActionID: %s\r\n", id);
+	}
+
+	pvt = find_device (device);
+	if (pvt)
+	{
+		ast_mutex_lock (&pvt->lock);
+		if (pvt->connected)
+		{
+			if (at_send_cfun (pvt,1,1) || at_fifo_queue_add (pvt, CMD_AT_CFUN, RES_OK))
+			{
+				ast_log (LOG_ERROR, "[%s] Error reseting datacard.\n", pvt->id);
+			}
+			else
+			{
+				astman_send_ack (s, m, "Datacard reseted successful");
+			}
+		}
+		else
+		{
+			snprintf (buf, sizeof (buf), "Device %s not connected", device);
+			astman_send_error (s, m, buf);
+		}
+		ast_mutex_unlock (&pvt->lock);
+	}
+	else
+	{
+		snprintf (buf, sizeof (buf), "Device %s not found.", device);
+		astman_send_error (s, m, buf);
+	}
+
+	return 0;
+}

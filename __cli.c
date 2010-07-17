@@ -96,6 +96,14 @@ static char* cli_show_device (struct ast_cli_entry* e, int cmd, struct ast_cli_a
 		ast_cli (a->fd, "------------------------------------\n");
 		ast_cli (a->fd, "  Device                  : %s\n", pvt->id);
 		ast_cli (a->fd, "  Group                   : %d\n", pvt->group);
+		ast_cli (a->fd, "  GSM Registration Status : %s\n",
+			(pvt->registration_status==0) ? "Not registered, not searching" :
+			(pvt->registration_status==1) ? "Registered, home network" :
+			(pvt->registration_status==2) ? "Not registered, but searching" :
+			(pvt->registration_status==3) ? "Registration denied" :
+			(pvt->registration_status==4) ? "Unknown" :
+			(pvt->registration_status==5) ? "Registered, roaming" : "Unknown"
+		);
 		ast_cli (a->fd, "  State                   : %s\n",
 			(!pvt->connected) ? "Not connected" :
 			(!pvt->initialized) ? "Not initialized" :
@@ -118,7 +126,6 @@ static char* cli_show_device (struct ast_cli_entry* e, int cmd, struct ast_cli_a
 		ast_cli (a->fd, "  Default CallingPres     : %s\n", pvt->callingpres < 0 ? "<Not set>" : ast_describe_caller_presentation (pvt->callingpres));
 		ast_cli (a->fd, "  Use UCS-2 encoding      : %s\n", pvt->use_ucs2_encoding ? "Yes" : "No");
 		ast_cli (a->fd, "  USSD use 7 bit encoding : %s\n", pvt->cusd_use_7bit_encoding ? "Yes" : "No");
-		ast_cli (a->fd, "  USSD use UCS-2 decoding : %s\n", pvt->cusd_use_ucs2_decoding ? "Yes" : "No");
 		ast_cli (a->fd, "  USSD use UCS-2 decoding : %s\n", pvt->cusd_use_ucs2_decoding ? "Yes" : "No");
 		ast_cli (a->fd, "  Location area code      : %s\n", pvt->location_area_code);
 		ast_cli (a->fd, "  Cell ID                 : %s\n\n", pvt->cell_id);

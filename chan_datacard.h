@@ -141,6 +141,7 @@ typedef struct pvt_t
 	int			rssi;
 	int			linkmode;
 	int			linksubmode;
+	int			registration_status;
 	char			provider_name[32];
 	char			manufacturer[32];
 	char			model[32];
@@ -305,7 +306,7 @@ static int			at_parse_cmti		(pvt_t*, char*, size_t);
 
 static inline char*		at_parse_cnum		(pvt_t*, char*, size_t);
 static inline char*		at_parse_cops		(pvt_t*, char*, size_t);
-static inline int		at_parse_creg		(pvt_t*, char*, size_t, int*, char**, char**);
+static inline int		at_parse_creg		(pvt_t*, char*, size_t, int*, char**, char**, int*);
 static inline int		at_parse_cpin		(pvt_t*, char*, size_t);
 static inline int		at_parse_csq		(pvt_t*, char*, size_t, int*);
 static inline int		at_parse_cusd		(pvt_t*, char*, size_t, char**, unsigned char*);

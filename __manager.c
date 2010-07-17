@@ -25,6 +25,14 @@ static int manager_show_devices (struct mansession* s, const struct message* m)
 		astman_append (s, "Event: DatacardDeviceEntry\r\n%s", idtext);
 		astman_append (s, "Device: %s\r\n", pvt->id);
 		astman_append (s, "Group: %d\r\n", pvt->group);
+		astman_append (s, "GSM Registration Status: %s\n",
+			(pvt->registration_status==0) ? "Not registered, not searching" :
+			(pvt->registration_status==1) ? "Registered, home network" :
+			(pvt->registration_status==2) ? "Not registered, but searching" :
+			(pvt->registration_status==3) ? "Registration denied" :
+			(pvt->registration_status==4) ? "Unknown" :
+			(pvt->registration_status==5) ? "Registered, roaming" : "Unknown"
+		);
 		astman_append (s, "State: %s\r\n", 
 			(!pvt->connected) ? "Not connected" :
 			(!pvt->initialized) ? "Not initialized" :

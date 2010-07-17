@@ -1427,6 +1427,7 @@ static inline int at_response_cops (pvt_t* pvt, char* str, size_t len)
 static inline int at_response_creg (pvt_t* pvt, char* str, size_t len)
 {
 	int	reg;
+	int registration_status;
 	char*	lac;
 	char*	ci;
 
@@ -1435,11 +1436,13 @@ static inline int at_response_creg (pvt_t* pvt, char* str, size_t len)
 		ast_log (LOG_ERROR, "[%s] Error sending query for provider name\n", pvt->id);
 	}
 
-	if (at_parse_creg (pvt, str, len, &reg, &lac, &ci))
+	if (at_parse_creg (pvt, str, len, &reg, &lac, &ci, &registration_status))
 	{
 		ast_verb (1, "[%s] Error parsing CREG: '%.*s'\n", pvt->id, (int) len, str);
 		return 0;
 	}
+	
+	pvt->registration_status = registration_status;
 
 	if (reg)
 	{

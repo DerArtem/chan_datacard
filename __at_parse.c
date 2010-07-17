@@ -414,7 +414,7 @@ static inline char* at_parse_cops (pvt_t* pvt, char* str, size_t len)
  * \retval -1 parse error
  */
 
-static inline int at_parse_creg (pvt_t* pvt, char* str, size_t len, int* reg, char** lac, char** ci)
+static inline int at_parse_creg (pvt_t* pvt, char* str, size_t len, int* reg, char** lac, char** ci, int* registration_status)
 {
 	size_t	i;
 	int	state;
@@ -433,7 +433,7 @@ static inline int at_parse_creg (pvt_t* pvt, char* str, size_t len, int* reg, ch
 	 * +CREG: [<p1>,]<p2>[,<p3>,<p4>]
 	 */
 
-	for (i = 0, state = 0; i < len && state < 8; i++)
+	for (i = 0, state = 0; i < len && state < 9; i++)
 	{
 		switch (state)
 		{
@@ -443,13 +443,20 @@ static inline int at_parse_creg (pvt_t* pvt, char* str, size_t len, int* reg, ch
 					state++;
 				}
 				break;
-
+			
 			case 1:
+				if (str[i] == ' ')
+				{
+					state++;
+				}
+				break;
+
+			case 2:
 				p1 = &str[i];
 				state++;
 				/* fall through */
 
-			case 2:
+			case 3:
 				if (str[i] == ',')
 				{
 					str[i] = '\0';
@@ -457,12 +464,12 @@ static inline int at_parse_creg (pvt_t* pvt, char* str, size_t len, int* reg, ch
 				}
 				break;
 
-			case 3:
+			case 4:
 				p2 = &str[i];
 				state++;
 				/* fall through */
 
-			case 4:
+			case 5:
 				if (str[i] == ',')
 				{
 					str[i] = '\0';
@@ -470,12 +477,12 @@ static inline int at_parse_creg (pvt_t* pvt, char* str, size_t len, int* reg, ch
 				}
 				break;
 
-			case 5:
+			case 6:
 				p3 = &str[i];
 				state++;
 				/* fall through */
 
-			case 6:
+			case 7:
 				if (str[i] == ',')
 				{
 					str[i] = '\0';
@@ -483,19 +490,19 @@ static inline int at_parse_creg (pvt_t* pvt, char* str, size_t len, int* reg, ch
 				}
 				break;
 
-			case 7:
+			case 8:
 				p4 = &str[i];
 				state++;
 				break;
 		}
 	}
 
-	if (state < 2)
+	if (state < 3)
 	{
 		return -1;
 	}
 
-	if ((!p3 && !p4) || (p3 && p4))
+	if ((p2 && (!p3 && !p4)) || (p2 && p3 && p4))
 	{
 		p1 = p2;
 	}
@@ -506,6 +513,7 @@ static inline int at_parse_creg (pvt_t* pvt, char* str, size_t len, int* reg, ch
 		gsm_state = (int) strtol (p1, (char**) NULL, 10);
 		if (errno == EINVAL)
 		{
+			ast_log(LOG_ERROR, "Error parsing CREG\n");
 			return -1;
 		}
 
@@ -513,6 +521,8 @@ static inline int at_parse_creg (pvt_t* pvt, char* str, size_t len, int* reg, ch
 		{
 			*reg = 1;
 		}
+		
+		*registration_status = gsm_state;
 	}
 
 	if (p2 && p3 && !p4)

@@ -269,3 +269,54 @@ static void manager_event_new_sms (pvt_t* pvt, char* number, char* message)
 
 	ast_free (buf);
 }
+
+static int manager_ccwa_disable (struct mansession* s, const struct message* m)
+{
+	const char*	device	= astman_get_header (m, "Device");
+	const char*	id	= astman_get_header (m, "ActionID");
+
+	char		idtext[256] = "";
+	pvt_t*		pvt = NULL;
+	char		buf[256];
+
+	if (ast_strlen_zero (device))
+	{
+		astman_send_error (s, m, "Device not specified");
+		return 0;
+	}
+
+	if (!ast_strlen_zero (id))
+	{
+		snprintf (idtext, sizeof (idtext), "ActionID: %s\r\n", id);
+	}
+
+	pvt = find_device (device);
+	if (pvt)
+	{
+		ast_mutex_lock (&pvt->lock);
+		if (pvt->connected && pvt->initialized && pvt->gsm_registered)
+		{
+			if (at_send_ccwa_disable (pvt) || at_fifo_queue_add (pvt, CMD_AT_CCWA, RES_OK))
+			{
+				ast_log (LOG_ERROR, "[%s] Error disableing Call-Waiting\n", pvt->id);
+			}
+			else
+			{
+				astman_send_ack (s, m, "Call-Waiting disabled successful");
+			}
+		}
+		else
+		{
+			snprintf (buf, sizeof (buf), "Device %s not connected / initialized./ registered", device);
+			astman_send_error (s, m, buf);
+		}
+		ast_mutex_unlock (&pvt->lock);
+	}
+	else
+	{
+		snprintf (buf, sizeof (buf), "Device %s not found.", device);
+		astman_send_error (s, m, buf);
+	}
+
+	return 0;
+}

@@ -542,6 +542,10 @@ static inline int at_response_ok (pvt_t* pvt)
 			case CMD_AT_CSQ:
 				ast_debug (1, "[%s] Got signal strength result\n", pvt->id);
 				break;
+			
+			case CMD_AT_CCWA:
+				ast_log (LOG_NOTICE, "Call-Waiting disabled on device %s.\n", pvt->id);
+				break;
 
 			case CMD_AT_CLVL:
 				if (pvt->volume_synchronized == 0)

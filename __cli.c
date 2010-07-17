@@ -320,3 +320,54 @@ static char* cli_sms (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
 
 	return CLI_SUCCESS;
 }
+
+static char* cli_ccwa (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
+{
+	pvt_t* pvt = NULL;
+
+	switch (cmd)
+	{
+		case CLI_INIT:
+			e->command = "datacard ccwa";
+			e->usage =
+				"Usage: datacard ccwa <device>\n"
+				"       Disable callwaiting on <device>.\n";
+			return NULL;
+
+		case CLI_GENERATE:
+			if (a->pos == 2)
+			{
+				return complete_device (a->line, a->word, a->pos, a->n, 0);
+			}
+			return NULL;
+	}
+
+	if (a->argc < 3)
+	{
+		return CLI_SHOWUSAGE;
+	}
+
+	pvt = find_device (a->argv[2]);
+	if (pvt)
+	{
+		ast_mutex_lock (&pvt->lock);
+		if (pvt->connected && pvt->initialized && pvt->gsm_registered)
+		{
+			if (at_send_ccwa_disable (pvt) || at_fifo_queue_add (pvt, CMD_AT_CCWA, RES_OK))
+			{
+				ast_log (LOG_ERROR, "[%s] Error sending CCWA command\n", pvt->id);
+			}
+		}
+		else
+		{
+			ast_cli (a->fd, "Device %s not connected / initialized / registered\n", a->argv[2]);
+		}
+		ast_mutex_unlock (&pvt->lock);
+	}
+	else
+	{
+		ast_cli (a->fd, "Device %s not found\n", a->argv[2]);
+	}
+
+	return CLI_SUCCESS;
+}

@@ -672,6 +672,14 @@ static int load_module ()
 		"Send a sms message.",
 		manager_send_sms_desc
 	);
+	
+	ast_manager_register2 (
+		"DatacardCCWADisable",
+		EVENT_FLAG_SYSTEM | EVENT_FLAG_CONFIG | EVENT_FLAG_REPORTING,
+		manager_ccwa_disable,
+		"Disabled Call-Waiting on a datacard.",
+		manager_ccwa_disable_desc
+	);
 #endif
 
 	return AST_MODULE_LOAD_SUCCESS;

@@ -516,3 +516,13 @@ static inline int at_send_clir (pvt_t* pvt, int mode)
         pvt->d_send_size = snprintf (pvt->d_send_buf, sizeof (pvt->d_send_buf), "AT+CLIR=%d\r", mode);
         return at_write_full (pvt, pvt->d_send_buf, MIN (pvt->d_send_size, sizeof (pvt->d_send_buf) - 1));
 }
+
+/*!
+ * \brief Send the AT+CCWA command (disable)
+ * \param pvt -- pvt structure
+ */
+
+static inline int at_send_ccwa_disable (pvt_t* pvt)
+{
+	return at_write_full (pvt, "AT+CCWA=0,0,1\r", 14);
+}

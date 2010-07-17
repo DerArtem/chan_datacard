@@ -416,6 +416,7 @@ static pvt_t* load_device (struct ast_config* cfg, const char* cat)
 	pvt->reset_datacard		=  1;
 	pvt->u2diag			= -1;
 	pvt->callingpres		= -1;
+	pvt->fake_ringing		= 0;
 
 
 	/* setup the dsp */
@@ -483,6 +484,10 @@ static pvt_t* load_device (struct ast_config* cfg, const char* cat)
 					pvt->callingpres = -1;
 				}
 			}
+		}
+		else if (!strcasecmp (v->name, "fakeringing"))
+		{
+			pvt->fake_ringing = ast_true (v->value);				/* fake_ringing is set to 0 if invalid */
 		}
 	}
 

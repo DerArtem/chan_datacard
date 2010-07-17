@@ -179,6 +179,7 @@ typedef struct pvt_t
 	unsigned int		auto_delete_sms:1;
 	unsigned int		reset_datacard:1;
 	unsigned int		usecallingpres:1;
+	unsigned int		fake_ringing:1;
 }
 pvt_t;
 
@@ -275,6 +276,7 @@ static inline int		at_response_cgmi	(pvt_t*, char*, size_t);
 static inline int		at_response_cgmm	(pvt_t*, char*, size_t);
 static inline int		at_response_cgmr	(pvt_t*, char*, size_t);
 static inline int		at_response_cgsn	(pvt_t*, char*, size_t);
+static inline int		at_response_cssi	(pvt_t*, char*, size_t);
 static inline int		at_response_clip	(pvt_t*, char*, size_t);
 static inline int		at_response_cmgr	(pvt_t*, char*, size_t);
 static inline int		at_response_cmti	(pvt_t*, char*, size_t);

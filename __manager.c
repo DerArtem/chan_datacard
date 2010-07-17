@@ -25,7 +25,7 @@ static int manager_show_devices (struct mansession* s, const struct message* m)
 		astman_append (s, "Event: DatacardDeviceEntry\r\n%s", idtext);
 		astman_append (s, "Device: %s\r\n", pvt->id);
 		astman_append (s, "Group: %d\r\n", pvt->group);
-		astman_append (s, "GSM Registration Status: %s\n",
+		astman_append (s, "GSM Registration Status: %s\r\n",
 			(pvt->registration_status==0) ? "Not registered, not searching" :
 			(pvt->registration_status==1) ? "Registered, home network" :
 			(pvt->registration_status==2) ? "Not registered, but searching" :
@@ -51,6 +51,7 @@ static int manager_show_devices (struct mansession* s, const struct message* m)
 		astman_append (s, "Firmware: %s\r\n", pvt->firmware);
 		astman_append (s, "IMEI: %s\r\n", pvt->imei);
 		astman_append (s, "Number: %s\r\n", pvt->number);
+		astman_append (s, "Fake ringing: %s\r\n", pvt->fake_ringing ? "Yes" : "No");
 		astman_append (s, "\r\n");
 		ast_mutex_unlock (&pvt->lock);
 		count++;

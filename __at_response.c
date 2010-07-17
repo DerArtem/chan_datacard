@@ -44,10 +44,12 @@ static inline int at_response (pvt_t* pvt, int iovcnt, at_res_t at_res)
 		{
 			case RES_BOOT:
 			case RES_CONF:
-			case RES_CSSI:
 			case RES_CSSU:
 			case RES_SRVST:
 				return 0;
+			
+			case RES_CSSI:
+				return at_response_cssi (pvt, str, len);
 
 			case RES_OK:
 				return at_response_ok (pvt);
@@ -1532,6 +1534,23 @@ static inline int at_response_cgmr (pvt_t* pvt, char* str, size_t len)
 static inline int at_response_cgsn (pvt_t* pvt, char* str, size_t len)
 {
 	ast_copy_string (pvt->imei, str, sizeof (pvt->imei));
+
+	return 0;
+}
+
+/*!
+ * \brief Handle +CSSI AT messages.
+ * \param pvt a dc_pvt structure
+ * \param buf a null terminated buffer containing an AT message
+ * \retval 0 success
+ * \retval -1 error
+ */
+static int at_response_cssi(struct pvt_t *pvt, char* str, size_t len)
+{
+	if (pvt->outgoing && pvt->fake_ringing) {
+		ast_debug(1, "[%s] remote alerting\n", pvt->id);
+		channel_queue_control(pvt, AST_CONTROL_RINGING);
+	}
 
 	return 0;
 }

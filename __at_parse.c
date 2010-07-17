@@ -478,6 +478,7 @@ static inline int at_parse_creg (pvt_t* pvt, char* str, size_t len, int* reg, ch
 				break;
 
 			case 6:
+				if (str[i] == ' ') i++;
 				p3 = &str[i];
 				state++;
 				/* fall through */
@@ -491,6 +492,7 @@ static inline int at_parse_creg (pvt_t* pvt, char* str, size_t len, int* reg, ch
 				break;
 
 			case 8:
+				if (str[i] == ' ') i++;
 				p4 = &str[i];
 				state++;
 				break;

@@ -111,7 +111,7 @@ static const char* at_cmd2str (at_cmd_t cmd)
 			return "ATZ";
 		
 		case CMD_AT_CCWA:
-			return "CCWA";
+			return "AT+CCWA";
 		
 		case CMD_AT_CFUN:
 			return "AT+CFUN";

@@ -449,8 +449,11 @@ static inline int at_parse_creg (pvt_t* pvt, char* str, size_t len, int* gsm_reg
 				break;
 
 			case 1:
-				p1 = &str[i];
-				state++;
+				if (str[i] != ' ')
+				{
+					p1 = &str[i];
+					state++;
+				}
 				/* fall through */
 
 			case 2:

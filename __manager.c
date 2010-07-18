@@ -50,6 +50,13 @@ static int manager_show_devices (struct mansession* s, const struct message* m)
 		astman_append (s, "Firmware: %s\r\n", pvt->firmware);
 		astman_append (s, "IMEI: %s\r\n", pvt->imei);
 		astman_append (s, "Number: %s\r\n", pvt->number);
+		astman_append (s, "Use CallingPres: %s\r\n", pvt->usecallingpres ? "Yes" : "No");
+		astman_append (s, "Default CallingPres: %s\r\n", pvt->callingpres < 0 ? "<Not set>" : ast_describe_caller_presentation (pvt->callingpres));
+		astman_append (s, "Use UCS-2 encoding: %s\r\n", pvt->use_ucs2_encoding ? "Yes" : "No");
+		astman_append (s, "USSD use 7 bit encoding: %s\r\n", pvt->cusd_use_7bit_encoding ? "Yes" : "No");
+		astman_append (s, "USSD use UCS-2 decoding: %s\r\n", pvt->cusd_use_ucs2_decoding ? "Yes" : "No");
+		astman_append (s, "Location area code: %s\r\n", pvt->location_area_code);
+		astman_append (s, "Cell ID: %s\r\n", pvt->cell_id);
 		astman_append (s, "\r\n");
 		ast_mutex_unlock (&pvt->lock);
 		count++;

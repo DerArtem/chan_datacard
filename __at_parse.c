@@ -503,7 +503,7 @@ static inline int at_parse_creg (pvt_t* pvt, char* str, size_t len, int* gsm_reg
 		}
 	}
 
-	if (state < 3)
+	if (state < 2)
 	{
 		return -1;
 	}

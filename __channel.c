@@ -1,7 +1,10 @@
-/*
-   Copyright (C) 2009 - 2010 Artem Makhutov
+/* 
+   Copyright (C) 2009 - 2010
+   
    Artem Makhutov <artem@makhutov.org>
    http://www.makhutov.org
+   
+   Dmitry Vagin <dmitry2004@yandex.ru>
 */
 
 static struct ast_channel* channel_new (pvt_t* pvt, int state, char* cid_num)

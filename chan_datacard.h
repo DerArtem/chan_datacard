@@ -1,9 +1,11 @@
-/*
-   Copyright (C) 2009 - 2010 Artem Makhutov
+/* 
+   Copyright (C) 2009 - 2010
+   
    Artem Makhutov <artem@makhutov.org>
    http://www.makhutov.org
+   
+   Dmitry Vagin <dmitry2004@yandex.ru>
 */
-
 #ifndef MIN
 #define MIN(a,b) (((a) < (b)) ? (a) : (b))
 #endif

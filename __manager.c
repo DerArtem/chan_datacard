@@ -1,7 +1,10 @@
-/*
-   Copyright (C) 2009 - 2010 Artem Makhutov
+/* 
+   Copyright (C) 2009 - 2010
+   
    Artem Makhutov <artem@makhutov.org>
    http://www.makhutov.org
+   
+   Dmitry Vagin <dmitry2004@yandex.ru>
 */
 
 static int manager_show_devices (struct mansession* s, const struct message* m)

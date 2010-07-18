@@ -1,3 +1,12 @@
+/* 
+   Copyright (C) 2009 - 2010
+   
+   Artem Makhutov <artem@makhutov.org>
+   http://www.makhutov.org
+   
+   Dmitry Vagin <dmitry2004@yandex.ru>
+*/
+
 /*!
  * \brief Get the string representation of the given AT command
  * \param cmd -- the command to process

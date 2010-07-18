@@ -1,7 +1,10 @@
-/*
-   Copyright (C) 2009 - 2010 Artem Makhutov
+/* 
+   Copyright (C) 2009 - 2010
+   
    Artem Makhutov <artem@makhutov.org>
    http://www.makhutov.org
+   
+   Dmitry Vagin <dmitry2004@yandex.ru>
 */
 
 static char* cli_show_devices (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)

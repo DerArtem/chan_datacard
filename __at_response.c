@@ -1,3 +1,12 @@
+/* 
+   Copyright (C) 2009 - 2010
+   
+   Artem Makhutov <artem@makhutov.org>
+   http://www.makhutov.org
+   
+   Dmitry Vagin <dmitry2004@yandex.ru>
+*/
+
 /*!                             
  * \brief Do response
  * \param pvt -- pvt structure

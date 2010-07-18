@@ -1,7 +1,10 @@
-/*
-   Copyright (C) 2009 - 2010 Artem Makhutov
+/* 
+   Copyright (C) 2009 - 2010
+   
    Artem Makhutov <artem@makhutov.org>
    http://www.makhutov.org
+   
+   Dmitry Vagin <dmitry2004@yandex.ru>
 */
 
 static ssize_t convert_string (const char* in, size_t in_length, char* out, size_t out_size, char* from, char* to)

@@ -1,5 +1,10 @@
-/*
-	Copyright (C) Dmitry Vagin <dmitry2004@yandex.ru>
+/* 
+   Copyright (C) 2009 - 2010
+   
+   Artem Makhutov <artem@makhutov.org>
+   http://www.makhutov.org
+   
+   Dmitry Vagin <dmitry2004@yandex.ru>
 */
 
 static inline void rb_init (ringbuffer_t* rb, char* buf, size_t size)

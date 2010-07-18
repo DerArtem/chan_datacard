@@ -1,20 +1,14 @@
 /*
- * Asterisk -- An open source telephony toolkit.
+ * chan_datacard
  *
- * Copyright (C) 1999 - 2006, Digium, Inc.
- * Copyright (C) 2009 Artem Makhutov
- *
+ * Copyright (C) 2009 - 2010
  * Artem Makhutov <artem@makhutov.org>
+ * http://www.makhutov.org
+ * 
+ * Dmitry Vagin <dmitry2004@yandex.ru>
  *
  * chan_datacard is based on chan_mobile by Digium
- *
- * Mark Spencer <markster@digium.com>
- *
- * See http://www.asterisk.org for more information about
- * the Asterisk project. Please do not directly contact
- * any of the maintainers of this project for assistance;
- * the project provides a web site, mailing lists and IRC
- * channels for your use.
+ * (Mark Spencer <markster@digium.com>)
  *
  * This program is free software, distributed under the terms of
  * the GNU General Public License Version 2. See the LICENSE file

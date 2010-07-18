@@ -409,7 +409,8 @@ static inline char* at_parse_cops (pvt_t* pvt, char* str, size_t len)
  * \param pvt -- pvt structure
  * \param str -- string to parse (null terminated)
  * \param len -- string lenght
- * \param reg -- a pointer to a int
+ * \param gsm_reg -- a pointer to a int
+ * \param gsm_reg_status -- a pointer to a int
  * \param lac -- a pointer to a char pointer which will store the location area code in hex format
  * \param ci  -- a pointer to a char pointer which will store the cell id in hex format
  * @note str will be modified when the CREG message is parsed
@@ -417,17 +418,17 @@ static inline char* at_parse_cops (pvt_t* pvt, char* str, size_t len)
  * \retval -1 parse error
  */
 
-static inline int at_parse_creg (pvt_t* pvt, char* str, size_t len, int* reg, char** lac, char** ci, int* registration_status)
+static inline int at_parse_creg (pvt_t* pvt, char* str, size_t len, int* gsm_reg, int* gsm_reg_status, char** lac, char** ci)
 {
 	size_t	i;
 	int	state;
-	int	gsm_state = 0;
 	char*	p1 = NULL;
 	char*	p2 = NULL;
 	char*	p3 = NULL;
 	char*	p4 = NULL;
 
-	*reg = 0;
+	*gsm_reg = 0;
+	*gsm_reg_status = -1;
 	*lac = NULL;
 	*ci  = NULL;
 
@@ -436,7 +437,7 @@ static inline int at_parse_creg (pvt_t* pvt, char* str, size_t len, int* reg, ch
 	 * +CREG: [<p1>,]<p2>[,<p3>,<p4>]
 	 */
 
-	for (i = 0, state = 0; i < len && state < 9; i++)
+	for (i = 0, state = 0; i < len && state < 8; i++)
 	{
 		switch (state)
 		{
@@ -446,20 +447,13 @@ static inline int at_parse_creg (pvt_t* pvt, char* str, size_t len, int* reg, ch
 					state++;
 				}
 				break;
-			
-			case 1:
-				if (str[i] == ' ')
-				{
-					state++;
-				}
-				break;
 
-			case 2:
+			case 1:
 				p1 = &str[i];
 				state++;
 				/* fall through */
 
-			case 3:
+			case 2:
 				if (str[i] == ',')
 				{
 					str[i] = '\0';
@@ -467,12 +461,12 @@ static inline int at_parse_creg (pvt_t* pvt, char* str, size_t len, int* reg, ch
 				}
 				break;
 
-			case 4:
+			case 3:
 				p2 = &str[i];
 				state++;
 				/* fall through */
 
-			case 5:
+			case 4:
 				if (str[i] == ',')
 				{
 					str[i] = '\0';
@@ -480,13 +474,15 @@ static inline int at_parse_creg (pvt_t* pvt, char* str, size_t len, int* reg, ch
 				}
 				break;
 
-			case 6:
-				if (str[i] == ' ') i++;
-				p3 = &str[i];
-				state++;
+			case 5:
+				if (str[i] != ' ')
+				{
+					p3 = &str[i];
+					state++;
+				}
 				/* fall through */
 
-			case 7:
+			case 6:
 				if (str[i] == ',')
 				{
 					str[i] = '\0';
@@ -494,10 +490,12 @@ static inline int at_parse_creg (pvt_t* pvt, char* str, size_t len, int* reg, ch
 				}
 				break;
 
-			case 8:
-				if (str[i] == ' ') i++;
-				p4 = &str[i];
-				state++;
+			case 7:
+				if (str[i] != ' ')
+				{
+					p4 = &str[i];
+					state++;
+				}
 				break;
 		}
 	}
@@ -507,7 +505,7 @@ static inline int at_parse_creg (pvt_t* pvt, char* str, size_t len, int* reg, ch
 		return -1;
 	}
 
-	if ((p2 && (!p3 && !p4)) || (p2 && p3 && p4))
+	if ((p2 && !p3 && !p4) || (p2 && p3 && p4))
 	{
 		p1 = p2;
 	}
@@ -515,19 +513,17 @@ static inline int at_parse_creg (pvt_t* pvt, char* str, size_t len, int* reg, ch
 	if (p1)
 	{
 		errno = 0;
-		gsm_state = (int) strtol (p1, (char**) NULL, 10);
-		if (errno == EINVAL)
+		*gsm_reg_status = (int) strtol (p1, (char**) NULL, 10);
+		if (*gsm_reg_status == 0 && errno == EINVAL)
 		{
-			ast_log(LOG_ERROR, "Error parsing CREG\n");
+			*gsm_reg_status = -1;
 			return -1;
 		}
 
-		if (gsm_state == 1 || gsm_state == 5)
+		if (*gsm_reg_status == 1 || *gsm_reg_status == 5)
 		{
-			*reg = 1;
+			*gsm_reg = 1;
 		}
-		
-		*registration_status = gsm_state;
 	}
 
 	if (p2 && p3 && !p4)

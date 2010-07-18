@@ -8,13 +8,15 @@
 #include <sys/uio.h>
 #include <string.h>
 
-typedef struct ringbuffer_t {
+typedef struct ringbuffer_t
+{
 	void*	buffer;
 	size_t	size;
 	size_t	used;
 	size_t	read;
 	size_t	write;
-} ringbuffer_t;
+}
+ringbuffer_t;
 
 static inline void	rb_init			(ringbuffer_t*, char*, size_t);
 

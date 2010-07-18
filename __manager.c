@@ -26,12 +26,11 @@ static int manager_show_devices (struct mansession* s, const struct message* m)
 		astman_append (s, "Device: %s\r\n", pvt->id);
 		astman_append (s, "Group: %d\r\n", pvt->group);
 		astman_append (s, "GSM Registration Status: %s\r\n",
-			(pvt->registration_status==0) ? "Not registered, not searching" :
-			(pvt->registration_status==1) ? "Registered, home network" :
-			(pvt->registration_status==2) ? "Not registered, but searching" :
-			(pvt->registration_status==3) ? "Registration denied" :
-			(pvt->registration_status==4) ? "Unknown" :
-			(pvt->registration_status==5) ? "Registered, roaming" : "Unknown"
+			(pvt->gsm_reg_status == 0) ? "Not registered, not searching" :
+			(pvt->gsm_reg_status == 1) ? "Registered, home network" :
+			(pvt->gsm_reg_status == 2) ? "Not registered, but searching" :
+			(pvt->gsm_reg_status == 3) ? "Registration denied" :
+			(pvt->gsm_reg_status == 5) ? "Registered, roaming" : "Unknown"
 		);
 		astman_append (s, "State: %s\r\n", 
 			(!pvt->connected) ? "Not connected" :
@@ -51,7 +50,6 @@ static int manager_show_devices (struct mansession* s, const struct message* m)
 		astman_append (s, "Firmware: %s\r\n", pvt->firmware);
 		astman_append (s, "IMEI: %s\r\n", pvt->imei);
 		astman_append (s, "Number: %s\r\n", pvt->number);
-		astman_append (s, "Fake ringing: %s\r\n", pvt->fake_ringing ? "Yes" : "No");
 		astman_append (s, "\r\n");
 		ast_mutex_unlock (&pvt->lock);
 		count++;
@@ -307,7 +305,8 @@ static int manager_ccwa_disable (struct mansession* s, const struct message* m)
 		{
 			if (at_send_ccwa_disable (pvt) || at_fifo_queue_add (pvt, CMD_AT_CCWA, RES_OK))
 			{
-				ast_log (LOG_ERROR, "[%s] Error disableing Call-Waiting\n", pvt->id);
+				ast_log (LOG_ERROR, "[%s] Error sending CCWA command\n", pvt->id);
+				astman_send_error (s, m, "Call-Waiting disable failed");
 			}
 			else
 			{
@@ -356,9 +355,10 @@ static int manager_reset (struct mansession* s, const struct message* m)
 		ast_mutex_lock (&pvt->lock);
 		if (pvt->connected)
 		{
-			if (at_send_cfun (pvt,1,1) || at_fifo_queue_add (pvt, CMD_AT_CFUN, RES_OK))
+			if (at_send_cfun (pvt, 1, 1) || at_fifo_queue_add (pvt, CMD_AT_CFUN, RES_OK))
 			{
-				ast_log (LOG_ERROR, "[%s] Error reseting datacard.\n", pvt->id);
+				ast_log (LOG_ERROR, "[%s] Error sending reset command\n", pvt->id);
+				astman_send_error (s, m, "Datacard reset failed");
 			}
 			else
 			{
@@ -374,7 +374,7 @@ static int manager_reset (struct mansession* s, const struct message* m)
 	}
 	else
 	{
-		snprintf (buf, sizeof (buf), "Device %s not found.", device);
+		snprintf (buf, sizeof (buf), "Device %s not found", device);
 		astman_send_error (s, m, buf);
 	}
 

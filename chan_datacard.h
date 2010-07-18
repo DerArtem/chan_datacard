@@ -18,6 +18,8 @@ typedef enum {
 
 	CMD_AT,
 	CMD_AT_A,
+	CMD_AT_CCWA,
+	CMD_AT_CFUN,
 	CMD_AT_CGMI,
 	CMD_AT_CGMM,
 	CMD_AT_CGMR,
@@ -50,8 +52,6 @@ typedef enum {
 	CMD_AT_SMS_TEXT,
 	CMD_AT_U2DIAG,
 	CMD_AT_Z,
-	CMD_AT_CCWA,
-	CMD_AT_CFUN,
 } at_cmd_t;
 
 typedef enum {
@@ -139,10 +139,10 @@ typedef struct pvt_t
 	unsigned int		use_ucs2_encoding:1;
 	unsigned int		cusd_use_7bit_encoding:1;
 	unsigned int		cusd_use_ucs2_decoding:1;
+	int			gsm_reg_status;
 	int			rssi;
 	int			linkmode;
 	int			linksubmode;
-	int			registration_status;
 	char			provider_name[32];
 	char			manufacturer[32];
 	char			model[32];
@@ -180,7 +180,6 @@ typedef struct pvt_t
 	unsigned int		auto_delete_sms:1;
 	unsigned int		reset_datacard:1;
 	unsigned int		usecallingpres:1;
-	unsigned int		fake_ringing:1;
 }
 pvt_t;
 
@@ -309,7 +308,7 @@ static int			at_parse_cmti		(pvt_t*, char*, size_t);
 
 static inline char*		at_parse_cnum		(pvt_t*, char*, size_t);
 static inline char*		at_parse_cops		(pvt_t*, char*, size_t);
-static inline int		at_parse_creg		(pvt_t*, char*, size_t, int*, char**, char**, int*);
+static inline int		at_parse_creg		(pvt_t*, char*, size_t, int*, int*, char**, char**);
 static inline int		at_parse_cpin		(pvt_t*, char*, size_t);
 static inline int		at_parse_csq		(pvt_t*, char*, size_t, int*);
 static inline int		at_parse_cusd		(pvt_t*, char*, size_t, char**, unsigned char*);
@@ -353,7 +352,7 @@ static inline int		at_send_ddsetex		(pvt_t*);
 static inline int		at_send_dtmf		(pvt_t*, char digit);
 static inline int		at_send_sms_text	(pvt_t*, const char* message);
 static inline int		at_send_u2diag		(pvt_t*, int mode);
-static inline int		at_send_ccwa_disable(pvt_t*);
+static inline int		at_send_ccwa_disable	(pvt_t*);
 static inline int		at_send_cfun		(pvt_t*, int, int);
 
 
@@ -373,7 +372,7 @@ static char*			cli_show_device		(struct ast_cli_entry*, int, struct ast_cli_args
 static char*			cli_cmd			(struct ast_cli_entry*, int, struct ast_cli_args*);
 static char*			cli_ussd		(struct ast_cli_entry*, int, struct ast_cli_args*);
 static char*			cli_sms			(struct ast_cli_entry*, int, struct ast_cli_args*);
-static char*			cli_ccwa		(struct ast_cli_entry*, int, struct ast_cli_args*);
+static char*			cli_ccwa_disable	(struct ast_cli_entry*, int, struct ast_cli_args*);
 static char*			cli_reset		(struct ast_cli_entry*, int, struct ast_cli_args*);
 
 static struct ast_cli_entry cli[] = {
@@ -382,7 +381,7 @@ static struct ast_cli_entry cli[] = {
 	AST_CLI_DEFINE (cli_cmd,		"Send commands to port for debugging"),
 	AST_CLI_DEFINE (cli_ussd,		"Send USSD commands to the datacard"),
 	AST_CLI_DEFINE (cli_sms,		"Send SMS from the datacard"),
-	AST_CLI_DEFINE (cli_ccwa,		"Disable callwaiting on the datacard"),
+	AST_CLI_DEFINE (cli_ccwa_disable,	"Disable Call-Waiting on the datacard"),
 	AST_CLI_DEFINE (cli_reset,		"Reset datacard"),
 };
 

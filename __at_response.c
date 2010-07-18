@@ -44,12 +44,10 @@ static inline int at_response (pvt_t* pvt, int iovcnt, at_res_t at_res)
 		{
 			case RES_BOOT:
 			case RES_CONF:
+			case RES_CSSI:
 			case RES_CSSU:
 			case RES_SRVST:
 				return 0;
-			
-			case RES_CSSI:
-				return at_response_cssi (pvt, str, len);
 
 			case RES_OK:
 				return at_response_ok (pvt);
@@ -1432,8 +1430,7 @@ static inline int at_response_cops (pvt_t* pvt, char* str, size_t len)
 
 static inline int at_response_creg (pvt_t* pvt, char* str, size_t len)
 {
-	int	reg;
-	int registration_status;
+	int	d;
 	char*	lac;
 	char*	ci;
 
@@ -1442,15 +1439,13 @@ static inline int at_response_creg (pvt_t* pvt, char* str, size_t len)
 		ast_log (LOG_ERROR, "[%s] Error sending query for provider name\n", pvt->id);
 	}
 
-	if (at_parse_creg (pvt, str, len, &reg, &lac, &ci, &registration_status))
+	if (at_parse_creg (pvt, str, len, &d, &pvt->gsm_reg_status, &lac, &ci))
 	{
 		ast_verb (1, "[%s] Error parsing CREG: '%.*s'\n", pvt->id, (int) len, str);
 		return 0;
 	}
-	
-	pvt->registration_status = registration_status;
 
-	if (reg)
+	if (d)
 	{
 		pvt->gsm_registered = 1;
 	}
@@ -1538,23 +1533,6 @@ static inline int at_response_cgmr (pvt_t* pvt, char* str, size_t len)
 static inline int at_response_cgsn (pvt_t* pvt, char* str, size_t len)
 {
 	ast_copy_string (pvt->imei, str, sizeof (pvt->imei));
-
-	return 0;
-}
-
-/*!
- * \brief Handle +CSSI AT messages.
- * \param pvt a dc_pvt structure
- * \param buf a null terminated buffer containing an AT message
- * \retval 0 success
- * \retval -1 error
- */
-static int at_response_cssi(struct pvt_t *pvt, char* str, size_t len)
-{
-	if (pvt->outgoing && pvt->fake_ringing) {
-		ast_debug(1, "[%s] remote alerting\n", pvt->id);
-		channel_queue_control(pvt, AST_CONTROL_RINGING);
-	}
 
 	return 0;
 }

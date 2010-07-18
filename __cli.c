@@ -97,12 +97,11 @@ static char* cli_show_device (struct ast_cli_entry* e, int cmd, struct ast_cli_a
 		ast_cli (a->fd, "  Device                  : %s\n", pvt->id);
 		ast_cli (a->fd, "  Group                   : %d\n", pvt->group);
 		ast_cli (a->fd, "  GSM Registration Status : %s\n",
-			(pvt->registration_status==0) ? "Not registered, not searching" :
-			(pvt->registration_status==1) ? "Registered, home network" :
-			(pvt->registration_status==2) ? "Not registered, but searching" :
-			(pvt->registration_status==3) ? "Registration denied" :
-			(pvt->registration_status==4) ? "Unknown" :
-			(pvt->registration_status==5) ? "Registered, roaming" : "Unknown"
+			(pvt->gsm_reg_status == 0) ? "Not registered, not searching" :
+			(pvt->gsm_reg_status == 1) ? "Registered, home network" :
+			(pvt->gsm_reg_status == 2) ? "Not registered, but searching" :
+			(pvt->gsm_reg_status == 3) ? "Registration denied" :
+			(pvt->gsm_reg_status == 5) ? "Registered, roaming" : "Unknown"
 		);
 		ast_cli (a->fd, "  State                   : %s\n",
 			(!pvt->connected) ? "Not connected" :
@@ -127,7 +126,6 @@ static char* cli_show_device (struct ast_cli_entry* e, int cmd, struct ast_cli_a
 		ast_cli (a->fd, "  Use UCS-2 encoding      : %s\n", pvt->use_ucs2_encoding ? "Yes" : "No");
 		ast_cli (a->fd, "  USSD use 7 bit encoding : %s\n", pvt->cusd_use_7bit_encoding ? "Yes" : "No");
 		ast_cli (a->fd, "  USSD use UCS-2 decoding : %s\n", pvt->cusd_use_ucs2_decoding ? "Yes" : "No");
-		ast_cli (a->fd, "  Fake ringing            : %s\n", pvt->fake_ringing ? "Yes" : "No");
 		ast_cli (a->fd, "  Location area code      : %s\n", pvt->location_area_code);
 		ast_cli (a->fd, "  Cell ID                 : %s\n\n", pvt->cell_id);
 		ast_mutex_unlock (&pvt->lock);
@@ -329,33 +327,33 @@ static char* cli_sms (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
 	return CLI_SUCCESS;
 }
 
-static char* cli_ccwa (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
+static char* cli_ccwa_disable (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
 {
 	pvt_t* pvt = NULL;
 
 	switch (cmd)
 	{
 		case CLI_INIT:
-			e->command = "datacard ccwa";
+			e->command = "datacard ccwa disable";
 			e->usage =
-				"Usage: datacard ccwa <device>\n"
-				"       Disable callwaiting on <device>.\n";
+				"Usage: datacard ccwa disable <device>\n"
+				"       Disable Call-Waiting on <device>\n";
 			return NULL;
 
 		case CLI_GENERATE:
-			if (a->pos == 2)
+			if (a->pos == 3)
 			{
 				return complete_device (a->line, a->word, a->pos, a->n, 0);
 			}
 			return NULL;
 	}
 
-	if (a->argc < 3)
+	if (a->argc < 4)
 	{
 		return CLI_SHOWUSAGE;
 	}
 
-	pvt = find_device (a->argv[2]);
+	pvt = find_device (a->argv[3]);
 	if (pvt)
 	{
 		ast_mutex_lock (&pvt->lock);
@@ -390,7 +388,7 @@ static char* cli_reset (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a
 			e->command = "datacard reset";
 			e->usage =
 				"Usage: datacard reset <device>\n"
-				"       Reset datacard <device>.\n";
+				"       Reset datacard <device>\n";
 			return NULL;
 
 		case CLI_GENERATE:
@@ -412,7 +410,7 @@ static char* cli_reset (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a
 		ast_mutex_lock (&pvt->lock);
 		if (pvt->connected)
 		{
-			if (at_send_cfun (pvt,1,1) || at_fifo_queue_add (pvt, CMD_AT_CFUN, RES_OK))
+			if (at_send_cfun (pvt, 1, 1) || at_fifo_queue_add (pvt, CMD_AT_CFUN, RES_OK))
 			{
 				ast_log (LOG_ERROR, "[%s] Error sending reset command\n", pvt->id);
 			}

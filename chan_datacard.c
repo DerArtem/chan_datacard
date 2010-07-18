@@ -264,18 +264,19 @@ static int disconnect_datacard (pvt_t* pvt)
 
 	pvt->connected		= 0;
 	pvt->initialized	= 0;
+	pvt->gsm_registered	= 0;
 
 	pvt->incoming		= 0;
 	pvt->outgoing		= 0;
 	pvt->needring		= 0;
 	pvt->needchup		= 0;
+	
+	pvt->gsm_reg_status	= -1;
 
 	pvt->manufacturer[0]	= '\0';
 	pvt->model[0]		= '\0';
 	pvt->firmware[0]	= '\0';
 	pvt->imei[0]		= '\0';
-	
-	pvt->registration_status = -1;
 
 	ast_copy_string (pvt->provider_name,	"NONE",		sizeof (pvt->provider_name));
 	ast_copy_string (pvt->number,		"Unknown",	sizeof (pvt->number));
@@ -407,7 +408,7 @@ static pvt_t* load_device (struct ast_config* cfg, const char* cat)
 	pvt->data_fd			= -1;
 	pvt->timeout			= 10000;
 	pvt->cusd_use_ucs2_decoding	=  1;
-	pvt->registration_status = -1;
+	pvt->gsm_reg_status		= -1;
 
 	ast_copy_string (pvt->provider_name,	"NONE",		sizeof (pvt->provider_name));
 	ast_copy_string (pvt->number,		"Unknown",	sizeof (pvt->number));
@@ -416,7 +417,6 @@ static pvt_t* load_device (struct ast_config* cfg, const char* cat)
 	pvt->reset_datacard		=  1;
 	pvt->u2diag			= -1;
 	pvt->callingpres		= -1;
-	pvt->fake_ringing		= 0;
 
 
 	/* setup the dsp */
@@ -484,10 +484,6 @@ static pvt_t* load_device (struct ast_config* cfg, const char* cat)
 					pvt->callingpres = -1;
 				}
 			}
-		}
-		else if (!strcasecmp (v->name, "fakeringing"))
-		{
-			pvt->fake_ringing = ast_true (v->value);				/* fake_ringing is set to 0 if invalid */
 		}
 	}
 

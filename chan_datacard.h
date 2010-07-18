@@ -6,6 +6,7 @@
    
    Dmitry Vagin <dmitry2004@yandex.ru>
 */
+
 #ifndef MIN
 #define MIN(a,b) (((a) < (b)) ? (a) : (b))
 #endif

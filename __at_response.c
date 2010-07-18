@@ -1093,6 +1093,14 @@ static inline int at_response_cmgr (pvt_t* pvt, char* str, size_t len)
 
 	if ((e = at_fifo_queue_head (pvt)) && e->res == RES_CMGR)
 	{
+		if (pvt->auto_delete_sms && e->ptype == 1)
+		{
+			if (at_send_cmgd (pvt, e->param.num) || at_fifo_queue_add (pvt, CMD_AT_CMGD, RES_OK))
+			{
+				ast_log (LOG_ERROR, "[%s] Error sending CMGD to delete SMS message\n", pvt->id);
+			}
+		}
+
 		at_fifo_queue_rem (pvt);
 
 		if (at_parse_cmgr (pvt, str, len, &from_number, &text))
@@ -1150,15 +1158,6 @@ static inline int at_response_cmgr (pvt_t* pvt, char* str, size_t len)
 			}
 		}
 #endif
-
-		if (pvt->auto_delete_sms && e->ptype == 1)
-		{
-			if (at_send_cmgd (pvt, e->param.num) || at_fifo_queue_add (pvt, CMD_AT_CMGD, RES_OK))
-			{
-				ast_log (LOG_ERROR, "[%s] Error sending CMGD to delete SMS message\n", pvt->id);
-				return -1;
-			}
-		}
 	}
 	else if (e)
 	{

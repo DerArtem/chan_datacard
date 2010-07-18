@@ -14,6 +14,12 @@ static const char* at_cmd2str (at_cmd_t cmd)
 		case CMD_AT_A:
 			return "ATA";
 
+		case CMD_AT_CCWA:
+			return "AT+CCWA";
+
+		case CMD_AT_CFUN:
+			return "AT+CFUN";
+
 		case CMD_AT_CGMI:
 			return "AT+CGMI";
 
@@ -109,12 +115,6 @@ static const char* at_cmd2str (at_cmd_t cmd)
 
 		case CMD_AT_Z:
 			return "ATZ";
-		
-		case CMD_AT_CCWA:
-			return "AT+CCWA";
-		
-		case CMD_AT_CFUN:
-			return "AT+CFUN";
 
 		case CMD_UNKNOWN:
 			return "UNKNOWN";

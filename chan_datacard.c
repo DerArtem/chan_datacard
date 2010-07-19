@@ -2,6 +2,7 @@
  * chan_datacard
  *
  * Copyright (C) 2009 - 2010
+ *
  * Artem Makhutov <artem@makhutov.org>
  * http://www.makhutov.org
  * 
@@ -21,6 +22,7 @@
  *
  * \author Artem Makhutov <artem@makhutov.org>
  * \author Dave Bowerman <david.bowerman@gmail.com>
+ * \author Dmitry Vagin <dmitry2004@yandex.ru>
  *
  * \ingroup channel_drivers
  */

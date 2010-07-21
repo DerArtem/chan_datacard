@@ -238,7 +238,7 @@ static inline int at_response_ok (pvt_t* pvt)
 					{
 						if (at_send_cgmi (pvt) || at_fifo_queue_add (pvt, CMD_AT_CGMI, RES_OK))
 						{
-							ast_log (LOG_ERROR, "[%s] Error asking datacard for vendor info\n", pvt->id);
+							ast_log (LOG_ERROR, "[%s] Error asking datacard for manufacturer info\n", pvt->id);
 							goto e_return;
 						}
 					}
@@ -250,7 +250,7 @@ static inline int at_response_ok (pvt_t* pvt)
 				{
 					if (at_send_cgmi (pvt) || at_fifo_queue_add (pvt, CMD_AT_CGMI, RES_OK))
 					{
-						ast_log (LOG_ERROR, "[%s] Error asking datacard for vendor info\n", pvt->id);
+						ast_log (LOG_ERROR, "[%s] Error asking datacard for manufacturer info\n", pvt->id);
 						goto e_return;
 					}
 				}
@@ -261,7 +261,7 @@ static inline int at_response_ok (pvt_t* pvt)
 				{
 					if (at_send_cgmm (pvt) || at_fifo_queue_add (pvt, CMD_AT_CGMM, RES_OK))
 					{
-						ast_log (LOG_ERROR, "[%s] Error asking datacard for manufacturer\n", pvt->id);
+						ast_log (LOG_ERROR, "[%s] Error asking datacard for model info\n", pvt->id);
 						goto e_return;
 					}
 				}
@@ -272,7 +272,7 @@ static inline int at_response_ok (pvt_t* pvt)
 				{
 					if (at_send_cgmr (pvt) || at_fifo_queue_add (pvt, CMD_AT_CGMR, RES_OK))
 					{
-						ast_log (LOG_ERROR, "[%s] Error asking datacard for model\n", pvt->id);
+						ast_log (LOG_ERROR, "[%s] Error asking datacard for firmware info\n", pvt->id);
 						goto e_return;
 					}
 				}
@@ -283,7 +283,7 @@ static inline int at_response_ok (pvt_t* pvt)
 				{
 					if (at_send_cgsn (pvt) || at_fifo_queue_add (pvt, CMD_AT_CGSN, RES_OK))
 					{
-						ast_log (LOG_ERROR, "[%s] Error asking datacard for firmware\n", pvt->id);
+						ast_log (LOG_ERROR, "[%s] Error asking datacard for IMEI number\n", pvt->id);
 						goto e_return;
 					}
 				}
@@ -294,7 +294,7 @@ static inline int at_response_ok (pvt_t* pvt)
 				{
 					if (at_send_cpin_test (pvt) || at_fifo_queue_add (pvt, CMD_AT_CPIN, RES_OK))
 					{
-						ast_log (LOG_ERROR, "[%s] Error asking datacard for IMEI number\n", pvt->id);
+						ast_log (LOG_ERROR, "[%s] Error asking datacard for PIN state\n", pvt->id);
 						goto e_return;
 					}
 				}

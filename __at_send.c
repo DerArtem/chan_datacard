@@ -136,6 +136,16 @@ static inline int at_send_chup (pvt_t* pvt)
 }
 
 /*!
+ * \brief Send AT+CIMI command
+ * \param pvt -- pvt structure
+ */
+
+static inline int at_send_cimi (pvt_t* pvt)
+{
+	return at_write_full (pvt, "AT+CIMI\r", 8);
+}
+
+/*!
  * \brief Enable or disable calling line identification
  * \param pvt -- pvt structure
  * \param status -- enable or disable calling line identification (should be 1 or 0)

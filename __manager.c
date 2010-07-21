@@ -52,6 +52,7 @@ static int manager_show_devices (struct mansession* s, const struct message* m)
 		astman_append (s, "Model: %s\r\n", pvt->model);
 		astman_append (s, "Firmware: %s\r\n", pvt->firmware);
 		astman_append (s, "IMEI: %s\r\n", pvt->imei);
+		astman_append (s, "IMSI: %s\r\n", pvt->imsi);
 		astman_append (s, "Number: %s\r\n", pvt->number);
 		astman_append (s, "Use CallingPres: %s\r\n", pvt->usecallingpres ? "Yes" : "No");
 		astman_append (s, "Default CallingPres: %s\r\n", pvt->callingpres < 0 ? "<Not set>" : ast_describe_caller_presentation (pvt->callingpres));

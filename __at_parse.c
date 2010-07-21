@@ -44,6 +44,9 @@ static const char* at_cmd2str (at_cmd_t cmd)
 		case CMD_AT_CHUP:
 			return "AT+CHUP";
 
+		case CMD_AT_CIMI:
+			return "AT+CIMI";
+
 		case CMD_AT_CLIP:
 			return "AT+CLIP";
 

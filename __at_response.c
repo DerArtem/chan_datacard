@@ -160,6 +160,10 @@ static inline int at_response (pvt_t* pvt, int iovcnt, at_res_t at_res)
 							ast_debug (1, "[%s] Got AT+CGSN data (IMEI number)\n", pvt->id);
 							return at_response_cgsn (pvt, str, len);
 
+						case CMD_AT_CIMI:
+							ast_debug (1, "[%s] Got AT+CIMI data (IMSI number)\n", pvt->id);
+							return at_response_cimi (pvt, str, len);
+
 						default:
 							ast_debug (1, "[%s] Ignoring unknown result: '%.*s'\n", pvt->id, (int) len, str);
 							break;
@@ -290,6 +294,17 @@ static inline int at_response_ok (pvt_t* pvt)
 				break;
 
 			case CMD_AT_CGSN:
+				if (!pvt->initialized)
+				{
+					if (at_send_cimi (pvt) || at_fifo_queue_add (pvt, CMD_AT_CIMI, RES_OK))
+					{
+						ast_log (LOG_ERROR, "[%s] Error asking datacard for IMSI number\n", pvt->id);
+						goto e_return;
+					}
+				}
+				break;
+
+			case CMD_AT_CIMI:
 				if (!pvt->initialized)
 				{
 					if (at_send_cpin_test (pvt) || at_fifo_queue_add (pvt, CMD_AT_CPIN, RES_OK))
@@ -635,6 +650,10 @@ static inline int at_response_error (pvt_t* pvt)
 
 			case CMD_AT_CGSN:
 				ast_log (LOG_ERROR, "[%s] Getting IMEI number failed\n", pvt->id);
+				goto e_return;
+
+			case CMD_AT_CIMI:
+				ast_log (LOG_ERROR, "[%s] Getting IMSI number failed\n", pvt->id);
 				goto e_return;
 
 			case CMD_AT_CPIN:
@@ -1541,6 +1560,22 @@ static inline int at_response_cgmr (pvt_t* pvt, char* str, size_t len)
 static inline int at_response_cgsn (pvt_t* pvt, char* str, size_t len)
 {
 	ast_copy_string (pvt->imei, str, sizeof (pvt->imei));
+
+	return 0;
+}
+
+/*!
+ * \brief Handle AT+CIMI response
+ * \param pvt -- pvt structure
+ * \param str -- string containing response (null terminated)
+ * \param len -- string lenght
+ * \retval  0 success
+ * \retval -1 error
+ */
+
+static inline int at_response_cimi (pvt_t* pvt, char* str, size_t len)
+{
+	ast_copy_string (pvt->imsi, str, sizeof (pvt->imsi));
 
 	return 0;
 }

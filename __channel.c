@@ -33,6 +33,7 @@ static struct ast_channel* channel_new (pvt_t* pvt, int state, char* cid_num)
 		pbx_builtin_setvar_helper (channel, "DATACARD",	pvt->id);
 		pbx_builtin_setvar_helper (channel, "PROVIDER",	pvt->provider_name);
 		pbx_builtin_setvar_helper (channel, "IMEI",	pvt->imei);
+		pbx_builtin_setvar_helper (channel, "IMSI",	pvt->imsi);
 	}
 
 	ast_string_field_set (channel, language, "en");
@@ -864,6 +865,7 @@ static struct ast_channel* channel_local_request (pvt_t* pvt, void* data, const 
 	pbx_builtin_setvar_helper (channel, "DATACARD",	pvt->id);
 	pbx_builtin_setvar_helper (channel, "PROVIDER",	pvt->provider_name);
 	pbx_builtin_setvar_helper (channel, "IMEI",	pvt->imei);
+	pbx_builtin_setvar_helper (channel, "IMSI",	pvt->imsi);
 	ast_string_field_set (channel, language, language);
 
 	return channel;

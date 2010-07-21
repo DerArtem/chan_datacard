@@ -28,6 +28,7 @@ typedef enum {
 	CMD_AT_CGMR,
 	CMD_AT_CGSN,
 	CMD_AT_CHUP,
+	CMD_AT_CIMI,
 	CMD_AT_CLIP,
 	CMD_AT_CLIR,
 	CMD_AT_CLVL,
@@ -151,6 +152,7 @@ typedef struct pvt_t
 	char			model[32];
 	char			firmware[32];
 	char			imei[17];
+	char			imsi[17];
 	char			number[128];
 	char			location_area_code[8];
 	char			cell_id[8];
@@ -279,7 +281,7 @@ static inline int		at_response_cgmi	(pvt_t*, char*, size_t);
 static inline int		at_response_cgmm	(pvt_t*, char*, size_t);
 static inline int		at_response_cgmr	(pvt_t*, char*, size_t);
 static inline int		at_response_cgsn	(pvt_t*, char*, size_t);
-static inline int		at_response_cssi	(pvt_t*, char*, size_t);
+static inline int		at_response_cimi	(pvt_t*, char*, size_t);
 static inline int		at_response_clip	(pvt_t*, char*, size_t);
 static inline int		at_response_cmgr	(pvt_t*, char*, size_t);
 static inline int		at_response_cmti	(pvt_t*, char*, size_t);
@@ -289,6 +291,7 @@ static inline int		at_response_cops	(pvt_t*, char*, size_t);
 static inline int		at_response_cpin	(pvt_t*, char*, size_t);
 static inline int		at_response_creg	(pvt_t*, char*, size_t);
 static inline int		at_response_csq		(pvt_t*, char*, size_t);
+static inline int		at_response_cssi	(pvt_t*, char*, size_t);
 static inline int		at_response_cusd	(pvt_t*, char*, size_t);
 static inline int		at_response_error	(pvt_t*);
 static inline int		at_response_mode	(pvt_t*, char*, size_t);
@@ -332,6 +335,7 @@ static inline int		at_send_cgmm		(pvt_t*);
 static inline int		at_send_cgmr		(pvt_t*);
 static inline int		at_send_cgsn		(pvt_t*);
 static inline int		at_send_chup		(pvt_t*);
+static inline int		at_send_cimi		(pvt_t*);
 static inline int		at_send_clip		(pvt_t*, int status);
 static inline int		at_send_clir		(pvt_t*, int mode);
 static inline int		at_send_clvl		(pvt_t*, int level);

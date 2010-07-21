@@ -273,6 +273,7 @@ static int disconnect_datacard (pvt_t* pvt)
 	pvt->model[0]		= '\0';
 	pvt->firmware[0]	= '\0';
 	pvt->imei[0]		= '\0';
+	pvt->imsi[0]		= '\0';
 
 	ast_copy_string (pvt->provider_name,	"NONE",		sizeof (pvt->provider_name));
 	ast_copy_string (pvt->number,		"Unknown",	sizeof (pvt->number));

@@ -11,8 +11,8 @@ static char* cli_show_devices (struct ast_cli_entry* e, int cmd, struct ast_cli_
 {
 	pvt_t* pvt;
 
-#define FORMAT1 "%-12.12s %-5.5s %-10.10s %-4.4s %-4.4s %-7.7s %-14.14s %-10.10s %-17.17s %-17.17s %-14.14s\n"
-#define FORMAT2 "%-12.12s %-5d %-10.10s %-4d %-4d %-7d %-14.14s %-10.10s %-17.17s %-17.17s %-14.14s\n"
+#define FORMAT1 "%-12.12s %-5.5s %-10.10s %-4.4s %-4.4s %-7.7s %-14.14s %-10.10s %-17.17s %-16.16s %-16.16s %-14.14s\n"
+#define FORMAT2 "%-12.12s %-5d %-10.10s %-4d %-4d %-7d %-14.14s %-10.10s %-17.17s %-16.16s %-16.16s %-14.14s\n"
 
 	switch (cmd)
 	{
@@ -31,7 +31,7 @@ static char* cli_show_devices (struct ast_cli_entry* e, int cmd, struct ast_cli_
 		return CLI_SHOWUSAGE;
 	}
 
-	ast_cli (a->fd, FORMAT1, "ID", "Group", "State", "RSSI", "Mode", "Submode", "Provider Name", "Model", "Firmware", "IMEI", "Number");
+	ast_cli (a->fd, FORMAT1, "ID", "Group", "State", "RSSI", "Mode", "Submode", "Provider Name", "Model", "Firmware", "IMEI", "IMSI", "Number");
 
 	AST_RWLIST_RDLOCK (&devices);
 	AST_RWLIST_TRAVERSE (&devices, pvt, entry)
@@ -54,6 +54,7 @@ static char* cli_show_devices (struct ast_cli_entry* e, int cmd, struct ast_cli_
 			pvt->model,
 			pvt->firmware,
 			pvt->imei,
+			pvt->imsi,
 			pvt->number
 		);
 		ast_mutex_unlock (&pvt->lock);
@@ -123,6 +124,7 @@ static char* cli_show_device (struct ast_cli_entry* e, int cmd, struct ast_cli_a
 		ast_cli (a->fd, "  Model                   : %s\n", pvt->model);
 		ast_cli (a->fd, "  Firmware                : %s\n", pvt->firmware);
 		ast_cli (a->fd, "  IMEI                    : %s\n", pvt->imei);
+		ast_cli (a->fd, "  IMSI                    : %s\n", pvt->imsi);
 		ast_cli (a->fd, "  Number                  : %s\n", pvt->number);
 		ast_cli (a->fd, "  Use CallingPres         : %s\n", pvt->usecallingpres ? "Yes" : "No");
 		ast_cli (a->fd, "  Default CallingPres     : %s\n", pvt->callingpres < 0 ? "<Not set>" : ast_describe_caller_presentation (pvt->callingpres));

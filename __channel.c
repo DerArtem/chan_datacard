@@ -67,8 +67,8 @@ static struct ast_channel* channel_request (const char* type, int format, void* 
 	int			group;
 	int			backwards = 0;
 	size_t			i;
+	size_t			j;
 	size_t			c;
-	size_t			c2;
 	size_t			last_used;
 
 	if (!data)
@@ -137,7 +137,7 @@ static struct ast_channel* channel_request (const char* type, int format, void* 
 			ast_mutex_lock (&round_robin_mtx);
 
 			/* Generate a list of all availible devices */
-			c2 = sizeof (round_robin) / sizeof (round_robin[0]);
+			j = sizeof (round_robin) / sizeof (round_robin[0]);
 			c = 0; last_used = 0;
 			AST_RWLIST_TRAVERSE (&devices, pvt, entry)
 			{
@@ -153,7 +153,7 @@ static struct ast_channel* channel_request (const char* type, int format, void* 
 
 					c++;
 
-					if (c == c2)
+					if (c == j)
 					{
 						ast_mutex_unlock (&pvt->lock);
 						break;
@@ -163,16 +163,14 @@ static struct ast_channel* channel_request (const char* type, int format, void* 
 			}
 
 			/* Search for a availible device starting at the last used device */
-			c2 = last_used;
-			for (i = 0; i < c; i++)
+			for (i = 0, j = last_used + 1; i < c; i++, j++)
 			{
-				c2++;
-				if (c2 == c)
+				if (j == c)
 				{
-					c2 = 0;
+					j = 0;
 				}
 
-				pvt = round_robin[c2];
+				pvt = round_robin[j];
 
 				ast_mutex_lock (&pvt->lock);
 				if (pvt->connected && pvt->initialized && pvt->has_voice && pvt->gsm_registered && !pvt->incoming && !pvt->outgoing && !pvt->owner)
@@ -191,7 +189,7 @@ static struct ast_channel* channel_request (const char* type, int format, void* 
 		ast_mutex_lock (&round_robin_mtx);
 
 		/* Generate a list of all availible devices */
-		c2 = sizeof (round_robin) / sizeof (round_robin[0]);
+		j = sizeof (round_robin) / sizeof (round_robin[0]);
 		c = 0; last_used = 0;
 		AST_RWLIST_TRAVERSE (&devices, pvt, entry)
 		{
@@ -207,7 +205,7 @@ static struct ast_channel* channel_request (const char* type, int format, void* 
 
 				c++;
 
-				if (c == c2)
+				if (c == j)
 				{
 					ast_mutex_unlock (&pvt->lock);
 					break;
@@ -217,21 +215,71 @@ static struct ast_channel* channel_request (const char* type, int format, void* 
 		}
 
 		/* Search for a availible device starting at the last used device */
-		c2 = last_used;
-		for (i = 0; i < c; i++)
+		for (i = 0, j = last_used + 1; i < c; i++, j++)
 		{
-			c2++;
-			if (c2 == c)
+			if (j == c)
 			{
-				c2 = 0;
+				j = 0;
 			}
 
-			pvt = round_robin[c2];
+			pvt = round_robin[j];
 
 			ast_mutex_lock (&pvt->lock);
 			if (pvt->connected && pvt->initialized && pvt->has_voice && pvt->gsm_registered && !pvt->incoming && !pvt->outgoing && !pvt->owner)
 			{
 				pvt->prov_last_used = 1;
+				break;
+			}
+			ast_mutex_unlock (&pvt->lock);
+		}
+
+		ast_mutex_unlock (&round_robin_mtx);
+	}
+	else if (((dest_dev[0] == 's') || (dest_dev[0] == 'S')) && dest_dev[1] == ':')
+	{
+		ast_mutex_lock (&round_robin_mtx);
+
+		/* Generate a list of all availible devices */
+		j = sizeof (round_robin) / sizeof (round_robin[0]);
+		c = 0; last_used = 0;
+		i = strlen (&dest_dev[2]);
+		AST_RWLIST_TRAVERSE (&devices, pvt, entry)
+		{
+			ast_mutex_lock (&pvt->lock);
+			if (!strncmp (pvt->imsi, &dest_dev[2], i))
+			{
+				round_robin[c] = pvt;
+				if (pvt->sim_last_used == 1)
+				{
+					pvt->sim_last_used = 0;
+					last_used = c;
+				}
+
+				c++;
+
+				if (c == j)
+				{
+					ast_mutex_unlock (&pvt->lock);
+					break;
+				}
+			}
+			ast_mutex_unlock (&pvt->lock);
+		}
+
+		/* Search for a availible device starting at the last used device */
+		for (i = 0, j = last_used + 1; i < c; i++, j++)
+		{
+			if (j == c)
+			{
+				j = 0;
+			}
+
+			pvt = round_robin[j];
+
+			ast_mutex_lock (&pvt->lock);
+			if (pvt->connected && pvt->initialized && pvt->has_voice && pvt->gsm_registered && !pvt->incoming && !pvt->outgoing && !pvt->owner)
+			{
+				pvt->sim_last_used = 1;
 				break;
 			}
 			ast_mutex_unlock (&pvt->lock);

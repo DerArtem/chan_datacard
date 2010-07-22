@@ -171,6 +171,7 @@ typedef struct pvt_t
 	unsigned int		volume_synchronized:1;		/* we have synchronized the volume */
 	unsigned int		group_last_used:1;		/* mark the last used device */
 	unsigned int		prov_last_used:1;		/* mark the last used device */
+	unsigned int		sim_last_used:1;		/* mark the last used device */
 
 	/* Config */
 	char			id[31];				/* id from datacard.conf */

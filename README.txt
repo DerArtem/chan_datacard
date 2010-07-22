@@ -66,4 +66,7 @@ Call using a specific provider name:
 exten => _X.,1,Dial(Datacard/p:PROVIDER NAME/${EXTEN})
 
 Call using a specific IMEI:
-exten => _X.,1,Dial(Datacard/i:123456789012345/${EXTEN}) 
+exten => _X.,1,Dial(Datacard/i:123456789012345/${EXTEN})
+
+Call using a IMSI prefix:
+exten => _X.,1,Dial(Datacard/s:25099/${EXTEN})

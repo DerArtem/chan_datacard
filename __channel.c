@@ -536,37 +536,38 @@ static struct ast_frame* channel_read (struct ast_channel* channel)
 		ast_debug (7, "[%s] *** timing ***\n", pvt->id);
 		ast_timer_ack (pvt->a_timer, 1);
 		channel_timing_write (pvt);
-		goto e_return;
 	}
-
-	memset (&pvt->a_read_frame, 0, sizeof (struct ast_frame));
-
-	pvt->a_read_frame.frametype	= AST_FRAME_VOICE;
-	pvt->a_read_frame.subclass	= AST_FORMAT_SLINEAR;
-	pvt->a_read_frame.data.ptr	= pvt->a_read_buf + AST_FRIENDLY_OFFSET;
-	pvt->a_read_frame.offset	= AST_FRIENDLY_OFFSET;
-
-	res = read (pvt->audio_fd, pvt->a_read_frame.data.ptr, FRAME_SIZE);
-	if (res <= 0)
+	else
 	{
-		if (errno != EAGAIN && errno != EINTR)
+		memset (&pvt->a_read_frame, 0, sizeof (struct ast_frame));
+
+		pvt->a_read_frame.frametype	= AST_FRAME_VOICE;
+		pvt->a_read_frame.subclass	= AST_FORMAT_SLINEAR;
+		pvt->a_read_frame.data.ptr	= pvt->a_read_buf + AST_FRIENDLY_OFFSET;
+		pvt->a_read_frame.offset	= AST_FRIENDLY_OFFSET;
+
+		res = read (pvt->audio_fd, pvt->a_read_frame.data.ptr, FRAME_SIZE);
+		if (res <= 0)
 		{
-			ast_debug (1, "[%s] Read error %d, going to wait for new connection\n", pvt->id, errno);
+			if (errno != EAGAIN && errno != EINTR)
+			{
+				ast_debug (1, "[%s] Read error %d, going to wait for new connection\n", pvt->id, errno);
+			}
+
+			goto e_return;
 		}
 
-		goto e_return;
-	}
+		pvt->a_read_frame.samples	= res / 2;
+		pvt->a_read_frame.datalen	= res;
 
-	pvt->a_read_frame.samples	= res / 2;
-	pvt->a_read_frame.datalen	= res;
+		f = ast_dsp_process (channel, pvt->dsp, &pvt->a_read_frame);
 
-	f = ast_dsp_process (channel, pvt->dsp, &pvt->a_read_frame);
-
-	if (pvt->rxgain != 0)
-	{
-		if (ast_frame_adjust_volume (f, pvt->rxgain) != 0)
+		if (pvt->rxgain)
 		{
-			ast_debug (1, "[%s] Volume could not be adjusted!\n", pvt->id);
+			if (ast_frame_adjust_volume (f, pvt->rxgain) == -1)
+			{
+				ast_debug (1, "[%s] Volume could not be adjusted!\n", pvt->id);
+			}
 		}
 	}
 
@@ -634,7 +635,7 @@ static int channel_write (struct ast_channel* channel, struct ast_frame* f)
 	ssize_t	res;
 	size_t	count;
 
-	if (f->frametype != AST_FRAME_VOICE)
+	if (f->frametype != AST_FRAME_VOICE || f->subclass != AST_FORMAT_SLINEAR)
 	{
 		return 0;
 	}
@@ -650,17 +651,17 @@ static int channel_write (struct ast_channel* channel, struct ast_frame* f)
 	}
 	else
 	{
-		if (pvt->txgain != 0)
+//		if (f->datalen != 320)
 		{
-			if (ast_frame_adjust_volume (f, pvt->txgain) != 0)
+			ast_debug (7, "[%s] Frame: samples = %d, data lenght = %d byte\n", pvt->id, f->samples, f->datalen);
+		}
+
+		if (pvt->txgain && f->datalen > 0)
+		{
+			if (ast_frame_adjust_volume (f, pvt->txgain) == -1)
 			{
 				ast_debug (1, "[%s] Volume could not be adjusted!\n", pvt->id);
 			}
-		}
-
-//		if (f->datalen != 320)
-		{
-			ast_debug (7, "[%s] Frame data lenght = %d byte\n", pvt->id, f->datalen);
 		}
 
 		if (pvt->a_timer)

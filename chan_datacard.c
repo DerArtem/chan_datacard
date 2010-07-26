@@ -62,6 +62,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Rev$")
 #include <asterisk/pbx.h>
 #include <asterisk/timing.h>
 #include <asterisk/utils.h>
+#include <asterisk/version.h>
 
 #include "__ringbuffer.h"
 #include "chan_datacard.h"

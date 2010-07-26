@@ -210,7 +210,11 @@ static inline int		get_at_clir_value		(pvt_t*, int);
 /* Channel Driver */
 
 static struct ast_channel*	channel_new			(pvt_t*, int state, char*);
+#if ASTERISK_VERSION_NUM >= 10800
+static struct ast_channel*	channel_request			(const char*, format_t, void*, int*);
+#else
 static struct ast_channel*	channel_request			(const char*, int, void*, int*);
+#endif
 static int			channel_call			(struct ast_channel*, char*, int);
 static int			channel_hangup			(struct ast_channel*);
 static int			channel_answer			(struct ast_channel*);

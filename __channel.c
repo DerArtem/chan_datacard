@@ -57,9 +57,17 @@ static struct ast_channel* channel_new (pvt_t* pvt, int state, char* cid_num)
 	return channel;
 }
 
+#if ASTERISK_VERSION_NUM >= 10800
+static struct ast_channel* channel_request (const char* type, format_t format, void* data, int* cause)
+#else
 static struct ast_channel* channel_request (const char* type, int format, void* data, int* cause)
+#endif
 {
+	#if ASTERISK_VERSION_NUM >= 10800
+	format_t		oldformat;
+	#else
 	int			oldformat;
+	#endif
 	char*			dest_dev = NULL;
 	char*			dest_num = NULL;
 	struct ast_channel*	channel = NULL;
@@ -82,7 +90,11 @@ static struct ast_channel* channel_request (const char* type, int format, void* 
 	format &= AST_FORMAT_SLINEAR;
 	if (!format)
 	{
+		#if ASTERISK_VERSION_NUM >= 10800
+		ast_log (LOG_WARNING, "Asked to get a channel of unsupported format '%s'\n", ast_getformatname(oldformat));
+		#else
 		ast_log (LOG_WARNING, "Asked to get a channel of unsupported format '%d'\n", oldformat);
+		#endif
 		*cause = AST_CAUSE_FACILITY_NOT_IMPLEMENTED;
 		return NULL;
 	}
@@ -386,7 +398,11 @@ static int channel_call (struct ast_channel* channel, char* dest, int timeout)
 	{
 		if (pvt->callingpres < 0)
 		{
+			#if ASTERISK_VERSION_NUM >= 10800
+			clir = channel->connected.id.number.presentation;
+			#else
 			clir = channel->cid.cid_pres;
+			#endif
 		}
 		else
 		{
@@ -542,7 +558,11 @@ static struct ast_frame* channel_read (struct ast_channel* channel)
 		memset (&pvt->a_read_frame, 0, sizeof (struct ast_frame));
 
 		pvt->a_read_frame.frametype	= AST_FRAME_VOICE;
+		#if ASTERISK_VERSION_NUM >= 10800
+		pvt->a_read_frame.subclass.codec= AST_FORMAT_SLINEAR;
+		#else
 		pvt->a_read_frame.subclass	= AST_FORMAT_SLINEAR;
+		#endif
 		pvt->a_read_frame.data.ptr	= pvt->a_read_buf + AST_FRIENDLY_OFFSET;
 		pvt->a_read_frame.offset	= AST_FRIENDLY_OFFSET;
 
@@ -635,7 +655,11 @@ static int channel_write (struct ast_channel* channel, struct ast_frame* f)
 	ssize_t	res;
 	size_t	count;
 
+	#if ASTERISK_VERSION_NUM >= 10800
+	if (f->frametype != AST_FRAME_VOICE || f->subclass.codec != AST_FORMAT_SLINEAR)
+	#else
 	if (f->frametype != AST_FRAME_VOICE || f->subclass != AST_FORMAT_SLINEAR)
+	#endif
 	{
 		return 0;
 	}
@@ -904,7 +928,11 @@ static struct ast_channel* channel_local_request (pvt_t* pvt, void* data, const 
 	struct ast_channel*	channel;
 	int			cause = 0;
 
+	#if ASTERISK_VERSION_NUM >= 10800
+	if (!(channel = ast_request ("Local", AST_FORMAT_AUDIO_MASK, NULL, data, &cause)))
+	#else
 	if (!(channel = ast_request ("Local", AST_FORMAT_AUDIO_MASK, data, &cause)))
+	#endif
 	{
 		ast_log (LOG_NOTICE, "Unable to request channel Local/%s\n", (char*) data);
 		return channel;

@@ -91,7 +91,7 @@ static struct ast_channel* channel_request (const char* type, int format, void* 
 	if (!format)
 	{
 		#if ASTERISK_VERSION_NUM >= 10800
-		ast_log (LOG_WARNING, "Asked to get a channel of unsupported format '%s'\n", ast_getformatname(oldformat));
+		ast_log (LOG_WARNING, "Asked to get a channel of unsupported format '%s'\n", ast_getformatname (oldformat));
 		#else
 		ast_log (LOG_WARNING, "Asked to get a channel of unsupported format '%d'\n", oldformat);
 		#endif

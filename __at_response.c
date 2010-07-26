@@ -1523,7 +1523,7 @@ static inline int at_response_cgmm (pvt_t* pvt, char* str, size_t len)
 {
 	ast_copy_string (pvt->model, str, sizeof (pvt->model));
 	
-	if (!strcmp (pvt->model, "E1550") || !strcmp (pvt->model, "E160X"))
+	if (!strcmp (pvt->model, "E1550") || !strcmp (pvt->model, "E1750") || !strcmp (pvt->model, "E160X"))
 	{
 		pvt->cusd_use_7bit_encoding = 1;
 		pvt->cusd_use_ucs2_decoding = 0;

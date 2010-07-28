@@ -212,6 +212,7 @@ static void* do_monitor_phone (void* data)
 		{
 			goto e_cleanup;
 		}
+
 		while ((iovcnt = at_read_result_iov (pvt)) > 0)
 		{
 			at_res = at_read_result_classification (pvt, iovcnt);
@@ -221,6 +222,7 @@ static void* do_monitor_phone (void* data)
 				goto e_cleanup;
 			}
 		}
+
 		ast_mutex_unlock (&pvt->lock);
 	}
 

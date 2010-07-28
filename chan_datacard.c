@@ -192,13 +192,8 @@ static void* do_monitor_phone (void* data)
 
 				if ((e = at_fifo_queue_head (pvt)))
 				{
-					switch (e->cmd)
-					{
-						default:
-							ast_debug (1, "[%s] timeout while waiting '%s' in response to '%s'\n", pvt->id,
-									at_res2str (e->res), at_cmd2str (e->cmd));
-							break;
-					}
+					ast_debug (1, "[%s] timeout while waiting '%s' in response to '%s'\n", pvt->id,
+							at_res2str (e->res), at_cmd2str (e->cmd));
 				}
 
 				goto e_cleanup;

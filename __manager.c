@@ -374,6 +374,7 @@ static int manager_reset (struct mansession* s, const struct message* m)
 			}
 			else
 			{
+				pvt->incoming = 1;
 				astman_send_ack (s, m, "Datacard reseted successful");
 			}
 		}

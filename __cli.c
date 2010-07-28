@@ -420,6 +420,10 @@ static char* cli_reset (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a
 			{
 				ast_log (LOG_ERROR, "[%s] Error sending reset command\n", pvt->id);
 			}
+			else
+			{
+				pvt->incoming = 1;
+			}
 		}
 		else
 		{

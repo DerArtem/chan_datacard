@@ -576,7 +576,16 @@ static inline int at_response_ok (pvt_t* pvt)
 				break;
 
 			case CMD_AT_CLVL:
-				ast_debug (1, "[%s] Volume level set\n", pvt->id);
+				if (pvt->volume_synchronized == 0)
+				{
+					pvt->volume_synchronized = 1;
+
+					if (at_send_clvl (pvt, 5) || at_fifo_queue_add (pvt, CMD_AT_CLVL, RES_OK))
+					{
+						ast_log (LOG_ERROR, "[%s] Error syncronizing audio level (part 2/2)\n", pvt->id);
+						goto e_return;
+					}
+				}
 				break;
 
 			default:
@@ -895,6 +904,13 @@ static int at_response_orig (pvt_t* pvt, char* str, size_t len)
 	ast_debug (1, "[%s] Received call_index: %d\n", pvt->id, call_index);
 	ast_debug (1, "[%s] Received call_type:  %d\n", pvt->id, call_type);
 
+	if (at_send_clvl (pvt, 1) || at_fifo_queue_add (pvt, CMD_AT_CLVL, RES_OK))
+	{
+		ast_log (LOG_ERROR, "[%s] Error syncronizing audio level (part 1/2)\n", pvt->id);
+	}
+
+	pvt->volume_synchronized = 0;
+
 	return 0;
 }
 
@@ -1034,6 +1050,17 @@ static inline int at_response_ring (pvt_t* pvt)
 {
 	if (pvt->initialized)
 	{
+		/* We only want to syncronize volume on the first ring */
+		if (!pvt->incoming)
+		{
+			if (at_send_clvl (pvt, 1) || at_fifo_queue_add (pvt, CMD_AT_CLVL, RES_OK))
+			{
+				ast_log (LOG_ERROR, "[%s] Error syncronizing audio level (part 1/2)\n", pvt->id);
+			}
+
+			pvt->volume_synchronized = 0;
+		}
+
 		pvt->incoming = 1;
 	}
 

@@ -409,6 +409,7 @@ static int			manager_send_ussd	(struct mansession*, const struct message*);
 static int			manager_send_sms	(struct mansession*, const struct message*);
 static void			manager_event_new_ussd	(pvt_t*, char*);
 static void			manager_event_new_sms	(pvt_t*, char*, char*);
+static void			manager_event_new_sms_base64	(pvt_t*, char*, char*);
 static int			manager_ccwa_disable (struct mansession* s, const struct message* m);
 static int			manager_reset (struct mansession* s, const struct message* m);
 

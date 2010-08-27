@@ -1133,6 +1133,7 @@ static inline int at_response_cmgr (pvt_t* pvt, char* str, size_t len)
 	char		from_number_utf8_str[1024];
 	char*		from_number = NULL;
 	char*		text = NULL;
+	char		text_base64[16384];
 
 	if ((e = at_fifo_queue_head (pvt)) && e->res == RES_CMGR)
 	{
@@ -1179,10 +1180,12 @@ static inline int at_response_cmgr (pvt_t* pvt, char* str, size_t len)
 			}
 		}
 
+		ast_base64encode (text_base64, text, strlen(text), sizeof(text_base64));
 		ast_verb (1, "[%s] Got SMS from %s: '%s'\n", pvt->id, from_number, text);
 
 #ifdef __MANAGER__
 		manager_event_new_sms (pvt, from_number, text);
+		manager_event_new_sms_base64(pvt, from_number, text_base64);
 #endif
 
 #ifdef __MANAGER__
@@ -1193,6 +1196,7 @@ static inline int at_response_cmgr (pvt_t* pvt, char* str, size_t len)
 		if (channel = channel_local_request (pvt, pvt->d_send_buf, pvt->id, from_number, "en"))
 		{
 			pbx_builtin_setvar_helper (channel, "SMS", text);
+			pbx_builtin_setvar_helper (channel, "SMS_BASE64", text_base64);
 
 			if (ast_pbx_start (channel))
 			{

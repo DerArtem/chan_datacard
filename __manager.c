@@ -265,7 +265,6 @@ static void manager_event_new_sms (pvt_t* pvt, char* number, char* message)
 	size_t	linecount = 0;
 	char*	s = message;
 	char*	sl;
-	char*	ret;
 
 	buf = ast_str_create (256);
 
@@ -287,6 +286,23 @@ static void manager_event_new_sms (pvt_t* pvt, char* number, char* message)
 	);
 
 	ast_free (buf);
+}
+
+/*!
+ * \brief Send a DatacardNewSMSBase64 event to the manager
+ * \param pvt a pvt structure
+ * \param number a null terminated buffer containing the from number
+ * \param message_base64 a null terminated buffer containing the base64 encoded message
+ */
+
+static void manager_event_new_sms_base64 (pvt_t* pvt, char* number, char* message_base64)
+{
+	manager_event (EVENT_FLAG_CALL, "DatacardNewSMSBase64",
+		"Device: %s\r\n"
+		"From: %s\r\n"
+		"Message: %s\r\n",
+		pvt->id, number, message_base64
+	);
 }
 
 static int manager_ccwa_disable (struct mansession* s, const struct message* m)

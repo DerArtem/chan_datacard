@@ -285,6 +285,17 @@ static inline int at_response_ok (pvt_t* pvt)
 			case CMD_AT_CGMR:
 				if (!pvt->initialized)
 				{
+					if (at_send_cmee (pvt, 0) || at_fifo_queue_add (pvt, CMD_AT_CMEE, RES_OK))
+					{
+						ast_log (LOG_ERROR, "[%s] Error setting error verbosity level\n", pvt->id);
+						goto e_return;
+					}
+				}
+				break;
+
+			case CMD_AT_CMEE:
+				if (!pvt->initialized)
+				{
 					if (at_send_cgsn (pvt) || at_fifo_queue_add (pvt, CMD_AT_CGSN, RES_OK))
 					{
 						ast_log (LOG_ERROR, "[%s] Error asking datacard for IMEI number\n", pvt->id);
@@ -646,6 +657,10 @@ static inline int at_response_error (pvt_t* pvt)
 
 			case CMD_AT_CGMR:
 				ast_log (LOG_ERROR, "[%s] Getting firmware info failed\n", pvt->id);
+				goto e_return;
+
+			case CMD_AT_CMEE:
+				ast_log (LOG_ERROR, "[%s] Setting error verbosity level failed\n", pvt->id);
 				goto e_return;
 
 			case CMD_AT_CGSN:

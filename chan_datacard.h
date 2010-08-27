@@ -56,6 +56,7 @@ typedef enum {
 	CMD_AT_SMS_TEXT,
 	CMD_AT_U2DIAG,
 	CMD_AT_Z,
+	CMD_AT_CMEE,
 } at_cmd_t;
 
 typedef enum {
@@ -366,6 +367,7 @@ static inline int		at_send_sms_text	(pvt_t*, const char* message);
 static inline int		at_send_u2diag		(pvt_t*, int mode);
 static inline int		at_send_ccwa_disable	(pvt_t*);
 static inline int		at_send_cfun		(pvt_t*, int, int);
+static inline int		at_send_cmee		(pvt_t*, int);
 
 
 static inline int		at_fifo_queue_add	(pvt_t*, at_cmd_t, at_res_t);

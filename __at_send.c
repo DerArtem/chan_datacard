@@ -556,3 +556,15 @@ static inline int at_send_cfun (pvt_t* pvt, int fun, int rst)
 	pvt->d_send_size = snprintf (pvt->d_send_buf, sizeof (pvt->d_send_buf), "AT+CFUN=%d,%d\r", fun, rst);
 	return at_write_full (pvt, pvt->d_send_buf, MIN (pvt->d_send_size, sizeof (pvt->d_send_buf) - 1));
 }
+
+/*!
+ * \brief Set error reporing verbosity level
+ * \param pvt -- pvt structure
+ * \param level -- the verbosity level
+ */
+
+static inline int at_send_cmee (pvt_t* pvt, int level)
+{
+	pvt->d_send_size = snprintf (pvt->d_send_buf, sizeof (pvt->d_send_buf), "AT+CMEE=%d\r", level);
+	return at_write_full (pvt, pvt->d_send_buf, MIN (pvt->d_send_size, sizeof (pvt->d_send_buf) - 1));
+}

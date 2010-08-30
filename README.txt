@@ -70,3 +70,9 @@ exten => _X.,1,Dial(Datacard/i:123456789012345/${EXTEN})
 
 Call using a IMSI prefix:
 exten => _X.,1,Dial(Datacard/s:25099/${EXTEN})
+
+How to store your own number:
+
+datacard cmd datacard0 AT+CPBS=\"ON\"
+datacard cmd datacard0 AT+CPBW=1,\"+123456789\",145
+

@@ -1268,6 +1268,7 @@ static inline int at_response_cusd (pvt_t* pvt, char* str, size_t len)
 	char*		cusd;
 	unsigned char	dcs;
 	char		cusd_utf8_str[1024];
+	char		text_base64[16384];
 
 	if (at_parse_cusd (pvt, str, len, &cusd, &dcs))
 	{
@@ -1303,9 +1304,11 @@ static inline int at_response_cusd (pvt_t* pvt, char* str, size_t len)
 	}
 
 	ast_verb (1, "[%s] Got USSD response: '%s'\n", pvt->id, cusd);
+	ast_base64encode (text_base64, cusd, strlen(cusd), sizeof(text_base64));
 
 #ifdef __MANAGER__
 	manager_event_new_ussd (pvt, cusd);
+	manager_event_new_ussd_base64 (pvt, text_base64);
 #endif
 
 #ifdef __MANAGER__
@@ -1316,6 +1319,7 @@ static inline int at_response_cusd (pvt_t* pvt, char* str, size_t len)
 	if (channel = channel_local_request (pvt, pvt->d_send_buf, pvt->id, "ussd", "en"))
 	{
 		pbx_builtin_setvar_helper (channel, "USSD", cusd);
+		pbx_builtin_setvar_helper (channel, "USSD_BASE64", text_base64);
 
 		if (ast_pbx_start (channel))
 		{

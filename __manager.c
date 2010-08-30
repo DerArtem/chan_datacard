@@ -251,6 +251,25 @@ static void manager_event_new_ussd (pvt_t* pvt, char* message)
 }
 
 /*!
+ * \brief Send a DatacardNewUSSD event to the manager
+ * This function splits the message in multiple lines, so multi-line
+ * USSD messages can be send over the manager API.
+ * \param pvt a pvt structure
+ * \param message a null terminated buffer containing the message
+ */
+
+static void manager_event_new_ussd_base64 (pvt_t* pvt, char* message)
+{
+        manager_event (EVENT_FLAG_CALL, "DatacardNewUSSDBase64",
+                "Device: %s\r\n"
+                "Message: %s\r\n",
+                pvt->id, message
+        );
+}
+
+
+
+/*!
  * \brief Send a DatacardNewSMS event to the manager
  * This function splits the message in multiple lines, so multi-line
  * SMS messages can be send over the manager API.

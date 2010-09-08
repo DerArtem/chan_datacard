@@ -11,7 +11,7 @@ INSTALL = install
 CFLAGS  += -Wextra -fPIC -DAST_MODULE=\"$(PROJ)\" -D_THREAD_SAFE @INCDIR@ @CFLAGS@
 LDFLAGS += @LIBDIR@
 LIBS     = @LIBS@
-SOLINK   = -shared -Xlinker -x
+SOLINK   = @SOLINK@
 
 all	: clean $(PROJ).so
 

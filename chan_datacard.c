@@ -64,6 +64,10 @@ ASTERISK_FILE_VERSION(__FILE__, "$Rev$")
 #include <asterisk/utils.h>
 #include <asterisk/version.h>
 
+#ifdef NO_MEMMEM 
+#include "__memmem.c"
+#endif
+
 #include "__ringbuffer.h"
 #include "chan_datacard.h"
 

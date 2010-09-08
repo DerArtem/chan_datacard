@@ -12,6 +12,8 @@ FreeBSD*)
 
 	LIBDIR="-L/usr/local/lib"
 	LIBS="-liconv"
+
+	SOLINK="-shared -Xlinker -x"
 ;;    
 Linux*)
 	DESTDIR="/usr/lib/asterisk/modules/"
@@ -21,6 +23,20 @@ Linux*)
 
 	LIBDIR=""
 	LIBS=""
+
+	SOLINK="-shared -Xlinker -x"
+;;
+Darwin*)
+	DESTDIR="/opt/local/lib/asterisk/modules/"
+
+	INCDIR="-I. -I/opt/local/include"
+	CFLAGS="-O2 -DNO_MEMMEM -DICONV_CONST=\"const\" -D__DEBUG__ -D__MANAGER__ -D__APP__"
+
+	LIBDIR="-L/opt/local/lib"
+	LIBS="-liconv"
+	
+	SOLINK="-dynamic -bundle -Xlinker -macosx_version_min -Xlinker 10.4 -Xlinker -undefined -Xlinker dynamic_lookup -force_flat_namespace"
+	[ `/usr/bin/sw_vers -productVersion | cut -c1-4` == "10.6" ] && SOLINK=${SOLINK}" /usr/lib/bundle1.o"
 ;;
 esac
 
@@ -31,6 +47,7 @@ for config_file in ${config_files}; do
 		s%@CFLAGS@%${CFLAGS}%g
 		s%@LIBDIR@%${LIBDIR}%g
 		s%@LIBS@%${LIBS}%g
+		s%@SOLINK@%${SOLINK}%g
 	" ${config_file}.in > ${config_file}
 done
 

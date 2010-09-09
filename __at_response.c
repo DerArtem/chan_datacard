@@ -1099,10 +1099,17 @@ static inline int at_response_cmti (pvt_t* pvt, char* str, size_t len)
 	{
 		ast_debug (1, "[%s] Incoming SMS message\n", pvt->id);
 
-		if (at_send_cmgr (pvt, index) || at_fifo_queue_add_num (pvt, CMD_AT_CMGR, RES_CMGR, index))
+		if (pvt->disablesms)
 		{
-			ast_log (LOG_ERROR, "[%s] Error sending CMGR to retrieve SMS message\n", pvt->id);
-			return -1;
+			ast_debug (1, "[%s] SMS reception has been disabled in the configuration.\n", pvt->id);
+		}
+		else
+		{
+			if (at_send_cmgr (pvt, index) || at_fifo_queue_add_num (pvt, CMD_AT_CMGR, RES_CMGR, index))
+			{
+				ast_log (LOG_ERROR, "[%s] Error sending CMGR to retrieve SMS message\n", pvt->id);
+				return -1;
+			}
 		}
 
 		pvt->incoming_sms = 1;

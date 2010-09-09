@@ -187,6 +187,7 @@ typedef struct pvt_t
 	unsigned int		auto_delete_sms:1;
 	unsigned int		reset_datacard:1;
 	unsigned int		usecallingpres:1;
+	unsigned int		disablesms:1;
 }
 pvt_t;
 

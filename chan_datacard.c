@@ -482,6 +482,10 @@ static pvt_t* load_device (struct ast_config* cfg, const char* cat)
 				}
 			}
 		}
+		else if (!strcasecmp (v->name, "disablesms"))
+		{
+			pvt->disablesms = ast_true (v->value);				/* disablesms is set to 0 if invalid */
+		}
 	}
 
 	ast_debug (1, "[%s] Loaded device\n", pvt->id);

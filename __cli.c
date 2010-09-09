@@ -133,7 +133,8 @@ static char* cli_show_device (struct ast_cli_entry* e, int cmd, struct ast_cli_a
 		ast_cli (a->fd, "  USSD use UCS-2 decoding : %s\n", pvt->cusd_use_ucs2_decoding ? "Yes" : "No");
 		ast_cli (a->fd, "  Location area code      : %s\n", pvt->location_area_code);
 		ast_cli (a->fd, "  Cell ID                 : %s\n", pvt->cell_id);
-		ast_cli (a->fd, "  Auto delete SMS         : %s\n\n", pvt->auto_delete_sms ? "Yes" : "No");
+		ast_cli (a->fd, "  Auto delete SMS         : %s\n", pvt->auto_delete_sms ? "Yes" : "No");
+		ast_cli (a->fd, "  Disable SMS             : %s\n\n", pvt->disablesms ? "Yes" : "No");
 		ast_mutex_unlock (&pvt->lock);
 	}
 	else

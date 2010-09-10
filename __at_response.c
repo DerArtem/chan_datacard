@@ -1101,7 +1101,7 @@ static inline int at_response_cmti (pvt_t* pvt, char* str, size_t len)
 
 		if (pvt->disablesms)
 		{
-			ast_debug (1, "[%s] SMS reception has been disabled in the configuration.\n", pvt->id);
+			ast_log (LOG_WARNING, "[%s] SMS reception has been disabled in the configuration.\n", pvt->id);
 		}
 		else
 		{

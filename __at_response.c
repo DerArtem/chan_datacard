@@ -1110,9 +1110,9 @@ static inline int at_response_cmti (pvt_t* pvt, char* str, size_t len)
 				ast_log (LOG_ERROR, "[%s] Error sending CMGR to retrieve SMS message\n", pvt->id);
 				return -1;
 			}
-		}
 
-		pvt->incoming_sms = 1;
+			pvt->incoming_sms = 1;
+		}
 
 		return 0;
 	}

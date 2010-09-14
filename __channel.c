@@ -811,6 +811,7 @@ static int channel_indicate (struct ast_channel* channel, int condition, const v
 			res = -1;
 			break;
 
+		case AST_CONTROL_SRCCHANGE:
 		case AST_CONTROL_PROGRESS:
 		case AST_CONTROL_PROCEEDING:
 		case AST_CONTROL_VIDUPDATE:

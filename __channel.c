@@ -580,7 +580,26 @@ static struct ast_frame* channel_read (struct ast_channel* channel)
 		pvt->a_read_frame.samples	= res / 2;
 		pvt->a_read_frame.datalen	= res;
 
-		f = ast_dsp_process (channel, pvt->dsp, &pvt->a_read_frame);
+		if (pvt->dsp)
+		{
+			f = ast_dsp_process (channel, pvt->dsp, &pvt->a_read_frame);
+			if ((f->frametype == AST_FRAME_DTMF_END) || (f->frametype == AST_FRAME_DTMF_BEGIN))
+			{
+				if ((f->subclass == 'm') || (f->subclass == 'u'))
+				{
+					f->frametype = AST_FRAME_NULL;
+					f->subclass = 0;
+					ast_mutex_unlock (&pvt->lock);
+					return(f);
+				}
+				if (f->frametype == AST_FRAME_DTMF_END)
+				{
+					ast_debug(1, "[%s] Got DTMF char %c\n",pvt->id, f->subclass);
+				}
+				ast_mutex_unlock (&pvt->lock);
+				return(f);
+			}
+		}
 
 		if (pvt->rxgain)
 		{

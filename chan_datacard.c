@@ -46,6 +46,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Rev$")
 #include <asterisk/app.h>
 #include <asterisk/callerid.h>
 #include <asterisk/causes.h>
+#include <asterisk/frame.h>
 #include <asterisk/channel.h>
 #include <asterisk/cli.h>
 #include <asterisk/config.h>

@@ -795,7 +795,7 @@ static int channel_devicestate (void* data)
 		ast_mutex_lock (&pvt->lock);
 		if (pvt->connected)
 		{
-			if (pvt->owner)
+			if (pvt->incoming || pvt->outgoing || pvt->owner)
 			{
 				res = AST_DEVICE_INUSE;
 			}

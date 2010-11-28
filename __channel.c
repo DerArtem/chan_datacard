@@ -585,10 +585,18 @@ static struct ast_frame* channel_read (struct ast_channel* channel)
 			f = ast_dsp_process (channel, pvt->dsp, &pvt->a_read_frame);
 			if ((f->frametype == AST_FRAME_DTMF_END) || (f->frametype == AST_FRAME_DTMF_BEGIN))
 			{
+				#if ASTERISK_VERSION_NUM >= 10800
+				if ((f->subclass.integer == 'm') || (f->subclass.integer == 'u'))
+				#else
 				if ((f->subclass == 'm') || (f->subclass == 'u'))
+				#endif
 				{
 					f->frametype = AST_FRAME_NULL;
+					#if ASTERISK_VERSION_NUM >= 10800
+					f->subclass.integer = 0;
+					#else
 					f->subclass = 0;
+					#endif
 					ast_mutex_unlock (&pvt->lock);
 					return(f);
 				}

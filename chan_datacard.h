@@ -202,7 +202,8 @@ static AST_RWLIST_HEAD_STATIC (devices, pvt_t);
 static int			discovery_interval = DEF_DISCOVERY_INT;	/* The device discovery interval */
 static pthread_t		discovery_thread   = AST_PTHREADT_NULL;	/* The discovery thread */
 
-static char			default_language[MAX_LANGUAGE] = "";	/* Default language setting for new channels */
+//static char			default_language[MAX_LANGUAGE] = "";	/* Default language setting for new channels */
+static char			default_language[MAX_LANGUAGE];		/* Default language setting for new channels */
 
 AST_MUTEX_DEFINE_STATIC (unload_mtx);
 static int			unloading_flag = 0;

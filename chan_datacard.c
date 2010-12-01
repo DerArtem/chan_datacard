@@ -380,8 +380,15 @@ static pvt_t* load_device (struct ast_config* cfg, const char* cat)
 	/* create and initialize our pvt structure */
 
 	pvt = ast_calloc (1, sizeof (*pvt));
-	if (!pvt)
+	if (pvt == NULL)
 	{
+		ast_log (LOG_ERROR, "Skipping device %s. Error allocating memory\n", cat);
+		return NULL;
+	}
+
+	if (ast_string_field_init (pvt, 8))
+	{
+		ast_free (pvt);
 		ast_log (LOG_ERROR, "Skipping device %s. Error allocating memory\n", cat);
 		return NULL;
 	}

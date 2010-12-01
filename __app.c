@@ -41,11 +41,11 @@ static int app_status_exec (struct ast_channel* channel, void* data)
 		if (!strcmp (pvt->id, args.device))
 		{
 			ast_mutex_lock(&pvt->lock);
-			if (pvt->connected)
+			if (pvt->connected && pvt->initialized && pvt->gsm_registered)
 			{
 				stat = 2;
 			}
-			if (pvt->owner)
+			if (pvt->incoming || pvt->outgoing || pvt->owner)
 			{
 				stat = 3;
 			}

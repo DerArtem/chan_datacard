@@ -99,6 +99,8 @@ static char* cli_show_device (struct ast_cli_entry* e, int cmd, struct ast_cli_a
 		ast_cli (a->fd, "\n Current device settings:\n");
 		ast_cli (a->fd, "------------------------------------\n");
 		ast_cli (a->fd, "  Device                  : %s\n", pvt->id);
+		ast_cli (a->fd, "  Context                 : %s\n", pvt->context);
+		ast_cli (a->fd, "  Language                : %s\n", pvt->language);
 		ast_cli (a->fd, "  Group                   : %d\n", pvt->group);
 		ast_cli (a->fd, "  GSM Registration Status : %s\n",
 			(pvt->gsm_reg_status == 0) ? "Not registered, not searching" :

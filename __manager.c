@@ -27,6 +27,8 @@ static int manager_show_devices (struct mansession* s, const struct message* m)
 		ast_mutex_lock (&pvt->lock);
 		astman_append (s, "Event: DatacardDeviceEntry\r\n%s", idtext);
 		astman_append (s, "Device: %s\r\n", pvt->id);
+		astman_append (s, "Context: %s\r\n", pvt->context);
+		astman_append (s, "Language: %s\r\n", pvt->language);
 		astman_append (s, "Group: %d\r\n", pvt->group);
 		astman_append (s, "GSM Registration Status: %s\r\n",
 			(pvt->gsm_reg_status == 0) ? "Not registered, not searching" :

@@ -106,7 +106,8 @@ typedef struct at_queue_t
 	{
 		void*		data;
 		int		num;
-	} param;
+	}
+	param;
 }
 at_queue_t;
 
@@ -188,6 +189,10 @@ typedef struct pvt_t
 	unsigned int		reset_datacard:1;
 	unsigned int		usecallingpres:1;
 	unsigned int		disablesms:1;
+
+	AST_DECLARE_STRING_FIELDS(
+		AST_STRING_FIELD(language);			/* Preferred language */
+	);
 }
 pvt_t;
 
@@ -196,6 +201,8 @@ static AST_RWLIST_HEAD_STATIC (devices, pvt_t);
 
 static int			discovery_interval = DEF_DISCOVERY_INT;	/* The device discovery interval */
 static pthread_t		discovery_thread   = AST_PTHREADT_NULL;	/* The discovery thread */
+
+static char			default_language[MAX_LANGUAGE] = "";	/* Default language setting for new channels */
 
 AST_MUTEX_DEFINE_STATIC (unload_mtx);
 static int			unloading_flag = 0;
@@ -233,7 +240,7 @@ static int			channel_queue_control		(pvt_t* pvt, enum ast_control_frame_type);
 static int			channel_queue_hangup		(pvt_t* pvt, int);
 static int			channel_ast_hangup		(pvt_t* pvt);
 
-static struct ast_channel*	channel_local_request		(pvt_t*, void*, const char*, const char*, const char *);
+static struct ast_channel*	channel_local_request		(pvt_t*, void*, const char*, const char*);
 
 static const struct ast_channel_tech channel_tech =
 {

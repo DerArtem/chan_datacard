@@ -1200,7 +1200,7 @@ static inline int at_response_cmgr (pvt_t* pvt, char* str, size_t len)
 
 		snprintf (pvt->d_send_buf, sizeof (pvt->d_send_buf), "sms@%s", pvt->context);
 
-		if (channel = channel_local_request (pvt, pvt->d_send_buf, pvt->id, from_number, "en"))
+		if (channel = channel_local_request (pvt, pvt->d_send_buf, pvt->id, from_number))
 		{
 			pbx_builtin_setvar_helper (channel, "SMS", text);
 			pbx_builtin_setvar_helper (channel, "SMS_BASE64", text_base64);
@@ -1323,7 +1323,7 @@ static inline int at_response_cusd (pvt_t* pvt, char* str, size_t len)
 
 	snprintf (pvt->d_send_buf, sizeof (pvt->d_send_buf), "ussd@%s", pvt->context);
 
-	if (channel = channel_local_request (pvt, pvt->d_send_buf, pvt->id, "ussd", "en"))
+	if (channel = channel_local_request (pvt, pvt->d_send_buf, pvt->id, "ussd"))
 	{
 		pbx_builtin_setvar_helper (channel, "USSD", cusd);
 		pbx_builtin_setvar_helper (channel, "USSD_BASE64", text_base64);

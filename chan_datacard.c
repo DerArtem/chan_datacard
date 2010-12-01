@@ -412,6 +412,8 @@ static pvt_t* load_device (struct ast_config* cfg, const char* cat)
 	ast_copy_string (pvt->number,		"Unknown",	sizeof (pvt->number));
 	ast_copy_string (pvt->context,		"default",	sizeof (pvt->context));
 
+	ast_string_field_set (pvt, language, default_language);
+
 	pvt->reset_datacard		=  1;
 	pvt->u2diag			= -1;
 	pvt->callingpres		= -1;
@@ -435,6 +437,10 @@ static pvt_t* load_device (struct ast_config* cfg, const char* cat)
 		if (!strcasecmp (v->name, "context"))
 		{
 			ast_copy_string (pvt->context, v->value, sizeof (pvt->context));
+		}
+		else if (!strcasecmp (v->name, "language"))
+		{
+			ast_string_field_set (pvt, language, v->value);
 		}
 		else if (!strcasecmp (v->name, "group"))
 		{
@@ -529,6 +535,10 @@ static int load_config ()
 				ast_log (LOG_NOTICE, "Error parsing 'interval' in general section, using default value\n");
 				discovery_interval = DEF_DISCOVERY_INT;
 			}
+		}
+		else if (!strcasecmp (v->name, "language"))
+		{
+			ast_copy_string (default_language, v->value, sizeof (default_language));
 		}
 	}
 

@@ -9,52 +9,56 @@
 
 static struct ast_channel* channel_new (pvt_t* pvt, int state, char* cid_num)
 {
-	struct ast_channel* channel;
+	struct ast_channel* tmp;
 
 	pvt->answered = 0;
 
 	ast_dsp_digitreset (pvt->dsp);
 
-	channel = ast_channel_alloc (1, state, cid_num, pvt->id, 0, 0, pvt->context, 0, "Datacard/%s-%04lx", pvt->id, ast_random () & 0xffff);
-	if (!channel)
+	tmp = ast_channel_alloc (1, state, cid_num, pvt->id, 0, 0, pvt->context, 0, "Datacard/%s-%04lx", pvt->id, ast_random () & 0xffff);
+	if (!tmp)
 	{
 		return NULL;
 	}
 
-	channel->tech		= &channel_tech;
-	channel->nativeformats	= AST_FORMAT_SLINEAR;
-	channel->writeformat	= AST_FORMAT_SLINEAR;
-	channel->readformat	= AST_FORMAT_SLINEAR;
-	channel->tech_pvt	= pvt;
+	tmp->tech		= &channel_tech;
+	tmp->nativeformats	= AST_FORMAT_SLINEAR;
+	tmp->writeformat	= AST_FORMAT_SLINEAR;
+	tmp->readformat		= AST_FORMAT_SLINEAR;
+	tmp->tech_pvt		= pvt;
 
 	if (state == AST_STATE_RING)
 	{
-		channel->rings = 1;
-		pbx_builtin_setvar_helper (channel, "DATACARD",	pvt->id);
-		pbx_builtin_setvar_helper (channel, "PROVIDER",	pvt->provider_name);
-		pbx_builtin_setvar_helper (channel, "IMEI",	pvt->imei);
-		pbx_builtin_setvar_helper (channel, "IMSI",	pvt->imsi);
+		tmp->rings = 1;
+		pbx_builtin_setvar_helper (tmp, "DATACARD",	pvt->id);
+		pbx_builtin_setvar_helper (tmp, "PROVIDER",	pvt->provider_name);
+		pbx_builtin_setvar_helper (tmp, "IMEI",		pvt->imei);
+		pbx_builtin_setvar_helper (tmp, "IMSI",		pvt->imsi);
 	}
 
-	ast_string_field_set (channel, language, "en");
-	ast_jb_configure (channel, &jbconf_global);
+	if (!ast_strlen_zero (pvt->language))
+	{
+		ast_string_field_set (tmp, language, pvt->language);
+	}
+
+	ast_jb_configure (tmp, &jbconf_global);
 
 	if (pvt->audio_fd != -1)
 	{
-		ast_channel_set_fd (channel, 0, pvt->audio_fd);
+		ast_channel_set_fd (tmp, 0, pvt->audio_fd);
 
 		if ((pvt->a_timer = ast_timer_open ()))
 		{
-			ast_channel_set_fd (channel, 1, ast_timer_fd (pvt->a_timer));
+			ast_channel_set_fd (tmp, 1, ast_timer_fd (pvt->a_timer));
 			rb_init (&pvt->a_write_rb, pvt->a_write_buf, sizeof (pvt->a_write_buf));
 		}
 	}
 
-	pvt->owner = channel;
+	pvt->owner = tmp;
 
 	ast_module_ref (ast_module_info->self);
 
-	return channel;
+	return tmp;
 }
 
 #if ASTERISK_VERSION_NUM >= 10800
@@ -838,11 +842,11 @@ static int channel_indicate (struct ast_channel* channel, int condition, const v
 			res = -1;
 			break;
 
-		case AST_CONTROL_SRCCHANGE:
 		case AST_CONTROL_PROGRESS:
 		case AST_CONTROL_PROCEEDING:
 		case AST_CONTROL_VIDUPDATE:
-		//case AST_CONTROL_SRCUPDATE:
+		case AST_CONTROL_SRCUPDATE:
+		case AST_CONTROL_SRCCHANGE:
 			break;
 
 		case AST_CONTROL_HOLD:
@@ -951,7 +955,7 @@ static int channel_ast_hangup (pvt_t* pvt)
 	return res;
 }
 
-static struct ast_channel* channel_local_request (pvt_t* pvt, void* data, const char* cid_name, const char* cid_num, const char *language)
+static struct ast_channel* channel_local_request (pvt_t* pvt, void* data, const char* cid_name, const char* cid_num)
 {
 	struct ast_channel*	channel;
 	int			cause = 0;
@@ -971,7 +975,11 @@ static struct ast_channel* channel_local_request (pvt_t* pvt, void* data, const 
 	pbx_builtin_setvar_helper (channel, "PROVIDER",	pvt->provider_name);
 	pbx_builtin_setvar_helper (channel, "IMEI",	pvt->imei);
 	pbx_builtin_setvar_helper (channel, "IMSI",	pvt->imsi);
-	ast_string_field_set (channel, language, language);
+
+	if (!ast_strlen_zero (pvt->language))
+	{
+		ast_string_field_set (channel, language, pvt->language);
+	}
 
 	return channel;
 }

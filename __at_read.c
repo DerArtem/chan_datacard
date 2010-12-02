@@ -136,7 +136,7 @@ static int at_read_result_iov (pvt_t* pvt)
 
 				return iovcnt;
 			}
-			else if (rb_memcmp (&pvt->d_read_rb, "\r\n+CSSU:", 8) == 0)
+			else if (rb_memcmp (&pvt->d_read_rb, "\r\n+CSSU:", 8) == 0 || rb_memcmp (&pvt->d_read_rb, "\r\n+CMS ERROR:", 13) == 0 || rb_memcmp (&pvt->d_read_rb, "\r\n+CMGS:", 8) == 0)
 			{
 				rb_read_upd (&pvt->d_read_rb, 2);
 				return at_read_result_iov (pvt);
@@ -146,25 +146,7 @@ static int at_read_result_iov (pvt_t* pvt)
 				pvt->d_read_result = 0;
 				return rb_read_n_iov (&pvt->d_read_rb, pvt->d_read_iov, 2);
 			}
-			else if (rb_memcmp (&pvt->d_read_rb, "+CMGR:", 6) == 0)
-			{
-				if ((iovcnt = rb_read_until_mem_iov (&pvt->d_read_rb, pvt->d_read_iov, "\n\r\nOK\r\n", 7)) > 0)
-				{
-					pvt->d_read_result = 0;
-				}
-
-				return iovcnt;
-			}
-			else if (rb_memcmp (&pvt->d_read_rb, "+CNUM:", 6) == 0)
-			{
-				if ((iovcnt = rb_read_until_mem_iov (&pvt->d_read_rb, pvt->d_read_iov, "\n\r\nOK\r\n", 7)) > 0)
-				{
-					pvt->d_read_result = 0;
-				}
-
-				return iovcnt;
-			}
-			else if (rb_memcmp (&pvt->d_read_rb, "ERROR+CNUM:", 11) == 0)
+			else if (rb_memcmp (&pvt->d_read_rb, "+CMGR:", 6) == 0 || rb_memcmp (&pvt->d_read_rb, "+CNUM:", 6) == 0 || rb_memcmp (&pvt->d_read_rb, "ERROR+CNUM:", 11) == 0)
 			{
 				if ((iovcnt = rb_read_until_mem_iov (&pvt->d_read_rb, pvt->d_read_iov, "\n\r\nOK\r\n", 7)) > 0)
 				{

@@ -4,7 +4,7 @@ host_os=`uname -s`
 config_files="Makefile"
 
 case "$host_os" in
-FreeBSD*)
+FreeBSD*|OpenBSD*)
 	DESTDIR="/usr/local/lib/asterisk/modules/"
 
 	INCDIR="-I. -I/usr/local/include"

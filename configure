@@ -4,11 +4,22 @@ host_os=`uname -s`
 config_files="Makefile"
 
 case "$host_os" in
-FreeBSD*|OpenBSD*)
+FreeBSD*)
 	DESTDIR="/usr/local/lib/asterisk/modules/"
 
 	INCDIR="-I. -I/usr/local/include"
 	CFLAGS="-O2 -DICONV_CONST=\"const\" -D__DEBUG__ -D__MANAGER__ -D__APP__"
+
+	LIBDIR="-L/usr/local/lib"
+	LIBS="-liconv"
+
+	SOLINK="-shared -Xlinker -x"
+;;    
+OpenBSD*)
+	DESTDIR="/usr/local/lib/asterisk/modules/"
+
+	INCDIR="-I. -I/usr/local/include"
+	CFLAGS="-O2 -DICONV_CONST=\"const\" -DNO_MEMMEM -D__DEBUG__ -D__MANAGER__ -D__APP__"
 
 	LIBDIR="-L/usr/local/lib"
 	LIBS="-liconv"

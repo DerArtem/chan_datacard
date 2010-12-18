@@ -19,7 +19,7 @@ OpenBSD*)
 	DESTDIR="/usr/local/lib/asterisk/modules/"
 
 	INCDIR="-I. -I/usr/local/include"
-	CFLAGS="-O2 -DICONV_CONST=\"const\" -DNO_MEMMEM -D__DEBUG__ -D__MANAGER__ -D__APP__"
+	CFLAGS="-O2 -DICONV_CONST=\"\" -DNO_MEMMEM -D__DEBUG__ -D__MANAGER__ -D__APP__"
 
 	LIBDIR="-L/usr/local/lib"
 	LIBS="-liconv"

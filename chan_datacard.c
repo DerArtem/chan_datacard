@@ -111,6 +111,7 @@ static int opentty (char* dev)
 
 	if (tcgetattr (fd, &term_attr) != 0)
 	{
+		close (fd);
 		ast_log (LOG_WARNING, "tcgetattr() failed '%s'\n", dev);
 		return -1;
 	}
@@ -318,19 +319,21 @@ static void* do_discovery (void* data)
 			{
 				ast_verb (3, "Datacard %s trying to connect on %s...\n", pvt->id, pvt->data_tty);
 
-				if ((pvt->data_fd = opentty (pvt->data_tty)) > -1)
+				if ((pvt->data_fd = opentty (pvt->data_tty)) > -1 && (pvt->audio_fd = opentty (pvt->audio_tty)) > -1)
 				{
-					if ((pvt->audio_fd = opentty (pvt->audio_tty)) > -1)
+					if (start_monitor (pvt))
 					{
-						if (start_monitor (pvt))
-						{
-							pvt->connected = 1;
+						pvt->connected = 1;
 #ifdef __MANAGER__
-							manager_event (EVENT_FLAG_SYSTEM, "DatacardStatus", "Status: Connect\r\nDevice: %s\r\n", pvt->id);
+						manager_event (EVENT_FLAG_SYSTEM, "DatacardStatus", "Status: Connect\r\nDevice: %s\r\n", pvt->id);
 #endif
-							ast_verb (3, "Datacard %s has connected, initializing...\n", pvt->id);
-						}
+						ast_verb (3, "Datacard %s has connected, initializing...\n", pvt->id);
 					}
+				}
+				else
+				{
+					close (pvt->data_fd);
+					close (pvt->audio_fd);
 				}
 			}
 

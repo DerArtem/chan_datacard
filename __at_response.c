@@ -16,7 +16,11 @@
  * \retval -1 error
  */
 
+#if ASTERISK_VERSION_NUM >= 10800
+static inline int at_response (pvt_t* pvt, int iovcnt, at_res_t at_res, const struct ast_channel *requestor)
+#else
 static inline int at_response (pvt_t* pvt, int iovcnt, at_res_t at_res)
+#endif
 {
 	char*		str;
 	size_t		len;
@@ -104,7 +108,11 @@ static inline int at_response (pvt_t* pvt, int iovcnt, at_res_t at_res)
 				return at_response_smmemfull (pvt);
 
 			case RES_CLIP:
+				#if ASTERISK_VERSION_NUM >= 10800
+				return at_response_clip (pvt, str, len, requestor);
+				#else
 				return at_response_clip (pvt, str, len);
+				#endif
 
 			case RES_CMTI:
 				return at_response_cmti (pvt, str, len);
@@ -1013,7 +1021,11 @@ static inline int at_response_conn (pvt_t* pvt)
  * \retval -1 error
  */
 
+#if ASTERISK_VERSION_NUM >= 10800
+static inline int at_response_clip (pvt_t* pvt, char* str, size_t len, const struct ast_channel *requestor)
+#else
 static inline int at_response_clip (pvt_t* pvt, char* str, size_t len)
+#endif
 {
 	struct ast_channel*	channel;
 	char*			clip;
@@ -1027,7 +1039,11 @@ static inline int at_response_clip (pvt_t* pvt, char* str, size_t len)
 			ast_log (LOG_ERROR, "[%s] Error parsing CLIP: %s\n", pvt->id, str);
 		}
 
+		#if ASTERISK_VERSION_NUM >= 10800
+		if (!(channel = channel_new (pvt, AST_STATE_RING, clip, requestor)))
+		#else
 		if (!(channel = channel_new (pvt, AST_STATE_RING, clip)))
+		#endif
 		{
 			ast_log (LOG_ERROR, "[%s] Unable to allocate channel for incoming call\n", pvt->id);
 

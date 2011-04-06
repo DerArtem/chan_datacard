@@ -222,7 +222,11 @@ static void* do_monitor_phone (void* data)
 		{
 			at_res = at_read_result_classification (pvt, iovcnt);
 
+			#if ASTERISK_VERSION_NUM >= 10800
+			if (at_response (pvt, iovcnt, at_res, NULL))
+			#else
 			if (at_response (pvt, iovcnt, at_res))
+			#endif
 			{
 				goto e_cleanup;
 			}

@@ -7,7 +7,11 @@
    Dmitry Vagin <dmitry2004@yandex.ru>
 */
 
+#if ASTERISK_VERSION_NUM >= 10800
+static struct ast_channel* channel_new (pvt_t* pvt, int state, char* cid_num, const struct ast_channel *requestor)
+#else
 static struct ast_channel* channel_new (pvt_t* pvt, int state, char* cid_num)
+#endif
 {
 	struct ast_channel* tmp;
 
@@ -15,7 +19,11 @@ static struct ast_channel* channel_new (pvt_t* pvt, int state, char* cid_num)
 
 	ast_dsp_digitreset (pvt->dsp);
 
+	#if ASTERISK_VERSION_NUM >= 10800
+	tmp = ast_channel_alloc (1, state, cid_num, pvt->id, 0, 0, pvt->context, requestor ? requestor->linkedid : NULL, 0, "Datacard/%s-%04lx", pvt->id, ast_random () & 0xffff);
+	#else
 	tmp = ast_channel_alloc (1, state, cid_num, pvt->id, 0, 0, pvt->context, 0, "Datacard/%s-%04lx", pvt->id, ast_random () & 0xffff);
+	#endif
 	if (!tmp)
 	{
 		return NULL;
@@ -62,7 +70,7 @@ static struct ast_channel* channel_new (pvt_t* pvt, int state, char* cid_num)
 }
 
 #if ASTERISK_VERSION_NUM >= 10800
-static struct ast_channel* channel_request (const char* type, format_t format, void* data, int* cause)
+static struct ast_channel* channel_request (const char* type, format_t format, const struct ast_channel *requestor, void* data, int* cause)
 #else
 static struct ast_channel* channel_request (const char* type, int format, void* data, int* cause)
 #endif
@@ -343,7 +351,11 @@ static struct ast_channel* channel_request (const char* type, int format, void* 
 		return NULL;
 	}
 
+	#if ASTERISK_VERSION_NUM >= 10800
+	channel = channel_new (pvt, AST_STATE_DOWN, NULL, requestor);
+	#else
 	channel = channel_new (pvt, AST_STATE_DOWN, NULL);
+	#endif
 
 	ast_mutex_unlock (&pvt->lock);
 
@@ -606,7 +618,11 @@ static struct ast_frame* channel_read (struct ast_channel* channel)
 				}
 				if (f->frametype == AST_FRAME_DTMF_END)
 				{
+					#if ASTERISK_VERSION_NUM >= 10800
+					ast_debug(1, "[%s] Got DTMF char %c\n",pvt->id, f->subclass.integer);
+					#else
 					ast_debug(1, "[%s] Got DTMF char %c\n",pvt->id, f->subclass);
+					#endif
 				}
 				ast_mutex_unlock (&pvt->lock);
 				return(f);

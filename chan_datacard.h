@@ -218,10 +218,11 @@ static inline int		get_at_clir_value		(pvt_t*, int);
 
 /* Channel Driver */
 
-static struct ast_channel*	channel_new			(pvt_t*, int state, char*);
 #if ASTERISK_VERSION_NUM >= 10800
-static struct ast_channel*	channel_request			(const char*, format_t, void*, int*);
+static struct ast_channel*	channel_new			(pvt_t*, int state, char*, const struct ast_channel *requestor);
+static struct ast_channel*	channel_request			(const char*, format_t, const struct ast_channel*, void*, int*);
 #else
+static struct ast_channel*	channel_new			(pvt_t*, int state, char*);
 static struct ast_channel*	channel_request			(const char*, int, void*, int*);
 #endif
 static int			channel_call			(struct ast_channel*, char*, int);
@@ -288,7 +289,11 @@ static int			at_read_result_iov	(pvt_t*);
 static inline at_res_t		at_read_result_classification (pvt_t*, int);
 
 
+#if ASTERISK_VERSION_NUM >= 10800
+static inline int		at_response		(pvt_t*, int, at_res_t, const struct ast_channel *requestor);
+#else
 static inline int		at_response		(pvt_t*, int, at_res_t);
+#endif
 static inline int		at_response_busy	(pvt_t*);
 static inline int		at_response_cend	(pvt_t*, char*, size_t);
 static inline int		at_response_cgmi	(pvt_t*, char*, size_t);
@@ -296,7 +301,11 @@ static inline int		at_response_cgmm	(pvt_t*, char*, size_t);
 static inline int		at_response_cgmr	(pvt_t*, char*, size_t);
 static inline int		at_response_cgsn	(pvt_t*, char*, size_t);
 static inline int		at_response_cimi	(pvt_t*, char*, size_t);
+#if ASTERISK_VERSION_NUM >= 10800
+static inline int		at_response_clip	(pvt_t*, char*, size_t, const struct ast_channel *requestor);
+#else
 static inline int		at_response_clip	(pvt_t*, char*, size_t);
+#endif
 static inline int		at_response_cmgr	(pvt_t*, char*, size_t);
 static inline int		at_response_cmti	(pvt_t*, char*, size_t);
 static inline int		at_response_cnum	(pvt_t*, char*, size_t);

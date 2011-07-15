@@ -868,7 +868,7 @@ e_return:
  * \brief Handle ^RSSI response Here we get the signal strength.
  * \param pvt -- pvt structure
  * \param str -- string containing response (null terminated)
- * \param len -- string lenght
+ * \param len -- string length
  * \retval  0 success
  * \retval -1 error
  */
@@ -887,7 +887,7 @@ static inline int at_response_rssi (pvt_t* pvt, char* str, size_t len)
  * \brief Handle ^MODE response Here we get the link mode (GSM, UMTS, EDGE...).
  * \param pvt -- pvt structure
  * \param str -- string containing response (null terminated)
- * \param len -- string lenght
+ * \param len -- string length
  * \retval  0 success
  * \retval -1 error
  */
@@ -901,7 +901,7 @@ static inline int at_response_mode (pvt_t* pvt, char* str, size_t len)
  * \brief Handle ^ORIG response
  * \param pvt -- pvt structure
  * \param str -- string containing response (null terminated)
- * \param len -- string lenght
+ * \param len -- string length
  * \retval  0 success
  * \retval -1 error
  */
@@ -941,7 +941,7 @@ static int at_response_orig (pvt_t* pvt, char* str, size_t len)
  * \brief Handle ^CEND response
  * \param pvt -- pvt structure
  * \param str -- string containing response (null terminated)
- * \param len -- string lenght
+ * \param len -- string length
  * \retval  0 success
  * \retval -1 error
  */
@@ -1016,7 +1016,7 @@ static inline int at_response_conn (pvt_t* pvt)
  * \brief Handle +CLIP response
  * \param pvt -- pvt structure
  * \param str -- null terminated strfer containing response
- * \param len -- string lenght
+ * \param len -- string length
  * \retval  0 success
  * \retval -1 error
  */
@@ -1102,7 +1102,7 @@ static inline int at_response_ring (pvt_t* pvt)
  * \brief Handle +CMTI response
  * \param pvt -- pvt structure
  * \param str -- string containing response (null terminated)
- * \param len -- string lenght
+ * \param len -- string length
  * \retval  0 success
  * \retval -1 error
  */
@@ -1143,7 +1143,7 @@ static inline int at_response_cmti (pvt_t* pvt, char* str, size_t len)
  * \brief Handle +CMGR response
  * \param pvt -- pvt structure
  * \param str -- string containing response (null terminated)
- * \param len -- string lenght
+ * \param len -- string length
  * \retval  0 success
  * \retval -1 error
  */
@@ -1280,7 +1280,7 @@ static inline int at_response_sms_prompt (pvt_t* pvt)
  * \brief Handle CUSD response
  * \param pvt -- pvt structure
  * \param str -- string containing response (null terminated)
- * \param len -- string lenght
+ * \param len -- string length
  * \retval  0 success
  * \retval -1 error
  */
@@ -1408,7 +1408,7 @@ static inline int at_response_no_carrier (pvt_t* pvt)
  * \brief Handle +CPIN response
  * \param pvt -- pvt structure
  * \param str -- string containing response (null terminated)
- * \param len -- string lenght
+ * \param len -- string length
  * \retval  0 success
  * \retval -1 error
  */
@@ -1435,7 +1435,7 @@ static inline int at_response_smmemfull (pvt_t* pvt)
  * \brief Handle +CSQ response Here we get the signal strength and bit error rate
  * \param pvt -- pvt structure
  * \param str -- string containing response (null terminated)
- * \param len -- string lenght
+ * \param len -- string length
  * \retval  0 success
  * \retval -1 error
  */
@@ -1448,7 +1448,7 @@ static inline int at_response_csq (pvt_t* pvt, char* str, size_t len)
  * \brief Handle +CNUM response Here we get our own phone number
  * \param pvt -- pvt structure
  * \param str -- string containing response (null terminated)
- * \param len -- string lenght
+ * \param len -- string length
  * \retval  0 success
  * \retval -1 error
  */
@@ -1472,7 +1472,7 @@ static inline int at_response_cnum (pvt_t* pvt, char* str, size_t len)
  * \brief Handle +COPS response Here we get the GSM provider name
  * \param pvt -- pvt structure
  * \param str -- string containing response (null terminated)
- * \param len -- string lenght
+ * \param len -- string length
  * \retval  0 success
  * \retval -1 error
  */
@@ -1496,7 +1496,7 @@ static inline int at_response_cops (pvt_t* pvt, char* str, size_t len)
  * \brief Handle +CREG response Here we get the GSM registration status
  * \param pvt -- pvt structure
  * \param str -- string containing response (null terminated)
- * \param len -- string lenght
+ * \param len -- string length
  * \retval  0 success
  * \retval -1 error
  */
@@ -1544,7 +1544,7 @@ static inline int at_response_creg (pvt_t* pvt, char* str, size_t len)
  * \brief Handle AT+CGMI response
  * \param pvt -- pvt structure
  * \param str -- string containing response (null terminated)
- * \param len -- string lenght
+ * \param len -- string length
  * \retval  0 success
  * \retval -1 error
  */
@@ -1560,7 +1560,7 @@ static inline int at_response_cgmi (pvt_t* pvt, char* str, size_t len)
  * \brief Handle AT+CGMM response
  * \param pvt -- pvt structure
  * \param str -- string containing response (null terminated)
- * \param len -- string lenght
+ * \param len -- string length
  * \retval  0 success
  * \retval -1 error
  */
@@ -1582,7 +1582,7 @@ static inline int at_response_cgmm (pvt_t* pvt, char* str, size_t len)
  * \brief Handle AT+CGMR response
  * \param pvt -- pvt structure
  * \param str -- string containing response (null terminated)
- * \param len -- string lenght
+ * \param len -- string length
  * \retval  0 success
  * \retval -1 error
  */
@@ -1598,7 +1598,7 @@ static inline int at_response_cgmr (pvt_t* pvt, char* str, size_t len)
  * \brief Handle AT+CGSN response
  * \param pvt -- pvt structure
  * \param str -- string containing response (null terminated)
- * \param len -- string lenght
+ * \param len -- string length
  * \retval  0 success
  * \retval -1 error
  */
@@ -1614,7 +1614,7 @@ static inline int at_response_cgsn (pvt_t* pvt, char* str, size_t len)
  * \brief Handle AT+CIMI response
  * \param pvt -- pvt structure
  * \param str -- string containing response (null terminated)
- * \param len -- string lenght
+ * \param len -- string length
  * \retval  0 success
  * \retval -1 error
  */

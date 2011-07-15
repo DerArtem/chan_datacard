@@ -247,7 +247,7 @@ static const char* at_res2str (at_res_t res)
  * \brief Parse a CLIP event
  * \param pvt -- pvt structure
  * \param str -- string to parse (null terminated)
- * \param len -- string lenght
+ * \param len -- string length
  * @note str will be modified when the CID string is parsed
  * \return NULL on error (parse error) or a pointer to the caller id inforamtion in str on success
  */
@@ -301,7 +301,7 @@ static inline char* at_parse_clip (pvt_t* pvt, char* str, size_t len)
  * \brief Parse a CNUM response
  * \param pvt -- pvt structure
  * \param str -- string to parse (null terminated)
- * \param len -- string lenght
+ * \param len -- string length
  * @note str will be modified when the CNUM message is parsed
  * \return NULL on error (parse error) or a pointer to the subscriber number
  */
@@ -369,7 +369,7 @@ static inline char* at_parse_cnum (pvt_t* pvt, char* str, size_t len)
  * \brief Parse a COPS response
  * \param pvt -- pvt structure
  * \param str -- string to parse (null terminated)
- * \param len -- string lenght
+ * \param len -- string length
  * @note str will be modified when the COPS message is parsed
  * \return NULL on error (parse error) or a pointer to the provider name
  */
@@ -423,7 +423,7 @@ static inline char* at_parse_cops (pvt_t* pvt, char* str, size_t len)
  * \brief Parse a CREG response
  * \param pvt -- pvt structure
  * \param str -- string to parse (null terminated)
- * \param len -- string lenght
+ * \param len -- string length
  * \param gsm_reg -- a pointer to a int
  * \param gsm_reg_status -- a pointer to a int
  * \param lac -- a pointer to a char pointer which will store the location area code in hex format
@@ -562,7 +562,7 @@ static inline int at_parse_creg (pvt_t* pvt, char* str, size_t len, int* gsm_reg
  * \brief Parse a CMTI notification
  * \param pvt -- pvt structure
  * \param str -- string to parse (null terminated)
- * \param len -- string lenght
+ * \param len -- string length
  * @note str will be modified when the CMTI message is parsed
  * \return -1 on error (parse error) or the index of the new sms message
  */
@@ -589,7 +589,7 @@ static inline int at_parse_cmti (pvt_t* pvt, char* str, size_t len)
  * \brief Parse a CMGR message
  * \param pvt -- pvt structure
  * \param str -- string to parse (null terminated)
- * \param len -- string lenght
+ * \param len -- string length
  * \param number -- a pointer to a char pointer which will store the from number
  * \param text -- a pointer to a char pointer which will store the message text
  * @note str will be modified when the CMGR message is parsed
@@ -670,7 +670,7 @@ static inline int at_parse_cmgr (pvt_t* pvt, char* str, size_t len, char** numbe
  * \brief Parse a CUSD answer
  * \param pvt -- pvt structure
  * \param str -- string to parse (null terminated)
- * \param len -- string lenght
+ * \param len -- string length
  * @note str will be modified when the CUSD string is parsed
  * \retval  0 success
  * \retval -1 parse error
@@ -747,7 +747,7 @@ static inline int at_parse_cusd (pvt_t* pvt, char* str, size_t len, char** cusd,
  * \brief Parse a CPIN notification
  * \param pvt -- pvt structure
  * \param str -- string to parse (null terminated)
- * \param len -- string lenght
+ * \param len -- string length
  * \return  2 if PUK required
  * \return  1 if PIN required
  * \return  0 if no PIN required
@@ -780,7 +780,7 @@ static inline int at_parse_cpin (pvt_t* pvt, char* str, size_t len)
  * \brief Parse +CSQ response
  * \param pvt -- pvt struct
  * \param str -- string to parse (null terminated)
- * \param len -- string lenght
+ * \param len -- string length
  * \retval  0 success
  * \retval -1 error
  */
@@ -807,7 +807,7 @@ static inline int at_parse_csq (pvt_t* pvt, char* str, size_t len, int* rssi)
  * \brief Parse a ^RSSI notification
  * \param pvt -- pvt structure
  * \param str -- string to parse (null terminated)
- * \param len -- string lenght
+ * \param len -- string length
  * \return -1 on error (parse error) or the rssi value
  */
 
@@ -833,7 +833,7 @@ static inline int at_parse_rssi (pvt_t* pvt, char* str, size_t len)
  * \brief Parse a ^MODE notification (link mode)
  * \param pvt -- pvt structure
  * \param str -- string to parse (null terminated)
- * \param len -- string lenght
+ * \param len -- string length
  * \return -1 on error (parse error) or the the link mode value
  */
 

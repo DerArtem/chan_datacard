@@ -724,7 +724,7 @@ static int channel_write (struct ast_channel* channel, struct ast_frame* f)
 	{
 //		if (f->datalen != 320)
 		{
-			ast_debug (7, "[%s] Frame: samples = %d, data lenght = %d byte\n", pvt->id, f->samples, f->datalen);
+			ast_debug (7, "[%s] Frame: samples = %d, data length = %d byte\n", pvt->id, f->samples, f->datalen);
 		}
 
 		if (pvt->txgain && f->datalen > 0)

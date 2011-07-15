@@ -7,6 +7,7 @@ STRIP = strip
 RM = rm -f
 CHMOD = chmod
 INSTALL = install
+DESTDIR =
 
 CFLAGS  += -Wextra -fPIC -DAST_MODULE=\"$(PROJ)\" -D_THREAD_SAFE @INCDIR@ @CFLAGS@
 LDFLAGS += @LIBDIR@
@@ -16,8 +17,8 @@ SOLINK   = @SOLINK@
 all	: clean $(PROJ).so
 
 install	: all
-	$(STRIP) $(PROJ).so
-	$(INSTALL) -m 755 $(PROJ).so @DESTDIR@
+	$(INSTALL) -d                $(DESTDIR)@DESTDIR@
+	$(INSTALL) -m 755 $(PROJ).so $(DESTDIR)@DESTDIR@
 
 $(PROJ).so: $(OBJ)
 	$(LD) $(LDFLAGS) $(SOLINK) $(OBJ) $(LIBS) -o $@

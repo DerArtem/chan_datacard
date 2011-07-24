@@ -219,3 +219,33 @@ static ssize_t hexstr_7bit_to_char (const char* in, size_t in_length, char* out,
 
 	return x;
 }
+
+static ssize_t hexstr_8bit_to_char (const char* in, size_t in_length, char* out, size_t out_size)
+{
+	size_t		i;
+	size_t		x;
+	int		hexval;
+	unsigned char	buf[] = { 0x0, 0x0, 0x0 };
+
+	in_length = in_length / 2;
+	if (out_size - 1 < in_length)
+	{
+		return -1;
+	}
+
+	for (i = 0, x = 0; i < in_length; i++)
+	{
+		memmove (buf, in + i * 2, 2);
+		if (sscanf (buf, "%x", &hexval) != 1)
+		{
+			return -1;
+		}
+
+		out[x] = (unsigned char) hexval;
+		x++;
+	}
+
+	out[x] = '\0';
+
+	return x;
+}

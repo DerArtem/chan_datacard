@@ -1301,7 +1301,10 @@ static inline int at_response_cusd (pvt_t* pvt, char* str, size_t len)
 
 	if ((dcs == 0 || dcs == 15) && !pvt->cusd_use_ucs2_decoding)
 	{
-		res = hexstr_7bit_to_char (cusd, strlen (cusd), cusd_utf8_str, sizeof (cusd_utf8_str));
+		if(dcs == 0)
+		    res = hexstr_8bit_to_char (cusd, strlen (cusd), cusd_utf8_str, sizeof (cusd_utf8_str));
+		else
+		    res = hexstr_7bit_to_char (cusd, strlen (cusd), cusd_utf8_str, sizeof (cusd_utf8_str));
 		if (res > 0)
 		{
 			cusd = cusd_utf8_str;

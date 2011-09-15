@@ -189,6 +189,7 @@ typedef struct pvt_t
 	unsigned int		reset_datacard:1;
 	unsigned int		usecallingpres:1;
 	unsigned int		disablesms:1;
+	struct ast_variable*	chanvars;			/* Variables to set for channel created by user */
 
 	AST_DECLARE_STRING_FIELDS(
 		AST_STRING_FIELD(language);			/* Preferred language */

@@ -19,6 +19,8 @@ static struct ast_channel* channel_new (pvt_t* pvt, int state, char* cid_num)
 
 	ast_dsp_digitreset (pvt->dsp);
 
+	struct ast_variable* v = NULL;
+
 	#if ASTERISK_VERSION_NUM >= 10800
 	tmp = ast_channel_alloc (1, state, cid_num, pvt->id, 0, 0, pvt->context, requestor ? requestor->linkedid : NULL, 0, "Datacard/%s-%04lx", pvt->id, ast_random () & 0xffff);
 	#else
@@ -42,6 +44,14 @@ static struct ast_channel* channel_new (pvt_t* pvt, int state, char* cid_num)
 		pbx_builtin_setvar_helper (tmp, "PROVIDER",	pvt->provider_name);
 		pbx_builtin_setvar_helper (tmp, "IMEI",		pvt->imei);
 		pbx_builtin_setvar_helper (tmp, "IMSI",		pvt->imsi);
+		/* Set channel variables for this call from configuration */
+		if (pvt->chanvars)
+		{
+			for (v = pvt->chanvars ; v ; v = v->next) {
+				char valuebuf[1024];
+				pbx_builtin_setvar_helper (tmp, v->name, ast_get_encoded_str(v->value, valuebuf, sizeof(valuebuf)));
+			}
+		}
 	}
 
 	if (!ast_strlen_zero (pvt->language))
@@ -975,6 +985,7 @@ static struct ast_channel* channel_local_request (pvt_t* pvt, void* data, const 
 {
 	struct ast_channel*	channel;
 	int			cause = 0;
+	struct ast_variable*	v = NULL;
 
 	#if ASTERISK_VERSION_NUM >= 10800
 	if (!(channel = ast_request ("Local", AST_FORMAT_AUDIO_MASK, NULL, data, &cause)))
@@ -991,6 +1002,14 @@ static struct ast_channel* channel_local_request (pvt_t* pvt, void* data, const 
 	pbx_builtin_setvar_helper (channel, "PROVIDER",	pvt->provider_name);
 	pbx_builtin_setvar_helper (channel, "IMEI",	pvt->imei);
 	pbx_builtin_setvar_helper (channel, "IMSI",	pvt->imsi);
+	/* Set channel variables for this call from configuration */
+	if (pvt->chanvars)
+	{
+		for (v = pvt->chanvars ; v ; v = v->next) {
+			char valuebuf[1024];
+			pbx_builtin_setvar_helper (channel, v->name, ast_get_encoded_str(v->value, valuebuf, sizeof(valuebuf)));
+		}
+	}
 
 	if (!ast_strlen_zero (pvt->language))
 	{

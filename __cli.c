@@ -70,6 +70,7 @@ static char* cli_show_devices (struct ast_cli_entry* e, int cmd, struct ast_cli_
 static char* cli_show_device (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
 {
 	pvt_t* pvt;
+	struct ast_variable* v = NULL;
 
 	switch (cmd)
 	{
@@ -136,7 +137,16 @@ static char* cli_show_device (struct ast_cli_entry* e, int cmd, struct ast_cli_a
 		ast_cli (a->fd, "  Location area code      : %s\n", pvt->location_area_code);
 		ast_cli (a->fd, "  Cell ID                 : %s\n", pvt->cell_id);
 		ast_cli (a->fd, "  Auto delete SMS         : %s\n", pvt->auto_delete_sms ? "Yes" : "No");
-		ast_cli (a->fd, "  Disable SMS             : %s\n\n", pvt->disablesms ? "Yes" : "No");
+		ast_cli (a->fd, "  Disable SMS             : %s\n", pvt->disablesms ? "Yes" : "No");
+		if (pvt->chanvars)
+		{
+			ast_cli (a->fd, "  Variables:\n");
+			for (v = pvt->chanvars ; v ; v = v->next) {
+				char valuebuf[1024];
+				ast_cli (a->fd, "\t%s=%s\n", v->name, ast_get_encoded_str(v->value, valuebuf, sizeof(valuebuf)));
+			}
+		}
+		ast_cli (a->fd, "\n");
 		ast_mutex_unlock (&pvt->lock);
 	}
 	else

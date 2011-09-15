@@ -357,6 +357,28 @@ static void* do_discovery (void* data)
 
 
 
+/*!
+ * \brief
+ * \implement the setvar config line
+ */
+
+static struct ast_variable* add_var(const char* buf, struct ast_variable* list)
+{
+	struct ast_variable* tmpvar = NULL;
+	char* varname = ast_strdupa(buf), *varval = NULL;
+	
+	if ((varval = strchr(varname, '='))) {
+		*varval++ = '\0';
+		if ((tmpvar = ast_variable_new(varname, varval, ""))) {
+			tmpvar->next = list;
+			list = tmpvar;
+		}
+	}
+	return list;
+}
+
+
+
 /* Module */
 
 /*!
@@ -506,6 +528,10 @@ static pvt_t* load_device (struct ast_config* cfg, const char* cat)
 		else if (!strcasecmp (v->name, "disablesms"))
 		{
 			pvt->disablesms = ast_true (v->value);				/* disablesms is set to 0 if invalid */
+		}
+		else if (!strcasecmp (v->name, "setvar"))
+		{
+			pvt->chanvars = add_var (v->value, pvt->chanvars);		/* add variable to device */
 		}
 	}
 

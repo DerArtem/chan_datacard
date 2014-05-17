@@ -1,4 +1,4 @@
-/* 
+/*
    Copyright (C) 2009 - 2010
    
    Artem Makhutov <artem@makhutov.org>
@@ -9,10 +9,11 @@
 
 static char* cli_show_devices (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
 {
-	pvt_t* pvt;
+	pvt_t*	pvt;
+	char	buf[32];
 
-#define FORMAT1 "%-12.12s %-5.5s %-10.10s %-4.4s %-4.4s %-7.7s %-14.14s %-10.10s %-17.17s %-16.16s %-16.16s %-14.14s\n"
-#define FORMAT2 "%-12.12s %-5d %-10.10s %-4d %-4d %-7d %-14.14s %-10.10s %-17.17s %-16.16s %-16.16s %-14.14s\n"
+#define FORMAT1 "%-10.10s %-5.5s %-7.7s %-19.19s %-14.14s %-6.6s %-15.15s %-15.15s %-14.14s\n"
+#define FORMAT2 "%-10.10s %-5d %-7.7s %-19.19s %-14.14s %-6.6s %-15.15s %-15.15s %-14.14s\n"
 
 	switch (cmd)
 	{
@@ -31,7 +32,7 @@ static char* cli_show_devices (struct ast_cli_entry* e, int cmd, struct ast_cli_
 		return CLI_SHOWUSAGE;
 	}
 
-	ast_cli (a->fd, FORMAT1, "ID", "Group", "State", "RSSI", "Mode", "Submode", "Provider Name", "Model", "Firmware", "IMEI", "IMSI", "Number");
+	ast_cli (a->fd, FORMAT1, "ID", "Group", "State", "Signal strength", "Provider name", "Model", "IMEI", "IMSI", "Number");
 
 	AST_RWLIST_RDLOCK (&devices);
 	AST_RWLIST_TRAVERSE (&devices, pvt, entry)
@@ -47,12 +48,9 @@ static char* cli_show_devices (struct ast_cli_entry* e, int cmd, struct ast_cli_
 			(pvt->outgoing || pvt->incoming) ? "Busy" :
 			(pvt->outgoing_sms || pvt->incoming_sms) ? "SMS" : "Free",
 
-			pvt->rssi,
-			pvt->linkmode,
-			pvt->linksubmode,
+			rssi2dBm (pvt->rssi, buf, sizeof (buf)),
 			pvt->provider_name,
 			pvt->model,
-			pvt->firmware,
 			pvt->imei,
 			pvt->imsi,
 			pvt->number
@@ -70,7 +68,6 @@ static char* cli_show_devices (struct ast_cli_entry* e, int cmd, struct ast_cli_
 static char* cli_show_device (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
 {
 	pvt_t* pvt;
-	struct ast_variable* v = NULL;
 
 	switch (cmd)
 	{
@@ -132,18 +129,21 @@ static char* cli_show_device (struct ast_cli_entry* e, int cmd, struct ast_cli_a
 		ast_cli (a->fd, "  Use CallingPres         : %s\n", pvt->usecallingpres ? "Yes" : "No");
 		ast_cli (a->fd, "  Default CallingPres     : %s\n", pvt->callingpres < 0 ? "<Not set>" : ast_describe_caller_presentation (pvt->callingpres));
 		ast_cli (a->fd, "  Use UCS-2 encoding      : %s\n", pvt->use_ucs2_encoding ? "Yes" : "No");
-		ast_cli (a->fd, "  USSD use 7 bit encoding : %s\n", pvt->cusd_use_7bit_encoding ? "Yes" : "No");
-		ast_cli (a->fd, "  USSD use UCS-2 decoding : %s\n", pvt->cusd_use_ucs2_decoding ? "Yes" : "No");
+		ast_cli (a->fd, "  USSD use 7 bit encoding : %s\n", pvt->ussd_use_7bit_encoding ? "Yes" : "No");
+		ast_cli (a->fd, "  USSD use UCS-2 decoding : %s\n", pvt->ussd_use_ucs2_decoding ? "Yes" : "No");
 		ast_cli (a->fd, "  Location area code      : %s\n", pvt->location_area_code);
 		ast_cli (a->fd, "  Cell ID                 : %s\n", pvt->cell_id);
 		ast_cli (a->fd, "  Auto delete SMS         : %s\n", pvt->auto_delete_sms ? "Yes" : "No");
 		ast_cli (a->fd, "  Disable SMS             : %s\n", pvt->disablesms ? "Yes" : "No");
-		if (pvt->chanvars)
+		if (pvt->vars)
 		{
+			struct ast_variable*	var = NULL;
+			char			varbuf[1024];
+
 			ast_cli (a->fd, "  Variables:\n");
-			for (v = pvt->chanvars ; v ; v = v->next) {
-				char valuebuf[1024];
-				ast_cli (a->fd, "\t%s=%s\n", v->name, ast_get_encoded_str(v->value, valuebuf, sizeof(valuebuf)));
+			for (var = pvt->vars; var; var = var->next)
+			{
+				ast_cli (a->fd, "   %s=%s\n", var->name, ast_get_encoded_str (var->value, varbuf, sizeof (varbuf)));
 			}
 		}
 		ast_cli (a->fd, "\n");

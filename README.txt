@@ -15,6 +15,7 @@ This channel driver should work with the folowing UMTS cards:
 * Huawei K3715
 * Huawei E169 / K3520
 * Huawei E1550
+* Huawei E171
 
 This channel is known NOT to work with the folowing UMTS cards:
 * Huawei E160 / K3565

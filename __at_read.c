@@ -1,4 +1,4 @@
-/* 
+/*
    Copyright (C) 2009 - 2010
    
    Artem Makhutov <artem@makhutov.org>
@@ -69,7 +69,7 @@ static inline int at_read (pvt_t* pvt)
 			{
 				ast_debug (5, "[%s] [%.*s%.*s]\n", pvt->id,
 						(int) pvt->d_read_iov[0].iov_len, (char*) pvt->d_read_iov[0].iov_base,
-							(int) pvt->d_read_iov[1].iov_len, (char*) pvt->d_read_iov[1].iov_base);
+						(int) pvt->d_read_iov[1].iov_len, (char*) pvt->d_read_iov[1].iov_base);
 			}
 			else
 			{

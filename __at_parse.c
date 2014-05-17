@@ -1,4 +1,4 @@
-/* 
+/*
    Copyright (C) 2009 - 2010
    
    Artem Makhutov <artem@makhutov.org>
@@ -116,14 +116,17 @@ static const char* at_cmd2str (at_cmd_t cmd)
 		case CMD_AT_DTMF:
 			return "AT^DTMF";
 
-		case CMD_AT_E:
-			return "ATE";
-
 		case CMD_AT_SMS_TEXT:
 			return "SMS TEXT";
 
 		case CMD_AT_U2DIAG:
 			return "AT^U2DIAG";
+
+		case CMD_AT_CURC:
+			return "AT^CURC";
+
+		case CMD_AT_E:
+			return "ATE";
 
 		case CMD_AT_Z:
 			return "ATZ";
@@ -252,7 +255,7 @@ static const char* at_res2str (at_res_t res)
  * \return NULL on error (parse error) or a pointer to the caller id inforamtion in str on success
  */
 
-static inline char* at_parse_clip (pvt_t* pvt, char* str, size_t len)
+static inline char* at_parse_clip (attribute_unused pvt_t* pvt, char* str, size_t len)
 {
 	size_t	i;
 	int	state;
@@ -306,7 +309,7 @@ static inline char* at_parse_clip (pvt_t* pvt, char* str, size_t len)
  * \return NULL on error (parse error) or a pointer to the subscriber number
  */
 
-static inline char* at_parse_cnum (pvt_t* pvt, char* str, size_t len)
+static inline char* at_parse_cnum (attribute_unused pvt_t* pvt, char* str, size_t len)
 {
 	size_t	i;
 	int	state;
@@ -374,7 +377,7 @@ static inline char* at_parse_cnum (pvt_t* pvt, char* str, size_t len)
  * \return NULL on error (parse error) or a pointer to the provider name
  */
 
-static inline char* at_parse_cops (pvt_t* pvt, char* str, size_t len)
+static inline char* at_parse_cops (attribute_unused pvt_t* pvt, char* str, size_t len)
 {
 	size_t	i;
 	int	state;
@@ -433,7 +436,7 @@ static inline char* at_parse_cops (pvt_t* pvt, char* str, size_t len)
  * \retval -1 parse error
  */
 
-static inline int at_parse_creg (pvt_t* pvt, char* str, size_t len, int* gsm_reg, int* gsm_reg_status, char** lac, char** ci)
+static inline int at_parse_creg (attribute_unused pvt_t* pvt, char* str, size_t len, int* gsm_reg, int* gsm_reg_status, char** lac, char** ci)
 {
 	size_t	i;
 	int	state;
@@ -567,7 +570,7 @@ static inline int at_parse_creg (pvt_t* pvt, char* str, size_t len, int* gsm_reg
  * \return -1 on error (parse error) or the index of the new sms message
  */
 
-static inline int at_parse_cmti (pvt_t* pvt, char* str, size_t len)
+static inline int at_parse_cmti (pvt_t* pvt, char* str, attribute_unused size_t len)
 {
 	int index = -1;
 
@@ -597,7 +600,7 @@ static inline int at_parse_cmti (pvt_t* pvt, char* str, size_t len)
  * \retval -1 parse error
  */
 
-static inline int at_parse_cmgr (pvt_t* pvt, char* str, size_t len, char** number, char** text)
+static inline int at_parse_cmgr (attribute_unused pvt_t* pvt, char* str, size_t len, char** number, char** text)
 {
 	size_t	i;
 	int	state;
@@ -676,37 +679,54 @@ static inline int at_parse_cmgr (pvt_t* pvt, char* str, size_t len, char** numbe
  * \retval -1 parse error
  */
 
-static inline int at_parse_cusd (pvt_t* pvt, char* str, size_t len, char** cusd, unsigned char* dcs)
+static inline int at_parse_cusd (attribute_unused pvt_t* pvt, char* str, size_t len, int* type, char** cusd, int* dcs)
 {
 	size_t	i;
 	int	state;
-	char*	p = NULL;
+	char*	p1 = NULL;
+	char*	p2 = NULL;
 
+	*type = -1;
 	*cusd = NULL;
-	*dcs  = 0;
+	*dcs  = -1;
 
 	/*
 	 * parse cusd message in the following format:
 	 * +CUSD: 0,"100,00 EURO, valid till 01.01.2010, you are using tariff "Mega Tariff". More informations *111#.",15
 	 */
 
-	for (i = 0, state = 0; i < len && state < 5; i++)
+	for (i = 0, state = 0; i < len && state < 7; i++)
 	{
 		switch (state)
 		{
 			case 0:
-				if (str[i] == '"')
+				if (str[i] == ':')
 				{
 					state++;
 				}
 				break;
 
 			case 1:
+				if (str[i] != ' ')
+				{
+					p1 = &str[i];
+					state++;
+				}
+				/* fall through */
+
+			case 2:
+				if (str[i] == '"')
+				{
+					state++;
+				}
+				break;
+
+			case 3:
 				*cusd = &str[i];
 				state++;
 				break;
 
-			case 2:
+			case 4:
 				if (str[i] == '"')
 				{
 					str[i] = '\0';
@@ -714,27 +734,34 @@ static inline int at_parse_cusd (pvt_t* pvt, char* str, size_t len, char** cusd,
 				}
 				break;
 
-			case 3:
+			case 5:
 				if (str[i] == ',')
 				{
 					state++;
 				}
 				break;
 
-			case 4:
-				p = &str[i];
+			case 6:
+				p2 = &str[i];
 				state++;
 				break;
 		}
 	}
 
-	if (state != 5)
+	if (state != 7)
 	{
 		return -1;
 	}
 
 	errno = 0;
-	*dcs = (unsigned char) strtol (p, (char**) NULL, 10);
+	*type = (int) strtol (p1, (char**) NULL, 10);
+	if (errno == EINVAL)
+	{
+		return -1;
+	}
+
+	errno = 0;
+	*dcs = (int) strtol (p2, (char**) NULL, 10);
 	if (errno == EINVAL)
 	{
 		return -1;
@@ -785,7 +812,7 @@ static inline int at_parse_cpin (pvt_t* pvt, char* str, size_t len)
  * \retval -1 error
  */
 
-static inline int at_parse_csq (pvt_t* pvt, char* str, size_t len, int* rssi)
+static inline int at_parse_csq (pvt_t* pvt, char* str, attribute_unused size_t len, int* rssi)
 {
 	/*
 	 * parse +CSQ response in the following format:
@@ -811,7 +838,7 @@ static inline int at_parse_csq (pvt_t* pvt, char* str, size_t len, int* rssi)
  * \return -1 on error (parse error) or the rssi value
  */
 
-static inline int at_parse_rssi (pvt_t* pvt, char* str, size_t len)
+static inline int at_parse_rssi (pvt_t* pvt, char* str, attribute_unused size_t len)
 {
 	int rssi = -1;
 

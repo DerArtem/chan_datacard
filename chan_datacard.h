@@ -32,6 +32,7 @@ typedef enum {
 	CMD_AT_CLIP,
 	CMD_AT_CLIR,
 	CMD_AT_CLVL,
+	CMD_AT_CMEE,
 	CMD_AT_CMGD,
 	CMD_AT_CMGF,
 	CMD_AT_CMGR,
@@ -47,6 +48,7 @@ typedef enum {
 	CMD_AT_CSCS,
 	CMD_AT_CSQ,
 	CMD_AT_CSSN,
+	CMD_AT_CURC,
 	CMD_AT_CUSD,
 	CMD_AT_CVOICE,
 	CMD_AT_D,
@@ -56,7 +58,6 @@ typedef enum {
 	CMD_AT_SMS_TEXT,
 	CMD_AT_U2DIAG,
 	CMD_AT_Z,
-	CMD_AT_CMEE,
 } at_cmd_t;
 
 typedef enum {
@@ -117,7 +118,7 @@ typedef struct pvt_t
 
 	ast_mutex_t		lock;				/* pvt lock */
 	AST_LIST_HEAD_NOLOCK (at_queue, at_queue_t) at_queue;	/* queue for response we are expecting */
-	pthread_t		monitor_thread;			/* monitor thread handle */
+	pthread_t		thread;				/* thread handle */
 
 	int			audio_fd;			/* audio descriptor */
 	int			data_fd;			/* data  descriptor */
@@ -140,59 +141,59 @@ typedef struct pvt_t
 	char			d_parse_buf[1024];
 	int			timeout;			/* used to set the timeout for data */
 
-	unsigned int		has_sms:1;
-	unsigned int		has_voice:1;
-	unsigned int		use_ucs2_encoding:1;
-	unsigned int		cusd_use_7bit_encoding:1;
-	unsigned int		cusd_use_ucs2_decoding:1;
-	int			gsm_reg_status;
 	int			rssi;
 	int			linkmode;
 	int			linksubmode;
-	char			provider_name[32];
-	char			manufacturer[32];
-	char			model[32];
-	char			firmware[32];
-	char			imei[17];
-	char			imsi[17];
-	char			number[128];
-	char			location_area_code[8];
-	char			cell_id[8];
+	int			gsm_reg_status;
 
 	/* flags */
 	unsigned int		connected:1;			/* do we have an connection to a device */
 	unsigned int		initialized:1;			/* whether a service level connection exists or not */
 	unsigned int		gsm_registered:1;		/* do we have an registration to a GSM */
-	unsigned int		outgoing:1;			/* outgoing call */
 	unsigned int		incoming:1;			/* incoming call */
-	unsigned int		outgoing_sms:1;			/* outgoing sms */
+	unsigned int		outgoing:1;			/* outgoing call */
 	unsigned int		incoming_sms:1;			/* incoming sms */
+	unsigned int		outgoing_sms:1;			/* outgoing sms */
 	unsigned int		needchup:1;			/* we need to send a CHUP */
 	unsigned int		needring:1;			/* we need to send a RING */
 	unsigned int		answered:1;			/* we sent/received an answer */
-	unsigned int		volume_synchronized:1;		/* we have synchronized the volume */
 	unsigned int		group_last_used:1;		/* mark the last used device */
 	unsigned int		prov_last_used:1;		/* mark the last used device */
 	unsigned int		sim_last_used:1;		/* mark the last used device */
 
+	unsigned int		has_sms:1;
+	unsigned int		has_voice:1;
+	unsigned int		use_ucs2_encoding:1;
+	unsigned int		ussd_use_7bit_encoding:1;
+	unsigned int		ussd_use_ucs2_decoding:1;
+
 	/* Config */
-	char			id[31];				/* id from datacard.conf */
-	char			audio_tty[256];			/* tty for audio connection */
-	char			data_tty[256];			/* tty for AT commands */
-	char			context[AST_MAX_CONTEXT];	/* the context for incoming calls */
 	int			group;				/* group number for group dialling */
 	int			rxgain;				/* increase the incoming volume */
 	int			txgain;				/* increase the outgoint volume */
 	int			u2diag;
 	int			callingpres;			/* calling presentation */
 	unsigned int		auto_delete_sms:1;
-	unsigned int		reset_datacard:1;
 	unsigned int		usecallingpres:1;
 	unsigned int		disablesms:1;
-	struct ast_variable*	chanvars;			/* Variables to set for channel created by user */
+
+	struct ast_variable*	vars;				/* Variables to set for channel created by user */
 
 	AST_DECLARE_STRING_FIELDS(
+		AST_STRING_FIELD(id);				/* id from datacard.conf */
+		AST_STRING_FIELD(audio_tty);			/* tty for audio connection */
+		AST_STRING_FIELD(data_tty);			/* tty for AT commands */
+		AST_STRING_FIELD(context);			/* the context for incoming calls */
 		AST_STRING_FIELD(language);			/* Preferred language */
+		AST_STRING_FIELD(provider_name);
+		AST_STRING_FIELD(manufacturer);
+		AST_STRING_FIELD(model);
+		AST_STRING_FIELD(firmware);
+		AST_STRING_FIELD(imei);
+		AST_STRING_FIELD(imsi);
+		AST_STRING_FIELD(number);
+		AST_STRING_FIELD(location_area_code);
+		AST_STRING_FIELD(cell_id);
 	);
 }
 pvt_t;
@@ -203,7 +204,14 @@ static AST_RWLIST_HEAD_STATIC (devices, pvt_t);
 static int			discovery_interval = DEF_DISCOVERY_INT;	/* The device discovery interval */
 static pthread_t		discovery_thread   = AST_PTHREADT_NULL;	/* The discovery thread */
 
-static char			default_language[MAX_LANGUAGE] = "";	/* Default language setting for new channels */
+static char			default_language[MAX_LANGUAGE] = "en";	/* Default language setting for new channels */
+
+static int			global_relaxdtmf;			/* Relax DTMF */
+
+struct ast_format		chan_datacard_format;
+struct ast_format_cap*		chan_datacard_format_cap;
+
+
 
 AST_MUTEX_DEFINE_STATIC (unload_mtx);
 static int			unloading_flag = 0;
@@ -215,17 +223,13 @@ static inline int		check_unloading ();
 static pvt_t*			find_device			(const char*);
 static char*			complete_device			(const char*, const char*, int, int, int);
 static inline int		get_at_clir_value		(pvt_t*, int);
+static char*			rssi2dBm			(int, char*, size_t);
 
 
 /* Channel Driver */
 
-#if ASTERISK_VERSION_NUM >= 10800
-static struct ast_channel*	channel_new			(pvt_t*, int state, char*, const struct ast_channel *requestor);
-static struct ast_channel*	channel_request			(const char*, format_t, const struct ast_channel*, void*, int*);
-#else
-static struct ast_channel*	channel_new			(pvt_t*, int state, char*);
-static struct ast_channel*	channel_request			(const char*, int, void*, int*);
-#endif
+static struct ast_channel*	channel_new			(pvt_t*, int, const char*, const char*, const struct ast_channel*);
+static struct ast_channel*	channel_request			(const char*, struct ast_format_cap*, const struct ast_channel*, const char*, int*);
 static int			channel_call			(struct ast_channel*, char*, int);
 static int			channel_hangup			(struct ast_channel*);
 static int			channel_answer			(struct ast_channel*);
@@ -242,13 +246,14 @@ static int			channel_queue_control		(pvt_t* pvt, enum ast_control_frame_type);
 static int			channel_queue_hangup		(pvt_t* pvt, int);
 static int			channel_ast_hangup		(pvt_t* pvt);
 
+#ifdef __ALLOW_LOCAL_CHANNELS__
 static struct ast_channel*	channel_local_request		(pvt_t*, void*, const char*, const char*);
+#endif
 
-static const struct ast_channel_tech channel_tech =
+static struct ast_channel_tech channel_tech =
 {
 	.type			= "Datacard",
 	.description		= "Datacard Channel Driver",
-	.capabilities		= AST_FORMAT_SLINEAR,
 	.requester		= channel_request,
 	.call			= channel_call,
 	.hangup			= channel_hangup,
@@ -275,11 +280,14 @@ static struct ast_jb_conf jbconf_default = {
 static struct ast_jb_conf jbconf_global;
 
 AST_MUTEX_DEFINE_STATIC (round_robin_mtx);
-static pvt_t*	round_robin[256];
+static pvt_t*	round_robin[64];
 static char	silence_frame[FRAME_SIZE];
 
 
-static int			opentty			(char*);
+static void			pvt_destroy		(pvt_t*);
+static void			pvt_reset		(pvt_t*);
+
+static int			opentty			(const char*);
 static int			device_status		(int);
 static int			disconnect_datacard	(pvt_t*);
 
@@ -290,11 +298,7 @@ static int			at_read_result_iov	(pvt_t*);
 static inline at_res_t		at_read_result_classification (pvt_t*, int);
 
 
-#if ASTERISK_VERSION_NUM >= 10800
-static inline int		at_response		(pvt_t*, int, at_res_t, const struct ast_channel *requestor);
-#else
 static inline int		at_response		(pvt_t*, int, at_res_t);
-#endif
 static inline int		at_response_busy	(pvt_t*);
 static inline int		at_response_cend	(pvt_t*, char*, size_t);
 static inline int		at_response_cgmi	(pvt_t*, char*, size_t);
@@ -302,11 +306,7 @@ static inline int		at_response_cgmm	(pvt_t*, char*, size_t);
 static inline int		at_response_cgmr	(pvt_t*, char*, size_t);
 static inline int		at_response_cgsn	(pvt_t*, char*, size_t);
 static inline int		at_response_cimi	(pvt_t*, char*, size_t);
-#if ASTERISK_VERSION_NUM >= 10800
-static inline int		at_response_clip	(pvt_t*, char*, size_t, const struct ast_channel *requestor);
-#else
 static inline int		at_response_clip	(pvt_t*, char*, size_t);
-#endif
 static inline int		at_response_cmgr	(pvt_t*, char*, size_t);
 static inline int		at_response_cmti	(pvt_t*, char*, size_t);
 static inline int		at_response_cnum	(pvt_t*, char*, size_t);
@@ -315,7 +315,6 @@ static inline int		at_response_cops	(pvt_t*, char*, size_t);
 static inline int		at_response_cpin	(pvt_t*, char*, size_t);
 static inline int		at_response_creg	(pvt_t*, char*, size_t);
 static inline int		at_response_csq		(pvt_t*, char*, size_t);
-static inline int		at_response_cssi	(pvt_t*, char*, size_t);
 static inline int		at_response_cusd	(pvt_t*, char*, size_t);
 static inline int		at_response_error	(pvt_t*);
 static inline int		at_response_mode	(pvt_t*, char*, size_t);
@@ -323,7 +322,6 @@ static inline int		at_response_no_carrier	(pvt_t*);
 static inline int		at_response_no_dialtone	(pvt_t*);
 static inline int		at_response_ok		(pvt_t*);
 static inline int		at_response_orig	(pvt_t*, char*, size_t);
-static inline int		at_response_ring	(pvt_t*);
 static inline int		at_response_rssi	(pvt_t*, char*, size_t);
 static inline int		at_response_smmemfull	(pvt_t*);
 static inline int		at_response_sms_prompt	(pvt_t*);
@@ -341,7 +339,7 @@ static inline char*		at_parse_cops		(pvt_t*, char*, size_t);
 static inline int		at_parse_creg		(pvt_t*, char*, size_t, int*, int*, char**, char**);
 static inline int		at_parse_cpin		(pvt_t*, char*, size_t);
 static inline int		at_parse_csq		(pvt_t*, char*, size_t, int*);
-static inline int		at_parse_cusd		(pvt_t*, char*, size_t, char**, unsigned char*);
+static inline int		at_parse_cusd		(pvt_t*, char*, size_t, int*, char**, int*);
 static inline int		at_parse_mode		(pvt_t*, char*, size_t, int*, int*);
 static inline int		at_parse_rssi		(pvt_t*, char*, size_t);
 
@@ -351,41 +349,42 @@ static int			at_write_full		(pvt_t*, char*, size_t);
 
 static inline int		at_send_at		(pvt_t*);
 static inline int		at_send_ata		(pvt_t*);
-static inline int		at_send_atd		(pvt_t*, const char* number);
+static inline int		at_send_atd		(pvt_t*, const char*);
 static inline int		at_send_ate0		(pvt_t*);
 static inline int		at_send_atz		(pvt_t*);
+static inline int		at_send_ccwa_disable	(pvt_t*);
+static inline int		at_send_cfun		(pvt_t*, int, int);
 static inline int		at_send_cgmi		(pvt_t*);
 static inline int		at_send_cgmm		(pvt_t*);
 static inline int		at_send_cgmr		(pvt_t*);
 static inline int		at_send_cgsn		(pvt_t*);
 static inline int		at_send_chup		(pvt_t*);
 static inline int		at_send_cimi		(pvt_t*);
-static inline int		at_send_clip		(pvt_t*, int status);
-static inline int		at_send_clir		(pvt_t*, int mode);
-static inline int		at_send_clvl		(pvt_t*, int level);
-static inline int		at_send_cmgd		(pvt_t*, int index);
-static inline int		at_send_cmgf		(pvt_t*, int mode);
-static inline int		at_send_cmgr		(pvt_t*, int index);
-static inline int		at_send_cmgs		(pvt_t*, const char* number);
+static inline int		at_send_clip		(pvt_t*, int);
+static inline int		at_send_clir		(pvt_t*, int);
+static inline int		at_send_clvl		(pvt_t*, int);
+static inline int		at_send_cmee		(pvt_t*, int);
+static inline int		at_send_cmgd		(pvt_t*, int, int);
+static inline int		at_send_cmgf		(pvt_t*, int);
+static inline int		at_send_cmgr		(pvt_t*, int);
+static inline int		at_send_cmgs		(pvt_t*, const char*);
 static inline int		at_send_cnmi		(pvt_t*);
 static inline int		at_send_cnum		(pvt_t*);
 static inline int		at_send_cops		(pvt_t*);
-static inline int		at_send_cops_init	(pvt_t*, int mode, int format);
+static inline int		at_send_cops_init	(pvt_t*, int, int);
 static inline int		at_send_cpin_test	(pvt_t*);
 static inline int		at_send_creg		(pvt_t*);
-static inline int		at_send_creg_init	(pvt_t*, int level);
-static inline int		at_send_cscs		(pvt_t*, const char* encoding);
+static inline int		at_send_creg_init	(pvt_t*, int);
+static inline int		at_send_cscs		(pvt_t*, const char*);
 static inline int		at_send_csq		(pvt_t*);
-static inline int		at_send_cssn		(pvt_t*, int cssi, int cssu);
-static inline int		at_send_cusd		(pvt_t*, const char* code);
+static inline int		at_send_cssn		(pvt_t*, int, int);
+static inline int		at_send_curc		(pvt_t*);
+static inline int		at_send_cusd		(pvt_t*, const char*);
 static inline int		at_send_cvoice_test	(pvt_t*);
 static inline int		at_send_ddsetex		(pvt_t*);
-static inline int		at_send_dtmf		(pvt_t*, char digit);
-static inline int		at_send_sms_text	(pvt_t*, const char* message);
-static inline int		at_send_u2diag		(pvt_t*, int mode);
-static inline int		at_send_ccwa_disable	(pvt_t*);
-static inline int		at_send_cfun		(pvt_t*, int, int);
-static inline int		at_send_cmee		(pvt_t*, int);
+static inline int		at_send_dtmf		(pvt_t*, char);
+static inline int		at_send_sms_text	(pvt_t*, const char*);
+static inline int		at_send_u2diag		(pvt_t*, int);
 
 
 static inline int		at_fifo_queue_add	(pvt_t*, at_cmd_t, at_res_t);
@@ -422,15 +421,15 @@ static struct ast_cli_entry cli[] = {
 
 #ifdef __MANAGER__
 
-static int			manager_show_devices	(struct mansession*, const struct message*);
-static int			manager_send_ussd	(struct mansession*, const struct message*);
-static int			manager_send_sms	(struct mansession*, const struct message*);
-static void			manager_event_new_ussd	(pvt_t*, char*);
-static void			manager_event_new_ussd_base64 (pvt_t*, char*);
-static void			manager_event_new_sms	(pvt_t*, char*, char*);
+static int			manager_ccwa_disable		(struct mansession*, const struct message*);
+static int			manager_reset			(struct mansession*, const struct message*);
+static int			manager_send_sms		(struct mansession*, const struct message*);
+static int			manager_send_ussd		(struct mansession*, const struct message*);
+static int			manager_show_devices		(struct mansession*, const struct message*);
+static void			manager_event_new_sms		(pvt_t*, char*, char*);
 static void			manager_event_new_sms_base64	(pvt_t*, char*, char*);
-static int			manager_ccwa_disable (struct mansession* s, const struct message* m);
-static int			manager_reset (struct mansession* s, const struct message* m);
+static void			manager_event_new_ussd		(pvt_t*, char*);
+static void			manager_event_new_ussd_base64	(pvt_t*, char*);
 
 static char* manager_show_devices_desc =
 	"Description: Lists Datacard devices in text format with details on current status.\n\n"
@@ -471,6 +470,10 @@ static char* manager_reset_desc =
 /* Dialplan app */
 
 #ifdef __APP__
+
+static int	app_status_exec		(struct ast_channel*, const char*);
+static int	app_send_sms_exec	(struct ast_channel*, const char*);
+
 
 static char* app_status			= "DatacardStatus";
 static char* app_status_synopsis	= "DatacardStatus(Device,Variable)";

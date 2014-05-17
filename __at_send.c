@@ -1,4 +1,4 @@
-/* 
+/*
    Copyright (C) 2009 - 2010
    
    Artem Makhutov <artem@makhutov.org>
@@ -169,9 +169,9 @@ static inline int at_send_clvl (pvt_t* pvt, int level)
  * \param index -- the location of the requested message
  */
 
-static inline int at_send_cmgd (pvt_t* pvt, int index)
+static inline int at_send_cmgd (pvt_t* pvt, int index, int flag)
 {
-	pvt->d_send_size = snprintf (pvt->d_send_buf, sizeof (pvt->d_send_buf), "AT+CMGD=%d\r", index);
+	pvt->d_send_size = snprintf (pvt->d_send_buf, sizeof (pvt->d_send_buf), "AT+CMGD=%d,%d\r", index, flag);
 	return at_write_full (pvt, pvt->d_send_buf, MIN (pvt->d_send_size, sizeof (pvt->d_send_buf) - 1));
 }
 
@@ -215,7 +215,7 @@ static inline int at_send_cmgs (pvt_t* pvt, const char* number)		// !!!!!!!!!
 
 //	if (pvt->use_ucs2_encoding)
 	{
-		res = utf8_to_hexstr_ucs2 (number, strlen (number), p, sizeof (pvt->d_send_buf) - 9 - 3);
+		res = conv_utf8_to_ucs2_8bit_hexstr (number, strlen (number), p, sizeof (pvt->d_send_buf) - 9 - 3);
 		if (res <= 0)
 		{
 			ast_log (LOG_ERROR, "[%s] Error converting SMS number to UCS-2: %s\n", pvt->id, number);
@@ -225,9 +225,9 @@ static inline int at_send_cmgs (pvt_t* pvt, const char* number)		// !!!!!!!!!
 		memmove (p, "\"\r", 3);
 	}
 //	else
-	{
+//	{
 //		snprintf (pvt->d_send_buf, sizeof (pvt->d_send_buf), "AT+CMGS=\"%s\"\r", number);
-	}
+//	}
 
 	return at_write (pvt, pvt->d_send_buf);
 }
@@ -244,7 +244,7 @@ static inline int at_send_sms_text (pvt_t* pvt, const char* msg)
 
 	if (pvt->use_ucs2_encoding)
 	{
-		res = utf8_to_hexstr_ucs2 (msg, strlen (msg), pvt->d_send_buf, 280 + 1);
+		res = conv_utf8_to_ucs2_8bit_hexstr (msg, strlen (msg), pvt->d_send_buf, 280 + 1);
 		if (res < 0)
 		{
 			ast_log (LOG_ERROR, "[%s] Error converting SMS to UCS-2: '%s'\n", pvt->id, msg);
@@ -393,9 +393,9 @@ static inline int at_send_cusd (pvt_t* pvt, const char* code)
 	memmove (pvt->d_send_buf, "AT+CUSD=1,\"", 11);
 	p = pvt->d_send_buf + 11;
 
-	if (pvt->cusd_use_7bit_encoding)
+	if (pvt->ussd_use_7bit_encoding)
 	{
-		res = char_to_hexstr_7bit (code, strlen (code), p, sizeof (pvt->d_send_buf) - 11 - 6);
+		res = conv_utf8_to_latin1_7bit_hexstr (code, strlen (code), p, sizeof (pvt->d_send_buf) - 11 - 6);
 		if (res <= 0)
 		{
 			ast_log (LOG_ERROR, "[%s] Error converting USSD code to PDU: %s\n", pvt->id, code);
@@ -404,7 +404,7 @@ static inline int at_send_cusd (pvt_t* pvt, const char* code)
 	}
 	else if (pvt->use_ucs2_encoding)
 	{
-		res = utf8_to_hexstr_ucs2 (code, strlen (code), p, sizeof (pvt->d_send_buf) - 11 - 6);
+		res = conv_utf8_to_ucs2_8bit_hexstr (code, strlen (code), p, sizeof (pvt->d_send_buf) - 11 - 6);
 		if (res <= 0)
 		{
 			ast_log (LOG_ERROR, "[%s] error converting USSD code to UCS-2: %s\n", pvt->id, code);
@@ -487,6 +487,16 @@ static inline int at_send_dtmf (pvt_t* pvt, char digit)
 }
 
 /*!
+ * \brief Send the ATZ command
+ * \param pvt -- pvt structure
+ */
+
+static inline int at_send_atz (pvt_t* pvt)
+{
+	return at_write_full (pvt, "ATZ\r", 4);
+}
+
+/*!
  * \brief Send the ATE0 command
  * \param pvt -- pvt structure
  */
@@ -494,6 +504,16 @@ static inline int at_send_dtmf (pvt_t* pvt, char digit)
 static inline int at_send_ate0 (pvt_t* pvt)
 {
 	return at_write_full (pvt, "ATE0\r", 5);
+}
+
+/*!
+ * \brief Send the AT^CURC command
+ * \param pvt -- pvt structure
+ */
+
+static inline int at_send_curc (pvt_t* pvt)
+{
+	return at_write_full (pvt, "AT^CURC=1\r", 10);
 }
 
 /*!
@@ -506,16 +526,6 @@ static inline int at_send_u2diag (pvt_t* pvt, int mode)
 {
 	pvt->d_send_size = snprintf (pvt->d_send_buf, sizeof (pvt->d_send_buf), "AT^U2DIAG=%d\r", mode);
 	return at_write_full (pvt, pvt->d_send_buf, MIN (pvt->d_send_size, sizeof (pvt->d_send_buf) - 1));
-}
-
-/*!
- * \brief Send the ATZ command
- * \param pvt -- pvt structure
- */
-
-static inline int at_send_atz (pvt_t* pvt)
-{
-	return at_write_full (pvt, "ATZ\r", 4);
 }
 
 /*!

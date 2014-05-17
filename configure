@@ -8,18 +8,7 @@ FreeBSD*)
 	DESTDIR="/usr/local/lib/asterisk/modules/"
 
 	INCDIR="-I. -I/usr/local/include"
-	CFLAGS="-O2 -DICONV_CONST=\"const\" -D__DEBUG__ -D__MANAGER__ -D__APP__"
-
-	LIBDIR="-L/usr/local/lib"
-	LIBS="-liconv"
-
-	SOLINK="-shared -Xlinker -x"
-;;    
-OpenBSD*)
-	DESTDIR="/usr/local/lib/asterisk/modules/"
-
-	INCDIR="-I. -I/usr/local/include"
-	CFLAGS="-O2 -DICONV_CONST=\"\" -DNO_MEMMEM -D__DEBUG__ -D__MANAGER__ -D__APP__"
+	CFLAGS="-O2 -DICONV_CONST=\"const\" -D__DEBUG__ -D__APP__"
 
 	LIBDIR="-L/usr/local/lib"
 	LIBS="-liconv"
@@ -30,24 +19,12 @@ Linux*)
 	DESTDIR="/usr/lib/asterisk/modules/"
 
 	INCDIR="-I. -I/usr/include"
-	CFLAGS="-O2 -DICONV_CONST=\"\" -D__DEBUG__ -D__MANAGER__ -D__APP__"
+	CFLAGS="-O2 -DICONV_CONST=\"\" -D__DEBUG__ -D__APP__"
 
-	LIBDIR=""
-	LIBS=""
+	LIBDIR="-L/usr/lib"
+	LIBS="-liconv"
 
 	SOLINK="-shared -Xlinker -x"
-;;
-Darwin*)
-	DESTDIR="/opt/local/lib/asterisk/modules/"
-
-	INCDIR="-I. -I/opt/local/include"
-	CFLAGS="-O2 -DNO_MEMMEM -DICONV_CONST=\"const\" -D__DEBUG__ -D__MANAGER__ -D__APP__"
-
-	LIBDIR="-L/opt/local/lib"
-	LIBS="-liconv"
-	
-	SOLINK="-dynamic -bundle -Xlinker -macosx_version_min -Xlinker 10.4 -Xlinker -undefined -Xlinker dynamic_lookup -force_flat_namespace"
-	[ `/usr/bin/sw_vers -productVersion | cut -c1-4` == "10.6" ] && SOLINK=${SOLINK}" /usr/lib/bundle1.o"
 ;;
 esac
 

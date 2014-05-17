@@ -1,4 +1,4 @@
-/* 
+/*
    Copyright (C) 2009 - 2010
    
    Artem Makhutov <artem@makhutov.org>
@@ -16,11 +16,7 @@
  * \retval -1 error
  */
 
-#if ASTERISK_VERSION_NUM >= 10800
-static inline int at_response (pvt_t* pvt, int iovcnt, at_res_t at_res, const struct ast_channel *requestor)
-#else
 static inline int at_response (pvt_t* pvt, int iovcnt, at_res_t at_res)
-#endif
 {
 	char*		str;
 	size_t		len;
@@ -41,15 +37,16 @@ static inline int at_response (pvt_t* pvt, int iovcnt, at_res_t at_res)
 			}
 
 			str = pvt->d_parse_buf;
+
 			memmove (str,					pvt->d_read_iov[0].iov_base, pvt->d_read_iov[0].iov_len);
 			memmove (str + pvt->d_read_iov[0].iov_len,	pvt->d_read_iov[1].iov_base, pvt->d_read_iov[1].iov_len);
-			str[len] = '\0';
 		}
 		else
 		{
 			str = pvt->d_read_iov[0].iov_base;
-			str[len] = '\0';
 		}
+
+		str[len] = '\0';
 
 //		ast_debug (5, "[%s] [%.*s]\n", pvt->id, (int) len, str);
 
@@ -59,8 +56,9 @@ static inline int at_response (pvt_t* pvt, int iovcnt, at_res_t at_res)
 			case RES_CONF:
 			case RES_CSSI:
 			case RES_CSSU:
+			case RES_RING:
 			case RES_SRVST:
-				return 0;
+				break;
 
 			case RES_OK:
 				return at_response_ok (pvt);
@@ -71,7 +69,7 @@ static inline int at_response (pvt_t* pvt, int iovcnt, at_res_t at_res)
 			case RES_MODE:
 				/* An error here is not fatal. Just keep going. */
 				at_response_mode (pvt, str, len);
-				return 0;
+				break;
 
 			case RES_ORIG:
 				return at_response_orig (pvt, str, len);
@@ -85,12 +83,12 @@ static inline int at_response (pvt_t* pvt, int iovcnt, at_res_t at_res)
 			case RES_CREG:
 				/* An error here is not fatal. Just keep going. */
 				at_response_creg (pvt, str, len);
-				return 0;
+				break;
 
 			case RES_COPS:
 				/* An error here is not fatal. Just keep going. */
 				at_response_cops (pvt, str, len);
-				return 0;
+				break;
 
 
 
@@ -101,18 +99,11 @@ static inline int at_response (pvt_t* pvt, int iovcnt, at_res_t at_res)
 			case RES_ERROR:
 				return at_response_error (pvt);
 
-			case RES_RING:
-				return at_response_ring (pvt);
-
 			case RES_SMMEMFULL:
 				return at_response_smmemfull (pvt);
 
 			case RES_CLIP:
-				#if ASTERISK_VERSION_NUM >= 10800
-				return at_response_clip (pvt, str, len, requestor);
-				#else
 				return at_response_clip (pvt, str, len);
-				#endif
 
 			case RES_CMTI:
 				return at_response_cmti (pvt, str, len);
@@ -141,7 +132,7 @@ static inline int at_response (pvt_t* pvt, int iovcnt, at_res_t at_res)
 			case RES_CNUM:
 				/* An error here is not fatal. Just keep going. */
 				at_response_cnum (pvt, str, len);
-				return 0;
+				break;
 
 			case RES_PARSE_ERROR:
 				ast_log (LOG_ERROR, "[%s] Error parsing result\n", pvt->id);
@@ -205,28 +196,6 @@ static inline int at_response_ok (pvt_t* pvt)
 		switch (e->cmd)
 		{
 			/* initilization stuff */
-			case CMD_AT:
-				if (!pvt->initialized)
-				{
-					if (pvt->reset_datacard == 1)
-					{
-						if (at_send_atz (pvt) || at_fifo_queue_add (pvt, CMD_AT_Z, RES_OK))
-						{
-							ast_log (LOG_ERROR, "[%s] Error reset datacard\n", pvt->id);
-							goto e_return;
-						}
-					}
-					else
-					{
-						if (at_send_ate0 (pvt) || at_fifo_queue_add (pvt, CMD_AT_E, RES_OK))
-						{
-							ast_log (LOG_ERROR, "[%s] Error disabling echo\n", pvt->id);
-							goto e_return;
-						}
-					}
-				}
-				break;
-
 			case CMD_AT_Z:
 				if (at_send_ate0 (pvt) || at_fifo_queue_add (pvt, CMD_AT_E, RES_OK))
 				{
@@ -236,6 +205,17 @@ static inline int at_response_ok (pvt_t* pvt)
 				break;
 
 			case CMD_AT_E:
+				if (!pvt->initialized)
+				{
+					if (at_send_curc (pvt) || at_fifo_queue_add (pvt, CMD_AT_CURC, RES_OK))
+					{
+						ast_log (LOG_ERROR, "[%s] Error setting service messages\n", pvt->id);
+						goto e_return;
+					}
+				}
+				break;
+
+			case CMD_AT_CURC:
 				if (!pvt->initialized)
 				{
 					if (pvt->u2diag != -1)
@@ -498,10 +478,27 @@ static inline int at_response_ok (pvt_t* pvt)
 						ast_log (LOG_ERROR, "[%s] Error querying signal strength\n", pvt->id);
 						goto e_return;
 					}
+				}
+				break;
 
-					pvt->timeout = 10000;
-					pvt->initialized = 1;
+			case CMD_AT_CSQ:
+				ast_debug (1, "[%s] Got signal strength result\n", pvt->id);
+
+				if (!pvt->initialized)
+				{
 					ast_verb (3, "Datacard %s initialized and ready\n", pvt->id);
+
+					pvt->timeout = 7000;
+					pvt->initialized = 1;
+
+					if (pvt->has_sms && pvt->auto_delete_sms)
+					{
+						if (at_send_cmgd (pvt, 1, 4) || at_fifo_queue_add (pvt, CMD_AT_CMGD, RES_OK))
+						{
+							ast_log (LOG_ERROR, "[%s] Error delete SMS messages\n", pvt->id);
+							goto e_return;
+						}
+					}
 				}
 				break;
 
@@ -535,18 +532,6 @@ static inline int at_response_ok (pvt_t* pvt)
 
 			case CMD_AT_D:
 				ast_debug (1, "[%s] Dial sent successfully\n", pvt->id);
-
-				if (at_send_ddsetex (pvt) || at_fifo_queue_add (pvt, CMD_AT_DDSETEX, RES_OK))
-				{
-					ast_log (LOG_ERROR, "[%s] Error sending AT^DDSETEX\n", pvt->id);
-					goto e_return;
-				}
-
-				if (pvt->a_timer)
-				{
-					ast_timer_set_rate (pvt->a_timer, 50);
-				}
-
 				break;
 
 			case CMD_AT_DDSETEX:
@@ -581,13 +566,9 @@ static inline int at_response_ok (pvt_t* pvt)
 			case CMD_AT_CMGD:
 				ast_debug (1, "[%s] SMS message deleted successfully\n", pvt->id);
 				break;
-
-			case CMD_AT_CSQ:
-				ast_debug (1, "[%s] Got signal strength result\n", pvt->id);
-				break;
 			
 			case CMD_AT_CCWA:
-				ast_log (LOG_NOTICE, "Call-Waiting disabled on device %s.\n", pvt->id);
+				ast_log (LOG_NOTICE, "[%s] Call-Waiting disabled.\n", pvt->id);
 				break;
 			
 			case CMD_AT_CFUN:
@@ -595,16 +576,7 @@ static inline int at_response_ok (pvt_t* pvt)
 				break;
 
 			case CMD_AT_CLVL:
-				if (pvt->volume_synchronized == 0)
-				{
-					pvt->volume_synchronized = 1;
-
-					if (at_send_clvl (pvt, 5) || at_fifo_queue_add (pvt, CMD_AT_CLVL, RES_OK))
-					{
-						ast_log (LOG_ERROR, "[%s] Error syncronizing audio level (part 2/2)\n", pvt->id);
-						goto e_return;
-					}
-				}
+				ast_debug (1, "[%s] Audio level is set\n", pvt->id);
 				break;
 
 			default:
@@ -648,10 +620,11 @@ static inline int at_response_error (pvt_t* pvt)
 		switch (e->cmd)
 		{
         		/* initilization stuff */
-			case CMD_AT:
 			case CMD_AT_Z:
 			case CMD_AT_E:
+			case CMD_AT_CURC:
 			case CMD_AT_U2DIAG:
+			case CMD_AT_CSQ:
 				ast_log (LOG_ERROR, "[%s] Command '%s' failed\n", pvt->id, at_cmd2str (e->cmd));
 				goto e_return;
 
@@ -749,10 +722,6 @@ static inline int at_response_error (pvt_t* pvt)
 							ast_log (LOG_ERROR, "[%s] Error querying signal strength\n", pvt->id);
 							goto e_return;
 						}
-
-						pvt->timeout = 10000;
-						pvt->initialized = 1;
-						ast_verb (3, "Datacard %s initialized and ready\n", pvt->id);
 					}
 
 					goto e_return;
@@ -832,12 +801,15 @@ static inline int at_response_error (pvt_t* pvt)
 				break;
 
 			case CMD_AT_CLVL:
-				ast_debug (1, "[%s] Error syncronizing audio level\n", pvt->id);
-				pvt->volume_synchronized = 0;
+				ast_debug (1, "[%s] Error setting audio level\n", pvt->id);
 				break;
 
 			case CMD_AT_CUSD:
 				ast_log (LOG_ERROR, "[%s] Could not send USSD code\n", pvt->id);
+				break;
+
+			case CMD_AT_CCWA:
+				ast_log (LOG_NOTICE, "[%s] Error Call-Waiting disable.\n", pvt->id);
 				break;
 
 			default:
@@ -906,12 +878,23 @@ static inline int at_response_mode (pvt_t* pvt, char* str, size_t len)
  * \retval -1 error
  */
 
-static int at_response_orig (pvt_t* pvt, char* str, size_t len)
+static int at_response_orig (pvt_t* pvt, char* str, attribute_unused size_t len)
 {
 	int call_index = 1;
 	int call_type  = 0;
 
 	channel_queue_control (pvt, AST_CONTROL_PROGRESS);
+
+	if (at_send_ddsetex (pvt) || at_fifo_queue_add (pvt, CMD_AT_DDSETEX, RES_OK))
+	{
+		ast_log (LOG_ERROR, "[%s] Error sending AT^DDSETEX\n", pvt->id);
+		return -1;
+	}
+
+	if (pvt->a_timer)
+	{
+		ast_timer_set_rate (pvt->a_timer, 50);
+	}
 
 	/*
 	 * parse ORIG info in the following format:
@@ -921,18 +904,10 @@ static int at_response_orig (pvt_t* pvt, char* str, size_t len)
 	if (!sscanf (str, "^ORIG:%d,%d", &call_index, &call_type))
 	{
 		ast_log (LOG_ERROR, "[%s] Error parsing ORIG event '%s'\n", pvt->id, str);
-		return -1;
 	}
 
 	ast_debug (1, "[%s] Received call_index: %d\n", pvt->id, call_index);
 	ast_debug (1, "[%s] Received call_type:  %d\n", pvt->id, call_type);
-
-	if (at_send_clvl (pvt, 1) || at_fifo_queue_add (pvt, CMD_AT_CLVL, RES_OK))
-	{
-		ast_log (LOG_ERROR, "[%s] Error syncronizing audio level (part 1/2)\n", pvt->id);
-	}
-
-	pvt->volume_synchronized = 0;
 
 	return 0;
 }
@@ -946,7 +921,7 @@ static int at_response_orig (pvt_t* pvt, char* str, size_t len)
  * \retval -1 error
  */
 
-static inline int at_response_cend (pvt_t* pvt, char* str, size_t len)
+static inline int at_response_cend (pvt_t* pvt, char* str, attribute_unused size_t len)
 {
 	int call_index = 0;
 	int duration   = 0;
@@ -1021,16 +996,12 @@ static inline int at_response_conn (pvt_t* pvt)
  * \retval -1 error
  */
 
-#if ASTERISK_VERSION_NUM >= 10800
-static inline int at_response_clip (pvt_t* pvt, char* str, size_t len, const struct ast_channel *requestor)
-#else
 static inline int at_response_clip (pvt_t* pvt, char* str, size_t len)
-#endif
 {
 	struct ast_channel*	channel;
 	char*			clip;
 
-	if (pvt->initialized && pvt->needring == 0)
+	if (pvt->initialized && pvt->has_voice && pvt->needring == 0)
 	{
 		pvt->incoming = 1;
 
@@ -1039,11 +1010,8 @@ static inline int at_response_clip (pvt_t* pvt, char* str, size_t len)
 			ast_log (LOG_ERROR, "[%s] Error parsing CLIP: %s\n", pvt->id, str);
 		}
 
-		#if ASTERISK_VERSION_NUM >= 10800
-		if (!(channel = channel_new (pvt, AST_STATE_RING, clip, requestor)))
-		#else
-		if (!(channel = channel_new (pvt, AST_STATE_RING, clip)))
-		#endif
+		// pvt->number ? pvt->number : pvt->exten???
+		if (!(channel = channel_new (pvt, AST_STATE_RING, clip, pvt->number ? pvt->number : NULL, NULL)))
 		{
 			ast_log (LOG_ERROR, "[%s] Unable to allocate channel for incoming call\n", pvt->id);
 
@@ -1071,34 +1039,6 @@ static inline int at_response_clip (pvt_t* pvt, char* str, size_t len)
 }
 
 /*!
- * \brief Handle RING response
- * \param pvt -- pvt structure
- * \retval  0 success
- * \retval -1 error
- */
-
-static inline int at_response_ring (pvt_t* pvt)
-{
-	if (pvt->initialized)
-	{
-		/* We only want to syncronize volume on the first ring */
-		if (!pvt->incoming)
-		{
-			if (at_send_clvl (pvt, 1) || at_fifo_queue_add (pvt, CMD_AT_CLVL, RES_OK))
-			{
-				ast_log (LOG_ERROR, "[%s] Error syncronizing audio level (part 1/2)\n", pvt->id);
-			}
-
-			pvt->volume_synchronized = 0;
-		}
-
-		pvt->incoming = 1;
-	}
-
-	return 0;
-}
-
-/*!
  * \brief Handle +CMTI response
  * \param pvt -- pvt structure
  * \param str -- string containing response (null terminated)
@@ -1109,34 +1049,37 @@ static inline int at_response_ring (pvt_t* pvt)
 
 static inline int at_response_cmti (pvt_t* pvt, char* str, size_t len)
 {
-	int index = at_parse_cmti (pvt, str, len);
-
-	if (index > -1)
+	if (pvt->initialized && pvt->has_sms)
 	{
-		ast_debug (1, "[%s] Incoming SMS message\n", pvt->id);
+		int index = at_parse_cmti (pvt, str, len);
 
-		if (pvt->disablesms)
+		if (index > -1)
 		{
-			ast_log (LOG_WARNING, "[%s] SMS reception has been disabled in the configuration.\n", pvt->id);
+			ast_debug (1, "[%s] Incoming SMS message\n", pvt->id);
+
+			if (pvt->disablesms)
+			{
+				ast_log (LOG_WARNING, "[%s] SMS reception has been disabled in the configuration.\n", pvt->id);
+			}
+			else
+			{
+				if (at_send_cmgr (pvt, index) || at_fifo_queue_add_num (pvt, CMD_AT_CMGR, RES_CMGR, index))
+				{
+					ast_log (LOG_ERROR, "[%s] Error sending CMGR to retrieve SMS message\n", pvt->id);
+					return -1;
+				}
+
+				pvt->incoming_sms = 1;
+			}
 		}
 		else
 		{
-			if (at_send_cmgr (pvt, index) || at_fifo_queue_add_num (pvt, CMD_AT_CMGR, RES_CMGR, index))
-			{
-				ast_log (LOG_ERROR, "[%s] Error sending CMGR to retrieve SMS message\n", pvt->id);
-				return -1;
-			}
-
-			pvt->incoming_sms = 1;
+			ast_log (LOG_ERROR, "[%s] Error parsing incoming sms message alert, disconnecting\n", pvt->id);
+			return -1;
 		}
+	}
 
-		return 0;
-	}
-	else
-	{
-		ast_log (LOG_ERROR, "[%s] Error parsing incoming sms message alert, disconnecting\n", pvt->id);
-		return -1;
-	}
+	return 0;
 }
 
 /*!
@@ -1152,17 +1095,17 @@ static inline int at_response_cmgr (pvt_t* pvt, char* str, size_t len)
 {
 	at_queue_t*	e;
 	ssize_t		res;
-	char		sms_utf8_str[4096];
-	char		from_number_utf8_str[1024];
-	char*		from_number = NULL;
-	char*		text = NULL;
-	char		text_base64[16384];
+	char*		from_number;
+	char		from_number_utf8[1024];
+	char*		text;
+	char		text_utf8[1024];
+	char		text_base64[8192];
 
 	if ((e = at_fifo_queue_head (pvt)) && e->res == RES_CMGR)
 	{
 		if (pvt->auto_delete_sms && e->ptype == 1)
 		{
-			if (at_send_cmgd (pvt, e->param.num) || at_fifo_queue_add (pvt, CMD_AT_CMGD, RES_OK))
+			if (at_send_cmgd (pvt, e->param.num, 0) || at_fifo_queue_add (pvt, CMD_AT_CMGD, RES_OK))
 			{
 				ast_log (LOG_ERROR, "[%s] Error sending CMGD to delete SMS message\n", pvt->id);
 			}
@@ -1170,32 +1113,34 @@ static inline int at_response_cmgr (pvt_t* pvt, char* str, size_t len)
 
 		at_fifo_queue_rem (pvt);
 
+		pvt->incoming_sms = 0;
+
 		if (at_parse_cmgr (pvt, str, len, &from_number, &text))
 		{
 			ast_log (LOG_ERROR, "[%s] Error parsing SMS message, disconnecting\n", pvt->id);
-			return -1;
+			return 0;
 		}
 
 		ast_debug (1, "[%s] Successfully read SMS message\n", pvt->id);
 
-		pvt->incoming_sms = 0;
-
 		if (pvt->use_ucs2_encoding)
 		{
-			res = hexstr_ucs2_to_utf8 (text, strlen (text), sms_utf8_str, sizeof (sms_utf8_str));
+			res = conv_ucs2_8bit_hexstr_to_utf8 (text, strlen (text), text_utf8, sizeof (text_utf8));
+
 			if (res > 0)
 			{
-				text = sms_utf8_str;
+				text = text_utf8;
 			}
 			else
 			{
 				ast_log (LOG_ERROR, "[%s] Error parsing SMS (convert UCS-2 to UTF-8): %s\n", pvt->id, text);
 			}
 
-			res = hexstr_ucs2_to_utf8 (from_number, strlen (from_number), from_number_utf8_str, sizeof (from_number_utf8_str));
+			res = conv_ucs2_8bit_hexstr_to_utf8 (from_number, strlen (from_number), from_number_utf8, sizeof (from_number_utf8));
+
 			if (res > 0)
 			{
-				from_number = from_number_utf8_str;
+				from_number = from_number_utf8;
 			}
 			else
 			{
@@ -1203,23 +1148,23 @@ static inline int at_response_cmgr (pvt_t* pvt, char* str, size_t len)
 			}
 		}
 
-		ast_base64encode (text_base64, text, strlen(text), sizeof(text_base64));
+		ast_base64encode (text_base64, (unsigned char *) text, strlen (text), sizeof (text_base64));
 		ast_verb (1, "[%s] Got SMS from %s: '%s'\n", pvt->id, from_number, text);
 
 #ifdef __MANAGER__
-		manager_event_new_sms (pvt, from_number, text);
-		manager_event_new_sms_base64(pvt, from_number, text_base64);
+		manager_event_new_sms		(pvt, from_number, text);
+		manager_event_new_sms_base64	(pvt, from_number, text_base64);
 #endif
 
-#ifdef __MANAGER__
+#ifdef __ALLOW_LOCAL_CHANNELS__
 		struct ast_channel* channel;
 
 		snprintf (pvt->d_send_buf, sizeof (pvt->d_send_buf), "sms@%s", pvt->context);
 
 		if (channel = channel_local_request (pvt, pvt->d_send_buf, pvt->id, from_number))
 		{
-			pbx_builtin_setvar_helper (channel, "SMS", text);
-			pbx_builtin_setvar_helper (channel, "SMS_BASE64", text_base64);
+			pbx_builtin_setvar_helper (channel, "SMS",		text);
+			pbx_builtin_setvar_helper (channel, "SMS_BASE64",	text_base64);
 
 			if (ast_pbx_start (channel))
 			{
@@ -1227,7 +1172,7 @@ static inline int at_response_cmgr (pvt_t* pvt, char* str, size_t len)
 				ast_log (LOG_ERROR, "[%s] Unable to start pbx on incoming sms\n", pvt->id);
 			}
 		}
-#endif
+#endif /* __ALLOW_LOCAL_CHANNELS__ */
 	}
 	else if (e)
 	{
@@ -1288,63 +1233,71 @@ static inline int at_response_sms_prompt (pvt_t* pvt)
 static inline int at_response_cusd (pvt_t* pvt, char* str, size_t len)
 {
 	ssize_t		res;
-	char*		cusd;
-	unsigned char	dcs;
-	char		cusd_utf8_str[1024];
-	char		text_base64[16384];
+	int		type;
+	int		dcs;
+	char*		text;
+	char		text_utf8[1024];
+	char		text_base64[8192];
 
-	if (at_parse_cusd (pvt, str, len, &cusd, &dcs))
+	if (at_parse_cusd (pvt, str, len, &type, &text, &dcs))
 	{
 		ast_verb (1, "[%s] Error parsing CUSD: '%.*s'\n", pvt->id, (int) len, str);
 		return 0;
 	}
 
-	if ((dcs == 0 || dcs == 15) && !pvt->cusd_use_ucs2_decoding)
+	if (pvt->ussd_use_ucs2_decoding)
 	{
-		if(dcs == 0)
-		    res = hexstr_8bit_to_char (cusd, strlen (cusd), cusd_utf8_str, sizeof (cusd_utf8_str));
-		else
-		    res = hexstr_7bit_to_char (cusd, strlen (cusd), cusd_utf8_str, sizeof (cusd_utf8_str));
+		res = conv_ucs2_8bit_hexstr_to_utf8 (text, strlen (text), text_utf8, sizeof (text_utf8));
+
 		if (res > 0)
 		{
-			cusd = cusd_utf8_str;
+			text = text_utf8;
 		}
 		else
 		{
-			ast_log (LOG_ERROR, "[%s] Error parsing CUSD (convert 7bit to ASCII): %s\n", pvt->id, cusd);
+			ast_log (LOG_ERROR, "[%s] Error parsing CUSD (convert UCS-2 to UTF-8): %s\n", pvt->id, text);
 			return -1;
 		}
 	}
 	else
 	{
-		res = hexstr_ucs2_to_utf8 (cusd, strlen (cusd), cusd_utf8_str, sizeof (cusd_utf8_str));
+		if (dcs == 0)
+		{
+			res = conv_latin1_8bit_hexstr_to_utf8 (text, strlen (text), text_utf8, sizeof (text_utf8));
+		}
+//		else if (dcs == 15)	// !!!!!
+		else
+		{
+			res = conv_latin1_7bit_hexstr_to_utf8 (text, strlen (text), text_utf8, sizeof (text_utf8));
+		}
+
 		if (res > 0)
 		{
-			cusd = cusd_utf8_str;
+			text = text_utf8;
 		}
 		else
 		{
-			ast_log (LOG_ERROR, "[%s] Error parsing CUSD (convert UCS-2 to UTF-8): %s\n", pvt->id, cusd);
+			ast_log (LOG_ERROR, "[%s] Error parsing CUSD (convert 8bit/7bit hexstring to UTF-8): %s\n", pvt->id, text);
 			return -1;
 		}
 	}
 
-	ast_verb (1, "[%s] Got USSD response: '%s'\n", pvt->id, cusd);
-	ast_base64encode (text_base64, cusd, strlen(cusd), sizeof(text_base64));
+	ast_verb (1, "[%s] Got USSD response: '%s'\n", pvt->id, text);
+	ast_base64encode (text_base64, (unsigned char *) text, strlen (text), sizeof (text_base64));
 
 #ifdef __MANAGER__
-	manager_event_new_ussd (pvt, cusd);
-	manager_event_new_ussd_base64 (pvt, text_base64);
+	manager_event_new_ussd		(pvt, text);
+	manager_event_new_ussd_base64	(pvt, text_base64);
 #endif
 
-#ifdef __MANAGER__
+#ifdef __ALLOW_LOCAL_CHANNELS__
 	struct ast_channel* channel;
 
 	snprintf (pvt->d_send_buf, sizeof (pvt->d_send_buf), "ussd@%s", pvt->context);
 
 	if (channel = channel_local_request (pvt, pvt->d_send_buf, pvt->id, "ussd"))
 	{
-		pbx_builtin_setvar_helper (channel, "USSD", cusd);
+		pbx_builtin_setvar_helper (channel, "USSD", text);
 		pbx_builtin_setvar_helper (channel, "USSD_BASE64", text_base64);
 
 		if (ast_pbx_start (channel))
@@ -1353,7 +1306,7 @@ static inline int at_response_cusd (pvt_t* pvt, char* str, size_t len)
 			ast_log (LOG_ERROR, "[%s] Unable to start pbx on incoming ussd\n", pvt->id);
 		}
 	}
-#endif
+#endif /* __ALLOW_LOCAL_CHANNELS__ */
 
 	return 0;
 }
@@ -1462,11 +1415,11 @@ static inline int at_response_cnum (pvt_t* pvt, char* str, size_t len)
 
 	if (number)
 	{
-		ast_copy_string (pvt->number, number, sizeof (pvt->number));
+		ast_string_field_set (pvt, number, number);
 		return 0;
 	}
 
-	ast_copy_string (pvt->number, "Unknown", sizeof (pvt->number));
+	ast_string_field_set (pvt, number, "Unknown");
 
 	return -1;
 }
@@ -1486,11 +1439,11 @@ static inline int at_response_cops (pvt_t* pvt, char* str, size_t len)
 
 	if (provider_name)
 	{
-		ast_copy_string (pvt->provider_name, provider_name, sizeof (pvt->provider_name));
+		ast_string_field_set (pvt, provider_name, provider_name);
 		return 0;
 	}
 
-	ast_copy_string (pvt->provider_name, "NONE", sizeof (pvt->provider_name));
+	ast_string_field_set (pvt, provider_name, "NONE");
 
 	return -1;
 }
@@ -1532,12 +1485,12 @@ static inline int at_response_creg (pvt_t* pvt, char* str, size_t len)
 
 	if (lac)
 	{
-		ast_copy_string (pvt->location_area_code, lac, sizeof (pvt->location_area_code));
+		ast_string_field_set (pvt, location_area_code, lac);
 	}
 
 	if (ci)
 	{
-		ast_copy_string (pvt->cell_id, ci, sizeof (pvt->cell_id));
+		ast_string_field_set (pvt, cell_id, ci);
 	}
 
 	return 0;
@@ -1552,9 +1505,9 @@ static inline int at_response_creg (pvt_t* pvt, char* str, size_t len)
  * \retval -1 error
  */
 
-static inline int at_response_cgmi (pvt_t* pvt, char* str, size_t len)
+static inline int at_response_cgmi (pvt_t* pvt, char* str, attribute_unused size_t len)
 {
-	ast_copy_string (pvt->manufacturer, str, sizeof (pvt->manufacturer));
+	ast_string_field_set (pvt, manufacturer, str);
 
 	return 0;
 }
@@ -1568,14 +1521,15 @@ static inline int at_response_cgmi (pvt_t* pvt, char* str, size_t len)
  * \retval -1 error
  */
 
-static inline int at_response_cgmm (pvt_t* pvt, char* str, size_t len)
+static inline int at_response_cgmm (pvt_t* pvt, char* str, attribute_unused size_t len)
 {
-	ast_copy_string (pvt->model, str, sizeof (pvt->model));
-	
-	if (!strcmp (pvt->model, "E1550") || !strcmp (pvt->model, "E1750") || !strcmp (pvt->model, "E160X") || !strcmp (pvt->model, "E171") || !strcmp (pvt->model, "E153"))
+	ast_string_field_set (pvt, model, str);
+
+	if (!strcmp (pvt->model, "E1550") || !strcmp (pvt->model, "E1750") || !strcmp (pvt->model, "E160X") ||
+		!strcmp (pvt->model, "E171") || !strcmp (pvt->model, "E153"))
 	{
-		pvt->cusd_use_7bit_encoding = 1;
-		pvt->cusd_use_ucs2_decoding = 0;
+		pvt->ussd_use_7bit_encoding = 1;
+		pvt->ussd_use_ucs2_decoding = 0;
 	}
 
 	return 0;
@@ -1590,9 +1544,9 @@ static inline int at_response_cgmm (pvt_t* pvt, char* str, size_t len)
  * \retval -1 error
  */
 
-static inline int at_response_cgmr (pvt_t* pvt, char* str, size_t len)
+static inline int at_response_cgmr (pvt_t* pvt, char* str, attribute_unused size_t len)
 {
-	ast_copy_string (pvt->firmware, str, sizeof (pvt->firmware));
+	ast_string_field_set (pvt, firmware, str);
 
 	return 0;
 }
@@ -1606,9 +1560,9 @@ static inline int at_response_cgmr (pvt_t* pvt, char* str, size_t len)
  * \retval -1 error
  */
 
-static inline int at_response_cgsn (pvt_t* pvt, char* str, size_t len)
+static inline int at_response_cgsn (pvt_t* pvt, char* str, attribute_unused size_t len)
 {
-	ast_copy_string (pvt->imei, str, sizeof (pvt->imei));
+	ast_string_field_set (pvt, imei, str);
 
 	return 0;
 }
@@ -1622,9 +1576,9 @@ static inline int at_response_cgsn (pvt_t* pvt, char* str, size_t len)
  * \retval -1 error
  */
 
-static inline int at_response_cimi (pvt_t* pvt, char* str, size_t len)
+static inline int at_response_cimi (pvt_t* pvt, char* str, attribute_unused size_t len)
 {
-	ast_copy_string (pvt->imsi, str, sizeof (pvt->imsi));
+	ast_string_field_set (pvt, imsi, str);
 
 	return 0;
 }

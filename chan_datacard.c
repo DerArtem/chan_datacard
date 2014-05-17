@@ -20,8 +20,8 @@
  *
  * \brief UMTS Voice Datacard channel driver
  *
- * \author Artem Makhutov <artem@makhutov.org>
  * \author Dave Bowerman <david.bowerman@gmail.com>
+ * \author Artem Makhutov <artem@makhutov.org>
  * \author Dmitry Vagin <dmitry2004@yandex.ru>
  *
  * \ingroup channel_drivers
@@ -63,11 +63,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Rev$")
 #include <asterisk/pbx.h>
 #include <asterisk/timing.h>
 #include <asterisk/utils.h>
-#include <asterisk/version.h>
-
-#ifdef NO_MEMMEM 
-#include "__memmem.c"
-#endif
+#include <asterisk/ast_version.h>
 
 #include "__ringbuffer.h"
 #include "chan_datacard.h"
@@ -96,7 +92,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Rev$")
 #include "__at_response.c"
 
 
-static int opentty (char* dev)
+static int opentty (const char* dev)
 {
 	int		fd;
 	struct termios	term_attr;
@@ -150,26 +146,22 @@ static int device_status (int fd)
 	return tcgetattr (fd, &t);
 }
 
-static void* do_monitor_phone (void* data)
+static void* do_monitor (void* data)
 {
 	pvt_t*		pvt = (pvt_t*) data;
 	at_res_t	at_res;
 	at_queue_t*	e;
 	int		t;
-	int		res;
-	struct iovec	iov[2];
 	int		iovcnt;
-	size_t		size;
-	size_t		i = 0;
 
 	/* start datacard initilization with the AT request */
 	ast_mutex_lock (&pvt->lock);
 
-	pvt->timeout = 10000;
+	pvt->timeout = 7000;
 
-	if (at_send_at (pvt) || at_fifo_queue_add (pvt, CMD_AT, RES_OK))
+	if (at_send_atz (pvt) || at_fifo_queue_add (pvt, CMD_AT_Z, RES_OK))
 	{
-		ast_log (LOG_ERROR, "[%s] Error sending AT\n", pvt->id);
+		ast_log (LOG_ERROR, "[%s] Error reset datacard\n", pvt->id);
 		goto e_cleanup;
 	}
 
@@ -222,11 +214,7 @@ static void* do_monitor_phone (void* data)
 		{
 			at_res = at_read_result_classification (pvt, iovcnt);
 
-			#if ASTERISK_VERSION_NUM >= 10800
-			if (at_response (pvt, iovcnt, at_res, NULL))
-			#else
 			if (at_response (pvt, iovcnt, at_res))
-			#endif
 			{
 				goto e_cleanup;
 			}
@@ -261,32 +249,7 @@ static int disconnect_datacard (pvt_t* pvt)
 	close (pvt->data_fd);
 	close (pvt->audio_fd);
 
-	pvt->data_fd		= -1;
-	pvt->audio_fd		= -1;
-
-	pvt->connected		= 0;
-	pvt->initialized	= 0;
-	pvt->gsm_registered	= 0;
-
-	pvt->incoming		= 0;
-	pvt->outgoing		= 0;
-	pvt->needring		= 0;
-	pvt->needchup		= 0;
-	
-	pvt->gsm_reg_status	= -1;
-
-	pvt->manufacturer[0]	= '\0';
-	pvt->model[0]		= '\0';
-	pvt->firmware[0]	= '\0';
-	pvt->imei[0]		= '\0';
-	pvt->imsi[0]		= '\0';
-
-	ast_copy_string (pvt->provider_name,	"NONE",		sizeof (pvt->provider_name));
-	ast_copy_string (pvt->number,		"Unknown",	sizeof (pvt->number));
-
-	rb_init (&pvt->d_read_rb, pvt->d_read_buf, sizeof (pvt->d_read_buf));
-
-	at_fifo_queue_flush (pvt);
+	pvt_reset (pvt);
 
 	ast_verb (3, "Datacard %s has disconnected\n", pvt->id);
 
@@ -299,16 +262,16 @@ static int disconnect_datacard (pvt_t* pvt)
 
 static inline int start_monitor (pvt_t* pvt)
 {
-	if (ast_pthread_create_background (&pvt->monitor_thread, NULL, do_monitor_phone, pvt) < 0)
+	if (ast_pthread_create_background (&pvt->thread, NULL, do_monitor, pvt) < 0)
 	{
-		pvt->monitor_thread = AST_PTHREADT_NULL;
+		pvt->thread = AST_PTHREADT_NULL;
 		return 0;
 	}
 
 	return 1;
 }
 
-static void* do_discovery (void* data)
+static void* do_discovery (attribute_unused void* data)
 {
 	pvt_t* pvt;
 
@@ -355,31 +318,72 @@ static void* do_discovery (void* data)
 	return NULL;
 }
 
-
-
-/*!
- * \brief
- * \implement the setvar config line
- */
-
-static struct ast_variable* add_var(const char* buf, struct ast_variable* list)
+static void pvt_destroy (pvt_t* pvt)
 {
-	struct ast_variable* tmpvar = NULL;
-	char* varname = ast_strdupa(buf), *varval = NULL;
-	
-	if ((varval = strchr(varname, '='))) {
-		*varval++ = '\0';
-		if ((tmpvar = ast_variable_new(varname, varval, ""))) {
-			tmpvar->next = list;
-			list = tmpvar;
-		}
-	}
-	return list;
+	ast_dsp_free (pvt->dsp);
+	ast_string_field_free_memory (pvt);
+	ast_free (pvt);
 }
 
+static void pvt_reset (pvt_t* pvt)
+{
+	pvt->data_fd		= -1;
+	pvt->audio_fd		= -1;
 
+	pvt->connected		= 0;
+	pvt->initialized	= 0;
+	pvt->gsm_registered	= 0;
+	pvt->incoming		= 0;
+	pvt->outgoing		= 0;
+	pvt->needchup		= 0;
+	pvt->needring		= 0;
 
-/* Module */
+	pvt->rssi		= -1;
+	pvt->linkmode		= -1;
+	pvt->linksubmode	= -1;
+	pvt->gsm_reg_status	= -1;
+
+	ast_string_field_set (pvt, provider_name,	"NONE");
+	ast_string_field_set (pvt, manufacturer,	NULL);
+	ast_string_field_set (pvt, model,		NULL);
+	ast_string_field_set (pvt, firmware,		NULL);
+	ast_string_field_set (pvt, imei,		NULL);
+	ast_string_field_set (pvt, imsi,		NULL);
+	ast_string_field_set (pvt, number,		"Unknown");
+	ast_string_field_set (pvt, location_area_code,	NULL);
+	ast_string_field_set (pvt, cell_id,		NULL);
+
+	rb_init (&pvt->d_read_rb, pvt->d_read_buf, sizeof (pvt->d_read_buf));
+
+	at_fifo_queue_flush (pvt);
+}
+
+/*!
+ * \brief Parse setvar config line.
+ * \param cfg the config to load the device from
+ * \param cat the device to load
+ * \return NULL on error, a pointer to the device that was loaded on success
+ */
+
+static struct ast_variable* parse_setvar (const char* buf, struct ast_variable* list)
+{
+	struct ast_variable*	var = NULL;
+	char*			varname = ast_strdupa (buf);
+	char*			varval = NULL;
+
+	if ((varval = strchr (varname, '=')))
+	{
+		*varval++ = '\0';
+
+		if ((var = ast_variable_new (varname, varval, "")))
+		{
+			var->next = list;
+			list = var;
+		}
+	}
+
+	return list;
+}
 
 /*!
  * \brief Load a device from the configuration file.
@@ -415,64 +419,57 @@ static pvt_t* load_device (struct ast_config* cfg, const char* cat)
 		return NULL;
 	}
 
-	if (ast_string_field_init (pvt, 8))
+	if (ast_string_field_init (pvt, 32))
 	{
-		ast_free (pvt);
-		ast_log (LOG_ERROR, "Skipping device %s. Error allocating memory\n", cat);
+		pvt_destroy (pvt);
+		ast_log (LOG_ERROR, "Skipping device %s. String field allocation failed\n", cat);
 		return NULL;
 	}
 
 	ast_mutex_init (&pvt->lock);
-
 	AST_LIST_HEAD_INIT_NOLOCK (&pvt->at_queue);
-
-	rb_init (&pvt->d_read_rb, pvt->d_read_buf, sizeof (pvt->d_read_buf));
-
+	pvt_reset (pvt);
 
 	/* populate the pvt structure */
 
-	ast_copy_string (pvt->id,		cat,		sizeof (pvt->id));
-	ast_copy_string (pvt->data_tty,		data_tty,	sizeof (pvt->data_tty));
-	ast_copy_string (pvt->audio_tty,	audio_tty,	sizeof (pvt->audio_tty));
+	ast_string_field_set (pvt, id,		cat);
+	ast_string_field_set (pvt, data_tty,	data_tty);
+	ast_string_field_set (pvt, audio_tty,	audio_tty);
 
 	/* set some defaults */
 
-	pvt->monitor_thread		= AST_PTHREADT_NULL;
-	pvt->audio_fd			= -1;
-	pvt->data_fd			= -1;
-	pvt->timeout			= 10000;
-	pvt->cusd_use_ucs2_decoding	=  1;
-	pvt->gsm_reg_status		= -1;
-
-	ast_copy_string (pvt->provider_name,	"NONE",		sizeof (pvt->provider_name));
-	ast_copy_string (pvt->number,		"Unknown",	sizeof (pvt->number));
-	ast_copy_string (pvt->context,		"default",	sizeof (pvt->context));
-
-	ast_string_field_set (pvt, language, default_language);
-
-	pvt->reset_datacard		=  1;
+	pvt->thread			= AST_PTHREADT_NULL;
+	pvt->timeout			= 7000;
+	pvt->ussd_use_ucs2_decoding	=  1;
 	pvt->u2diag			= -1;
 	pvt->callingpres		= -1;
 
+	ast_string_field_set (pvt, context,	"default");
+	ast_string_field_set (pvt, language,	default_language);
 
 	/* setup the dsp */
 
 	pvt->dsp = ast_dsp_new ();
+
 	if (!pvt->dsp)
 	{
 		ast_log(LOG_ERROR, "Skipping device %s. Error setting up dsp for dtmf detection\n", cat);
-		ast_free (pvt);
+		pvt_destroy (pvt);
 		return NULL;
 	}
 
 	ast_dsp_set_features (pvt->dsp, DSP_FEATURE_DIGIT_DETECT);
-	ast_dsp_set_digitmode (pvt->dsp, DSP_DIGITMODE_DTMF | DSP_DIGITMODE_RELAXDTMF);
+
+	if (global_relaxdtmf)
+	{
+		ast_dsp_set_digitmode (pvt->dsp, DSP_DIGITMODE_DTMF | DSP_DIGITMODE_RELAXDTMF);
+	}
 
 	for (v = ast_variable_browse (cfg, cat); v; v = v->next)
 	{
 		if (!strcasecmp (v->name, "context"))
 		{
-			ast_copy_string (pvt->context, v->value, sizeof (pvt->context));
+			ast_string_field_set (pvt, context, v->value);
 		}
 		else if (!strcasecmp (v->name, "language"))
 		{
@@ -494,10 +491,6 @@ static pvt_t* load_device (struct ast_config* cfg, const char* cat)
 		{
 			pvt->auto_delete_sms = ast_true (v->value);				/* auto_delete_sms is set to 0 if invalid */
 
-		}
-		else if (!strcasecmp (v->name, "resetdatacard"))
-		{
-			pvt->reset_datacard = ast_true (v->value);				/* reset_datacard is set to 0 if invalid */
 		}
 		else if (!strcasecmp (v->name, "u2diag"))
 		{
@@ -527,11 +520,11 @@ static pvt_t* load_device (struct ast_config* cfg, const char* cat)
 		}
 		else if (!strcasecmp (v->name, "disablesms"))
 		{
-			pvt->disablesms = ast_true (v->value);				/* disablesms is set to 0 if invalid */
+			pvt->disablesms = ast_true (v->value);					/* disablesms is set to 0 if invalid */
 		}
 		else if (!strcasecmp (v->name, "setvar"))
 		{
-			pvt->chanvars = add_var (v->value, pvt->chanvars);		/* add variable to device */
+			pvt->vars = parse_setvar (v->value, pvt->vars);				/* add channel variable to device */
 		}
 	}
 
@@ -539,7 +532,7 @@ static pvt_t* load_device (struct ast_config* cfg, const char* cat)
 	ast_log (LOG_NOTICE, "Loaded device %s\n", pvt->id);
 
 	AST_RWLIST_WRLOCK (&devices);
-	AST_RWLIST_INSERT_HEAD (&devices, pvt, entry);
+	AST_RWLIST_INSERT_TAIL (&devices, pvt, entry);
 	AST_RWLIST_UNLOCK (&devices);
 
 	return pvt;
@@ -579,6 +572,10 @@ static int load_config ()
 		else if (!strcasecmp (v->name, "language"))
 		{
 			ast_copy_string (default_language, v->value, sizeof (default_language));
+		}
+		else if (!strcasecmp(v->name, "relaxdtmf"))
+		{
+			global_relaxdtmf = ast_true (v->value);
 		}
 	}
 
@@ -621,6 +618,8 @@ static int unload_module ()
 	/* First, take us out of the channel loop */
 	ast_channel_unregister (&channel_tech);
 
+	channel_tech.capabilities = ast_format_cap_destroy (channel_tech.capabilities);
+
 	/* Unregister the CLI & APP & MANAGER */
 	ast_cli_unregister_multiple (cli, sizeof (cli) / sizeof (cli[0]));
 
@@ -651,10 +650,10 @@ static int unload_module ()
 	AST_RWLIST_WRLOCK (&devices);
 	while ((pvt = AST_RWLIST_REMOVE_HEAD (&devices, entry)))
 	{
-		if (pvt->monitor_thread != AST_PTHREADT_NULL)
+		if (pvt->thread != AST_PTHREADT_NULL)
 		{
-			pthread_kill (pvt->monitor_thread, SIGURG);
-			pthread_join (pvt->monitor_thread, NULL);
+			pthread_kill (pvt->thread, SIGURG);
+			pthread_join (pvt->thread, NULL);
 		}
 
 		close (pvt->audio_fd);
@@ -662,8 +661,7 @@ static int unload_module ()
 
 		at_fifo_queue_flush (pvt);
 
-		ast_dsp_free (pvt->dsp);
-		ast_free (pvt);
+		pvt_destroy (pvt);
 	}
 	AST_RWLIST_UNLOCK (&devices);
 
@@ -682,6 +680,14 @@ static int load_module ()
 		ast_log (LOG_ERROR, "Errors reading config file " CONFIG_FILE ", Not loading module\n");
 		return AST_MODULE_LOAD_DECLINE;
 	}
+
+        ast_format_set (&chan_datacard_format, AST_FORMAT_SLINEAR, 0);
+        if (!(channel_tech.capabilities = ast_format_cap_alloc ()))
+        {
+		return AST_MODULE_LOAD_FAILURE;
+	}
+        ast_format_cap_add (channel_tech.capabilities, &chan_datacard_format);
+	chan_datacard_format_cap = channel_tech.capabilities;
 
 	/* Spin the discovery thread */
 	if (ast_pthread_create_background (&discovery_thread, NULL, do_discovery, NULL) < 0)

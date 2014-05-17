@@ -1,4 +1,4 @@
-/* 
+/*
    Copyright (C) 2009 - 2010
    
    Artem Makhutov <artem@makhutov.org>
@@ -7,11 +7,7 @@
    Dmitry Vagin <dmitry2004@yandex.ru>
 */
 
-#if ASTERISK_VERSION_NUM >= 10800
 static int app_status_exec (struct ast_channel* channel, const char* data)
-#else
-static int app_status_exec (struct ast_channel* channel, void* data)
-#endif
 {
 	pvt_t*	pvt;
 	char*	parse;
@@ -66,11 +62,7 @@ static int app_status_exec (struct ast_channel* channel, void* data)
 	return 0;
 }
 
-#if ASTERISK_VERSION_NUM >= 10800
-static int app_send_sms_exec (struct ast_channel* channel, const char* data)
-#else
-static int app_send_sms_exec (struct ast_channel* channel, void* data)
-#endif
+static int app_send_sms_exec (attribute_unused struct ast_channel* channel, const char* data)
 {
 	pvt_t*	pvt;
 	char*	parse;

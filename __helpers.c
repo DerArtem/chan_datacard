@@ -1,4 +1,4 @@
-/* 
+/*
    Copyright (C) 2009 - 2010
    
    Artem Makhutov <artem@makhutov.org>
@@ -24,7 +24,7 @@ static pvt_t* find_device (const char* name)
 	return pvt;
 }
 
-static char* complete_device (const char* line, const char* word, int pos, int state, int flags)
+static char* complete_device (attribute_unused const char* line, const char* word, attribute_unused int pos, int state, attribute_unused int flags)
 {
 	pvt_t*	pvt;
 	char*	res = NULL;
@@ -82,4 +82,35 @@ static inline int get_at_clir_value (pvt_t* pvt, int clir)
 	}
 
 	return res;
+}
+
+static char* rssi2dBm (int rssi, char* buf, size_t len)
+{
+	if (rssi == 99 || rssi > 31 || rssi < 0)
+	{
+		return "??? dBm (Unknown)";
+	}
+	else
+	{
+		int dbm = -113 + 2 * rssi;
+
+		if (dbm <= -95)
+		{
+			snprintf (buf, len, "%d dBm (Marginal)", dbm);
+		}
+		else if (dbm <= -85)
+		{
+			snprintf (buf, len, "%d dBm (Workable)", dbm);
+		}
+		else if (dbm <= -75)
+		{
+			snprintf (buf, len, "%d dBm (Good)", dbm);
+		}
+		else
+		{
+			snprintf (buf, len, "%d dBm (Excellent)", dbm);
+		}
+
+		return buf;
+	}
 }

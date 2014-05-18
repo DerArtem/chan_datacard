@@ -22,7 +22,7 @@ Linux*)
 	CFLAGS="-O2 -DICONV_CONST=\"\" -D__DEBUG__ -D__APP__"
 
 	LIBDIR="-L/usr/lib"
-	LIBS="-liconv"
+	LIBS=""
 
 	SOLINK="-shared -Xlinker -x"
 ;;
